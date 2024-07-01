@@ -2,7 +2,14 @@
 
 import React, { FC, useContext, useEffect, useMemo, useState } from 'react';
 
-import { Flex, UseDisclosureProps, useDisclosure } from '@chakra-ui/react';
+import {
+  Flex,
+  UseDisclosureProps,
+  useColorMode,
+  useDisclosure,
+} from '@chakra-ui/react';
+import { useTranslation } from 'react-i18next';
+import { useDarkMode } from 'storybook-dark-mode';
 
 import { Viewport } from '@/components/Viewport';
 import { AdminNavBar } from '@/features/admin/AdminNavBar';
@@ -71,7 +78,7 @@ export const AdminLayout: FC<React.PropsWithChildren<unknown>> = ({
             }
           />
         )}
-        <Flex flex="1" direction="column">
+        <Flex flex="1" direction="row">
           {children}
         </Flex>
       </Viewport>

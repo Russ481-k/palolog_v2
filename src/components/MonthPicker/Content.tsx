@@ -57,7 +57,7 @@ export const Content: React.FC<React.PropsWithChildren<ContentProps>> = () => {
   };
 
   return (
-    <Grid templateColumns="repeat(3, 1fr)" gap={3} p={4}>
+    <Grid templateColumns="repeat(3, 1fr)" gap={3}>
       <GridItem colSpan={3}>
         <MonthCaption />
       </GridItem>

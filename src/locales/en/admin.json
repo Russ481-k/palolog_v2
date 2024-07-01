@@ -3,6 +3,7 @@
     "mainMenu": {
       "dashboard": "Dashboard",
       "repositories": "Repositories",
+      "monitoring": "Mornitoring",
       "management": "Management"
     },
     "accountMenu": {

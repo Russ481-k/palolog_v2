@@ -9,9 +9,9 @@ import { getEnvHintTitlePrefix } from '@/features/devtools/EnvHint';
 export const metadata: Metadata = {
   title: {
     template: `${getEnvHintTitlePrefix()} %s`,
-    default: `${getEnvHintTitlePrefix()} Start UI [web]`,
+    default: `${getEnvHintTitlePrefix()} PaloLog [web]`,
   },
-  applicationName: 'Start UI [web]',
+  applicationName: 'PaloLog [web]',
   description: 'Opinionated UI starter',
 };
 

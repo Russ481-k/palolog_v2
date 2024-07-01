@@ -48,7 +48,7 @@ export const DayPicker: FC<DayPickerProps> = ({
   onClose = () => {},
   popperPlacement = 'bottom-start',
   dateFormat = DATE_FORMAT,
-  placeholder = 'JJ/MM/AAAA',
+  placeholder = 'YYYY/MM/DD',
   inputProps = {},
   isDisabled = false,
   autoFocus = false,

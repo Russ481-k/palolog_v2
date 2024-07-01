@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 
-import { Box } from '@chakra-ui/react';
+import { Box, Flex, Text } from '@chakra-ui/react';
 
 import { Logo } from '@/components/Logo';
 import { SlideIn } from '@/components/SlideIn';
@@ -17,7 +17,11 @@ export const AdminPublicOnlyLayout = ({ children }: AdminPublicOnlyLayout) => {
     <Viewport bg="gray.50" _dark={{ bg: 'gray.900' }}>
       <SlideIn>
         <Box px="4" py="4rem" w="22rem" maxW="full" m="auto">
-          <Logo w="12rem" mb="8" mx="auto" />
+          <Flex pb={4}>
+            <Text fontSize="3xl" as="b">
+              PaloLog
+            </Text>
+          </Flex>
           {children}
         </Box>
       </SlideIn>

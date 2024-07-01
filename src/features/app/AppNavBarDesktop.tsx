@@ -8,6 +8,7 @@ import {
   Flex,
   HStack,
   Spinner,
+  Text,
 } from '@chakra-ui/react';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
@@ -32,7 +33,11 @@ export const AppNavBarDesktop = (props: BoxProps) => {
         <Container maxW="container.md">
           <HStack spacing={4}>
             <Box as={LinkApp} href="/">
-              <Logo />
+              <Flex pb={4}>
+                <Text fontSize="3xl" as="b">
+                  PaloLog
+                </Text>
+              </Flex>
             </Box>
             <HStack flex={1} spacing={0}>
               <AppNavBarDesktopMainMenuItem href="/" icon={LuHome}>

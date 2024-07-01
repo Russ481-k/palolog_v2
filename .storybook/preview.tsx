@@ -79,12 +79,12 @@ const preview: Preview = {
       dark: {
         ...themes.dark,
         brandImage: logoReversed.src,
-        brandTitle: 'Start UI',
+        brandTitle: 'PaloLog',
       },
       light: {
         ...themes.light,
         brandImage: logo.src,
-        brandTitle: 'Start UI',
+        brandTitle: 'PaloLog',
       },
     },
     layout: 'fullscreen',

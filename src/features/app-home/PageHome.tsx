@@ -41,9 +41,10 @@ export default function PageHome() {
           alignItems="center"
           justifyContent="center"
         >
-          <Logo />
+          <Text fontSize="3xl" as="b" w="16rem" mb="8" mx="auto" my={4}>
+            PaloLog
+          </Text>
         </Flex>
-
         <Stack>
           <Heading fontSize="lg">{t('appHome:welcome.title')}</Heading>
           <Text display="block">

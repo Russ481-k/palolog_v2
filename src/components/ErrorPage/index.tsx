@@ -1,10 +1,8 @@
 import React, { ReactElement } from 'react';
 
-import { Center, Heading, Stack, Text } from '@chakra-ui/react';
+import { Center, Flex, Heading, Stack, Text } from '@chakra-ui/react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
-
-import { Logo } from '@/components/Logo';
 
 import { Illustration403 } from './Illustration403';
 import { Illustration404 } from './Illustration404';
@@ -43,7 +41,11 @@ export const ErrorPage = ({ errorCode }: { errorCode?: number }) => {
           alignItems={{ base: 'center', md: 'flex-start' }}
         >
           <Link href="/">
-            <Logo my={4} />
+            <Flex pb={4}>
+              <Text fontSize="3xl" as="b">
+                PaloLog
+              </Text>
+            </Flex>
           </Link>
           <Heading>{t(`components:errorPage.${errorType}.title`)}</Heading>
           <Text>{t(`components:errorPage.${errorType}.description`)}</Text>

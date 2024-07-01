@@ -123,11 +123,13 @@ export const AdminLayoutPageContent = ({
       }}
       {...rest}
     >
-      <PageContainer pb={16} py={4} {...containerProps}>
+      <PageContainer p={0} m={0} {...containerProps}>
         <Stack
           direction={{ base: 'column', lg: 'row' }}
           spacing={{ base: '4', lg: '8' }}
           flex="1"
+          p={4}
+          width="100vw"
         >
           {nav && (
             <Flex direction="column" minW="0" w={{ base: 'full', lg: '12rem' }}>

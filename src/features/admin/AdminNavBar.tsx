@@ -43,7 +43,6 @@ import {
 } from 'react-icons/lu';
 
 import { Icon } from '@/components/Icons';
-import { Logo } from '@/components/Logo';
 import { useAdminLayoutContext } from '@/features/admin/AdminLayout';
 import { LinkAdmin } from '@/features/admin/LinkAdmin';
 import { ADMIN_PATH } from '@/features/admin/constants';
@@ -62,6 +61,9 @@ const AdminNavBarMainMenu = ({ ...rest }: StackProps) => {
       </AdminNavBarMainMenuItem>
       <AdminNavBarMainMenuItem href="/repositories">
         {t('admin:layout.mainMenu.repositories')}
+      </AdminNavBarMainMenuItem>
+      <AdminNavBarMainMenuItem href="/monitoring">
+        {t('admin:layout.mainMenu.monitoring')}
       </AdminNavBarMainMenuItem>
       <AdminNavBarMainMenuItem href="/management">
         {t('admin:layout.mainMenu.management')}
@@ -173,7 +175,9 @@ export const AdminNavBar = (props: BoxProps) => {
           ms="-0.5rem"
         />
         <Box as={LinkAdmin} href="/" mx={{ base: 'auto', md: 0 }}>
-          <Logo />
+          <Text fontSize="3xl" as="b">
+            PaloLog
+          </Text>
         </Box>
         <AdminNavBarMainMenu
           me="auto"
@@ -281,7 +285,11 @@ const AdminNavBarDrawer = ({ ...rest }) => {
         >
           <DrawerCloseButton mt="safe-top" />
           <DrawerHeader>
-            <Logo />
+            <Flex pb={4}>
+              <Text fontSize="3xl" as="b">
+                PaloLog
+              </Text>
+            </Flex>
           </DrawerHeader>
           <DrawerBody p="2">
             <AdminNavBarMainMenu direction="column" />
