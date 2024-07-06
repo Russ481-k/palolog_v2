@@ -15,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 import { LuFolderGit2, LuHome } from 'react-icons/lu';
 
 import { Icon } from '@/components/Icons';
-import { Logo } from '@/components/Logo';
 import { LinkApp } from '@/features/app/LinkApp';
 import { APP_PATH } from '@/features/app/constants';
 import { trpc } from '@/lib/trpc/client';

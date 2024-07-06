@@ -4,7 +4,6 @@ import { ReactNode } from 'react';
 
 import { Box, Center, Flex, Text } from '@chakra-ui/react';
 
-import { Logo } from '@/components/Logo';
 import { SlideIn } from '@/components/SlideIn';
 
 type AppPublicOnlyLayout = {

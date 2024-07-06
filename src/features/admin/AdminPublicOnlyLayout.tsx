@@ -4,7 +4,6 @@ import { ReactNode } from 'react';
 
 import { Box, Flex, Text } from '@chakra-ui/react';
 
-import { Logo } from '@/components/Logo';
 import { SlideIn } from '@/components/SlideIn';
 import { Viewport } from '@/components/Viewport';
 

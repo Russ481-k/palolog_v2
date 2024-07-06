@@ -1,9 +1,9 @@
 {
   "title": "Dashboard",
   "welcome": {
-    "title": "Welcome to 🚀 PaloLog [web]",
+    "title": "Welcome to PaloLog [web]",
     "description": "An opinionated UI starter with React, Chakra UI, React Query & React Hook Form",
-    "author": "— From the <strong>BearStudio Team</strong>"
+    "author": "— From the <strong>VisionTech</strong>"
   },
   "links": {
     "github": "GitHub Repository",

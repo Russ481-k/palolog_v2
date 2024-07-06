@@ -13,7 +13,7 @@ export async function createRepositories() {
       data: {
         name: 'PaloLog [web]',
         link: 'https://github.com/BearStudio/start-ui-web',
-        description: '🚀 PaloLog [web]',
+        description: 'PaloLog [web]',
       },
     });
     createdCounter += 1;
@@ -28,7 +28,7 @@ export async function createRepositories() {
       data: {
         name: 'PaloLog [native]',
         link: 'https://github.com/BearStudio/start-ui-native',
-        description: '🚀 PaloLog [native]',
+        description: 'PaloLog [native]',
       },
     });
     createdCounter += 1;
