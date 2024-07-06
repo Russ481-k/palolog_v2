@@ -2,7 +2,7 @@
   "name": "start-ui-web",
   "private": true,
   "version": "2.0.0",
-  "description": "Opinionated UI starter with ⚛️ React, ⚡️ Chakra UI, ⚛️ React Query & 📋 React Hook Form — From the 🐻 BearStudio Team",
+  "description": "Opinionated UI starter with ⚛️ React, ⚡️ Chakra UI, ⚛️ React Query & 📋 React Hook Form — From the VisionTech",
   "engines": {
     "node": ">=20"
   },
@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@chakra-ui/anatomy": "2.2.2",
+    "@chakra-ui/icons": "^2.1.1",
     "@chakra-ui/next-js": "2.2.0",
     "@chakra-ui/react": "2.8.2",
     "@chakra-ui/styled-system": "2.9.2",
@@ -64,7 +65,10 @@
     "@trpc/client": "10.45.2",
     "@trpc/react-query": "10.45.2",
     "@trpc/server": "10.45.2",
-    "ag-grid-react": "^31.3.2",
+    "ag-charts-community": "^10.0.0",
+    "ag-charts-react": "^10.0.0",
+    "ag-grid-community": "^32.0.0",
+    "ag-grid-react": "^32.0.0",
     "bcrypt": "5.1.1",
     "chakra-react-select": "4.7.6",
     "colorette": "2.0.20",
@@ -79,6 +83,7 @@
     "nuqs": "1.17.1",
     "pino": "8.19.0",
     "pino-pretty": "10.3.1",
+    "rc-time-picker": "^3.7.3",
     "react": "18.2.0",
     "react-custom-scrollbars-2": "4.5.0",
     "react-day-picker": "8.10.0",

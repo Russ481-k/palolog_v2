@@ -22,11 +22,11 @@ import {
 } from 'react-icons/lu';
 
 import { Icon } from '@/components/Icons';
-import { Logo } from '@/components/Logo';
 import { ADMIN_PATH } from '@/features/admin/constants';
 import { AppLayoutPage } from '@/features/app/AppLayoutPage';
-import { MarketingBento } from '@/features/demo-mode/MarketingBento';
 import { trpc } from '@/lib/trpc/client';
+
+import { DashboardStatics } from '../demo-mode/DashboardStatics';
 
 export default function PageHome() {
   const account = trpc.account.get.useQuery();
@@ -97,7 +97,7 @@ export default function PageHome() {
             </Link>
           </Alert>
         )}
-        <MarketingBento />
+        <DashboardStatics />
       </Stack>
     </AppLayoutPage>
   );
