@@ -18,6 +18,8 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 // Core CSS
 import { AgGridReact } from 'ag-grid-react';
+import moment, { Moment } from 'moment';
+import 'moment/locale/ko';
 import { useQueryState } from 'nuqs';
 import TimePicker from 'rc-time-picker';
 import 'rc-time-picker/assets/index.css';
@@ -177,6 +179,9 @@ export default function PageAdminProjects() {
     { field: 'raw' },
   ]);
 
+  const beforeHourTime: Moment = moment().subtract(1, 'hour');
+  const nowTime: Moment = moment();
+
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
@@ -206,7 +211,7 @@ export default function PageAdminProjects() {
                   />
                 </Box>
                 <Box w="180px" h="100%">
-                  <TimePicker clearIcon={<></>} />
+                  <TimePicker clearIcon={<></>} defaultValue={beforeHourTime} />
                 </Box>
                 <Heading color="gray.500" flex="none" size="sm" pt="10px">
                   ~
@@ -219,7 +224,7 @@ export default function PageAdminProjects() {
                   />
                 </Box>
                 <Box w="180px" h="100%">
-                  <TimePicker clearIcon={<></>} />
+                  <TimePicker clearIcon={<></>} defaultValue={nowTime} />
                 </Box>
               </Flex>
             </Flex>
