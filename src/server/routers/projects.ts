@@ -1,8 +1,86 @@
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
-import { zProject } from '@/features/monitoring/schemas';
+import { zLogs, zPaloLogs } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
+
+export function createObject(
+  keys: Array<string>,
+  values: Array<string | number | null> | undefined
+) {
+  const obj = {
+    time: null,
+    receiveTime: null,
+    serial: null,
+    hostid: null,
+    type: null,
+    subtype: null,
+    src: null,
+    dst: null,
+    natsrc: null,
+    natdst: null,
+    rule: null,
+    ruleUuid: null,
+    srcuser: null,
+    dstuser: null,
+    app: null,
+    zoneFrom: null,
+    zoneTo: null,
+    inboundIf: null,
+    outboundIf: null,
+    sessionid: null,
+    repeatcnt: null,
+    sport: null,
+    dport: null,
+    natsport: null,
+    natdport: null,
+    flags: null,
+    proto: null,
+    action: null,
+    misc: null,
+    threatid: null,
+    thrCategory: null,
+    severity: null,
+    direction: null,
+    bytes: null,
+    bytesSent: null,
+    bytesReceived: null,
+    packets: null,
+    pktsSent: null,
+    pktsReceived: null,
+    sessionEndReason: null,
+    deviceName: null,
+    eventid: null,
+    object: null,
+    module: null,
+    opaque: null,
+    srcloc: null,
+    dstloc: null,
+    urlIdx: null,
+    category: null,
+    urlCategoryList: null,
+    domainEdl: null,
+    reason: null,
+    justification: null,
+    subcategoryOfApp: null,
+    categoryOfApp: null,
+    technologyOfApp: null,
+    riskOfApp: null,
+    raw: null,
+  } as zLogs;
+
+  if (keys.length !== values?.length) {
+    throw new Error('Keys and values arrays must have the same length');
+  }
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = String(keys[i]);
+    //@ts-expect-error Note: 타입이 복잡해지지 않도록 ts-expect-error 를 사용한다.
+    obj[key] = values[i];
+  }
+
+  return obj;
+}
 
 export const projectsRouter = createTRPCRouter({
   getAll: protectedProcedure({ authorizations: ['ADMIN'] })
@@ -27,33 +105,50 @@ export const projectsRouter = createTRPCRouter({
     )
     .output(
       z.object({
-        items: z.array(zProject()),
-        nextCursor: z.string().cuid().nullish(),
-        total: z.number(),
+        logs: z.array(zPaloLogs().nullish()),
       })
     )
-    .query(async ({ ctx, input }) => {
-      const where = {
-        name: {
-          contains: input.searchTerm,
-          mode: 'insensitive',
-        },
-      } satisfies Prisma.ProjectWhereInput;
+    .query(async ({ input }) => {
+      const result: Array<zLogs> = [];
+      const query = 'select * from panetlog limit 20';
 
-      const [total, projects] = await ctx.db.$transaction([
-        ctx.db.project.count({ where }),
-        ctx.db.project.findMany({
-          take: input.limit + 1,
-          cursor: input.cursor ? { id: input.cursor } : undefined,
-          where,
-        }),
-      ]);
+      try {
+        await fetch(
+          'http://192.168.1.46:5654/db/query?q=' + encodeURIComponent(query)
+        )
+          .then((res) => {
+            return res.json();
+          })
+          .then((data) => {
+            let logs: {
+              columns: Array<string>;
+              rows: Array<Array<string | number>>;
+            } = {
+              columns: [],
+              rows: [],
+            };
+            logs = data.data;
+            const columns: Array<string> = [];
+            logs.columns.map((column) => {
+              const str = column
+                .toLowerCase()
+                .replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
 
-      let nextCursor: typeof input.cursor | undefined = undefined;
-      if (projects.length > input.limit) {
-        const nextProject = projects.pop();
-        nextCursor = nextProject?.id;
+              columns.push(str);
+            });
+            for (let i = 0; i < logs.rows.length; i++) {
+              if (columns.length !== logs.rows[i]?.length) {
+                throw new Error('Arrays must have the same length');
+              }
+              result.push(createObject(columns, logs.rows[i]));
+            }
+          })
+          .catch((e) => {
+            console.log('error : ' + e);
+          });
+      } catch {
+        console.log('error');
       }
-      return { items: projects, nextCursor, total };
+      return { logs: result };
     }),
 });

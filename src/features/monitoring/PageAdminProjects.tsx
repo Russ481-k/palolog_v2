@@ -22,16 +22,6 @@ import { useQueryState } from 'nuqs';
 import TimePicker from 'rc-time-picker';
 import 'rc-time-picker/assets/index.css';
 
-// React Data Grid Component
-import {
-  DataList,
-  DataListCell,
-  DataListEmptyState,
-  DataListErrorState,
-  DataListLoadingState,
-  DataListRow,
-  DataListText,
-} from '@/components/DataList';
 import { DayPicker } from '@/components/DayPicker';
 import { SearchInput } from '@/components/SearchInput';
 import {
@@ -42,64 +32,64 @@ import { trpc } from '@/lib/trpc/client';
 
 // Row Data Interface
 interface IRow {
-  TIME: string;
-  RECEIVE_TIME: string;
-  SERIAL: string;
-  HOSTID: string;
-  NATDST: string;
-  TYPE: string;
-  SUBTYPE: string;
-  SRC: string;
-  DST: string;
-  NATSRC: string;
-  RULE: string;
-  RULE_UUID: string;
-  SRCUSER: string;
-  DSTUSER: string;
-  APP: string;
-  ZONE_FROM: string;
-  ZONE_TO: string;
-  INBOUND_IF: string;
-  OUTBOUND_IF: string;
-  SESSIONID: string;
-  REPEATCNT: number;
-  SPORT: string;
-  DPORT: string;
-  NATSPORT: string;
-  NATDPORT: string;
-  FLAGS: string;
-  PROTO: string;
-  ACTION: string;
-  MISC: string;
-  THREATID: string;
-  THR_CATEGORY: string;
-  SEVERITY: string;
-  DIRECTION: string;
-  BYTES: string;
-  BYTES_SENT: string;
-  BYTES_RECEIVED: string;
-  PACKETS: string;
-  PKTS_SENT: string;
-  PKTS_RECEIVED: string;
-  SESSION_END_REASON: string;
-  DEVICE_NAME: string;
-  EVENTID: string;
-  OBJECT: string;
-  MODULE: string;
-  OPAQUE: string;
-  SRCLOC: string;
-  DSTLOC: string;
-  URL_IDX: string;
-  CATEGORY: string;
-  URL_CATEGORY_LIST: string;
-  DOMAIN_EDL: string;
-  REASON: string;
-  JUSTIFICATION: string;
-  SUBCATEGORY_OF_APP: string;
-  CATEGORY_OF_APP: string;
-  TECHNOLOGY_OF_APP: string;
-  RISK_OF_APP: string;
-  RAW: string;
+  time?: number | null | undefined;
+  receiveTime?: number | null | undefined;
+  serial?: string | null | undefined;
+  hostid?: string | null | undefined;
+  type?: string | null | undefined;
+  subtype?: string | null | undefined;
+  src?: string | null | undefined;
+  dst?: string | null | undefined;
+  natsrc?: string | null | undefined;
+  natdst?: string | null | undefined;
+  rule?: string | null | undefined;
+  ruleUuid?: string | null | undefined;
+  srcuser?: string | null | undefined;
+  dstuser?: string | null | undefined;
+  app?: string | null | undefined;
+  zoneFrom?: string | null | undefined;
+  zoneTo?: string | null | undefined;
+  inboundIf?: string | null | undefined;
+  outboundIf?: string | null | undefined;
+  sessionid?: string | null | undefined;
+  repeatcnt?: number | null | undefined;
+  sport?: string | null | undefined;
+  dport?: string | null | undefined;
+  natsport?: string | null | undefined;
+  natdport?: string | null | undefined;
+  flags?: string | null | undefined;
+  proto?: string | null | undefined;
+  action?: string | null | undefined;
+  misc?: string | null | undefined;
+  threatid?: string | null | undefined;
+  thrCategory?: string | null | undefined;
+  severity?: string | null | undefined;
+  direction?: string | null | undefined;
+  bytes?: number | null | undefined;
+  bytesSent?: number | null | undefined;
+  bytesReceived?: number | null | undefined;
+  packets?: number | null | undefined;
+  pktsSent?: number | null | undefined;
+  pktsReceived?: number | null | undefined;
+  sessionEndReason?: string | null | undefined;
+  deviceName?: string | null | undefined;
+  eventid?: string | null | undefined;
+  object?: string | null | undefined;
+  module?: string | null | undefined;
+  opaque?: string | null | undefined;
+  srcloc?: string | null | undefined;
+  dstloc?: string | null | undefined;
+  urlIdx?: string | null | undefined;
+  category?: string | null | undefined;
+  urlCategoryList?: string | null | undefined;
+  domainEdl?: string | null | undefined;
+  reason?: string | null | undefined;
+  justification?: string | null | undefined;
+  subcategoryOfApp?: string | null | undefined;
+  categoryOfApp?: string | null | undefined;
+  technologyOfApp?: string | null | undefined;
+  riskOfApp?: string | null | undefined;
+  raw?: string | null | undefined;
 }
 
 // Optional Theme applied to the Data Grid
@@ -115,9 +105,7 @@ export default function PageAdminProjects() {
     {
       searchTerm,
     },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-    }
+    {}
   );
   const { colorMode } = useColorMode();
 
@@ -126,129 +114,67 @@ export default function PageAdminProjects() {
   const koreaTimeDiff = 9 * 60 * 60 * 1000;
   const korNow = new Date(utc + koreaTimeDiff);
   // Row Data: The data to be displayed.
-  const [rowData, setRowData] = useState<IRow[]>([
-    {
-      TIME: '2024-07-10 22:23',
-      RECEIVE_TIME: '2024-07-10 22:23',
-      SERIAL: 'SERIAL',
-      HOSTID: 'HOSTID',
-      TYPE: 'TRAFFIC',
-      SUBTYPE: 'drop',
-      SRC: '192.168.1.162',
-      DST: '168.126.63.1',
-      NATSRC: 'NATSRC',
-      NATDST: 'NATDST',
-      RULE: 'RULE',
-      RULE_UUID: 'RULE_UUID',
-      SRCUSER: 'string',
-      DSTUSER: 'string',
-      APP: 'string',
-      ZONE_FROM: 'string',
-      ZONE_TO: 'string',
-      INBOUND_IF: 'string',
-      OUTBOUND_IF: 'string',
-      SESSIONID: 'string',
-      REPEATCNT: 123,
-      SPORT: 'string',
-      DPORT: 'string',
-      NATSPORT: 'string',
-      NATDPORT: 'string',
-      FLAGS: 'string',
-      PROTO: 'tcp',
-      ACTION: 'deny',
-      MISC: 'string',
-      THREATID: 'string',
-      THR_CATEGORY: 'string',
-      SEVERITY: 'string',
-      DIRECTION: 'string',
-      BYTES: 'string',
-      BYTES_SENT: 'string',
-      BYTES_RECEIVED: 'string',
-      PACKETS: 'string',
-      PKTS_SENT: 'string',
-      PKTS_RECEIVED: 'string',
-      SESSION_END_REASON: 'string',
-      DEVICE_NAME: 'string',
-      EVENTID: 'string',
-      OBJECT: 'string',
-      MODULE: 'string',
-      OPAQUE: 'string',
-      SRCLOC: 'string',
-      DSTLOC: 'string',
-      URL_IDX: 'string',
-      CATEGORY: 'string',
-      URL_CATEGORY_LIST: 'string',
-      DOMAIN_EDL: 'string',
-      REASON: 'string',
-      JUSTIFICATION: 'string',
-      SUBCATEGORY_OF_APP: 'string',
-      CATEGORY_OF_APP: 'string',
-      TECHNOLOGY_OF_APP: 'string',
-      RISK_OF_APP: 'string',
-      RAW: 'string',
-    },
-  ]);
 
   // Column Definitions: Defines the columns to be displayed.
   const [colDefs, setColDefs] = useState<ColDef<IRow>[]>([
-    { field: 'TIME' },
-    { field: 'RECEIVE_TIME' },
-    { field: 'SERIAL' },
-    { field: 'HOSTID' },
-    { field: 'NATDST' },
-    { field: 'TYPE' },
-    { field: 'SUBTYPE' },
-    { field: 'SRC' },
-    { field: 'DST' },
-    { field: 'NATSRC' },
-    { field: 'RULE' },
-    { field: 'RULE_UUID' },
-    { field: 'SRCUSER' },
-    { field: 'DSTUSER' },
-    { field: 'APP' },
-    { field: 'ZONE_FROM' },
-    { field: 'ZONE_TO' },
-    { field: 'INBOUND_IF' },
-    { field: 'OUTBOUND_IF' },
-    { field: 'SESSIONID' },
-    { field: 'REPEATCNT' },
-    { field: 'SPORT' },
-    { field: 'DPORT' },
-    { field: 'NATSPORT' },
-    { field: 'NATDPORT' },
-    { field: 'FLAGS' },
-    { field: 'PROTO' },
-    { field: 'ACTION' },
-    { field: 'MISC' },
-    { field: 'THREATID' },
-    { field: 'THR_CATEGORY' },
-    { field: 'SEVERITY' },
-    { field: 'DIRECTION' },
-    { field: 'BYTES' },
-    { field: 'BYTES_SENT' },
-    { field: 'BYTES_RECEIVED' },
-    { field: 'PACKETS' },
-    { field: 'PKTS_SENT' },
-    { field: 'PKTS_RECEIVED' },
-    { field: 'SESSION_END_REASON' },
-    { field: 'DEVICE_NAME' },
-    { field: 'EVENTID' },
-    { field: 'OBJECT' },
-    { field: 'MODULE' },
-    { field: 'OPAQUE' },
-    { field: 'SRCLOC' },
-    { field: 'DSTLOC' },
-    { field: 'URL_IDX' },
-    { field: 'CATEGORY' },
-    { field: 'URL_CATEGORY_LIST' },
-    { field: 'DOMAIN_EDL' },
-    { field: 'REASON' },
-    { field: 'JUSTIFICATION' },
-    { field: 'SUBCATEGORY_OF_APP' },
-    { field: 'CATEGORY_OF_APP' },
-    { field: 'TECHNOLOGY_OF_APP' },
-    { field: 'RISK_OF_APP' },
-    { field: 'RAW' },
+    { field: 'time' },
+    { field: 'receiveTime' },
+    { field: 'serial' },
+    { field: 'hostid' },
+    { field: 'type' },
+    { field: 'subtype' },
+    { field: 'src' },
+    { field: 'dst' },
+    { field: 'natsrc' },
+    { field: 'natdst' },
+    { field: 'rule' },
+    { field: 'ruleUuid' },
+    { field: 'srcuser' },
+    { field: 'dstuser' },
+    { field: 'app' },
+    { field: 'zoneFrom' },
+    { field: 'zoneTo' },
+    { field: 'inboundIf' },
+    { field: 'outboundIf' },
+    { field: 'sessionid' },
+    { field: 'repeatcnt' },
+    { field: 'sport' },
+    { field: 'dport' },
+    { field: 'natsport' },
+    { field: 'natdport' },
+    { field: 'flags' },
+    { field: 'proto' },
+    { field: 'action' },
+    { field: 'misc' },
+    { field: 'threatid' },
+    { field: 'thrCategory' },
+    { field: 'severity' },
+    { field: 'direction' },
+    { field: 'bytes' },
+    { field: 'bytesSent' },
+    { field: 'bytesReceived' },
+    { field: 'packets' },
+    { field: 'pktsSent' },
+    { field: 'pktsReceived' },
+    { field: 'sessionEndReason' },
+    { field: 'deviceName' },
+    { field: 'eventid' },
+    { field: 'object' },
+    { field: 'module' },
+    { field: 'opaque' },
+    { field: 'srcloc' },
+    { field: 'dstloc' },
+    { field: 'urlIdx' },
+    { field: 'category' },
+    { field: 'urlCategoryList' },
+    { field: 'domainEdl' },
+    { field: 'reason' },
+    { field: 'justification' },
+    { field: 'subcategoryOfApp' },
+    { field: 'categoryOfApp' },
+    { field: 'technologyOfApp' },
+    { field: 'riskOfApp' },
+    { field: 'raw' },
   ]);
 
   return (
@@ -309,11 +235,11 @@ export default function PageAdminProjects() {
             className={
               colorMode === 'light' ? 'ag-theme-quartz' : 'ag-theme-quartz-dark'
             }
-            style={{ width: '100%', height: '500px' }}
+            style={{ width: '100%', height: '80vh' }}
           >
             <AgGridReact
-              rowData={rowData}
-              columnDefs={colDefs}
+              rowData={projects.data?.pages[0]?.logs ?? []}
+              // columnDefs={colDefs}
               pagination
               paginationPageSize={10}
               paginationPageSizeSelector={[
@@ -321,7 +247,7 @@ export default function PageAdminProjects() {
               ]}
             />
           </div>
-          <DataList height="20vh" overflow="scroll">
+          {/*<DataList height="20vh" overflow="scroll">
             {projects.isLoading && <DataListLoadingState />}
             {projects.isError && (
               <DataListErrorState retry={() => projects.refetch()} />
@@ -360,7 +286,7 @@ export default function PageAdminProjects() {
                 </DataListCell>
               </DataListRow>
             )}
-          </DataList>
+          </DataList>*/}
         </Stack>
       </AdminLayoutPageContent>
     </AdminLayoutPage>
