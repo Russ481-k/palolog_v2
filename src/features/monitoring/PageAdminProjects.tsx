@@ -1,4 +1,6 @@
-import { useState } from 'react';
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SearchIcon } from '@chakra-ui/icons';
 import {
@@ -10,7 +12,7 @@ import {
   Stack,
   useColorMode,
 } from '@chakra-ui/react';
-import { ColDef } from 'ag-grid-community';
+import { CellClickedEvent, ColDef } from 'ag-grid-community';
 // Theme
 // React Grid Logic
 import 'ag-grid-community/styles/ag-grid.css';
@@ -32,169 +34,438 @@ import {
 } from '@/features/admin/AdminLayoutPage';
 import { trpc } from '@/lib/trpc/client';
 
+import { IRow, dummy } from './dummy';
+
 // Row Data Interface
-interface IRow {
-  time?: number | null | undefined;
-  receiveTime?: number | null | undefined;
-  serial?: string | null | undefined;
-  hostid?: string | null | undefined;
-  type?: string | null | undefined;
-  subtype?: string | null | undefined;
-  src?: string | null | undefined;
-  dst?: string | null | undefined;
-  natsrc?: string | null | undefined;
-  natdst?: string | null | undefined;
-  rule?: string | null | undefined;
-  ruleUuid?: string | null | undefined;
-  srcuser?: string | null | undefined;
-  dstuser?: string | null | undefined;
-  app?: string | null | undefined;
-  zoneFrom?: string | null | undefined;
-  zoneTo?: string | null | undefined;
-  inboundIf?: string | null | undefined;
-  outboundIf?: string | null | undefined;
-  sessionid?: string | null | undefined;
-  repeatcnt?: number | null | undefined;
-  sport?: string | null | undefined;
-  dport?: string | null | undefined;
-  natsport?: string | null | undefined;
-  natdport?: string | null | undefined;
-  flags?: string | null | undefined;
-  proto?: string | null | undefined;
-  action?: string | null | undefined;
-  misc?: string | null | undefined;
-  threatid?: string | null | undefined;
-  thrCategory?: string | null | undefined;
-  severity?: string | null | undefined;
-  direction?: string | null | undefined;
-  bytes?: number | null | undefined;
-  bytesSent?: number | null | undefined;
-  bytesReceived?: number | null | undefined;
-  packets?: number | null | undefined;
-  pktsSent?: number | null | undefined;
-  pktsReceived?: number | null | undefined;
-  sessionEndReason?: string | null | undefined;
-  deviceName?: string | null | undefined;
-  eventid?: string | null | undefined;
-  object?: string | null | undefined;
-  module?: string | null | undefined;
-  opaque?: string | null | undefined;
-  srcloc?: string | null | undefined;
-  dstloc?: string | null | undefined;
-  urlIdx?: string | null | undefined;
-  category?: string | null | undefined;
-  urlCategoryList?: string | null | undefined;
-  domainEdl?: string | null | undefined;
-  reason?: string | null | undefined;
-  justification?: string | null | undefined;
-  subcategoryOfApp?: string | null | undefined;
-  categoryOfApp?: string | null | undefined;
-  technologyOfApp?: string | null | undefined;
-  riskOfApp?: string | null | undefined;
-  raw?: string | null | undefined;
-}
 
 // Optional Theme applied to the Data Grid
 export default function PageAdminProjects() {
-  const [searchTerm, setSearchTerm] = useQueryState('s', { defaultValue: '' });
+  const { colorMode } = useColorMode();
+
+  const now = new Date();
+
+  // Row Data: The data to be displayed.
+  const beforeHourTime: Moment = moment().subtract(1, 'hour');
+  const nowTime: Moment = moment();
+
+  // console.log(nowTime > beforeHourTime ? now : moment(now).subtract('1', 'M'));
+  const [nextSearchTerm, setNextSearchTerm] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedDayFrom, setSelectedDayFrom] = useState<Date | null>(
     new Date()
   );
+  const [selectedTimeFrom, setSelectedTimeFrom] =
+    useState<Moment>(beforeHourTime);
   const [selectedDayTo, setSelectedDayTo] = useState<Date | null>(new Date());
+  const [selectedTimeTo, setSelectedTimeTo] = useState<Moment>(nowTime);
 
-  // <Text>Date : {JSON.stringify(selectedDay)}</Text>
+  const gridRef = useRef<AgGridReact<IRow>>(null);
   const projects = trpc.projects.getAll.useInfiniteQuery(
     {
       searchTerm,
     },
     {}
   );
-  const { colorMode } = useColorMode();
+  // console.log(moment(now).subtract('1', 'm').format('YYYY-MM-DD HH:mm:SS'));
 
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-  const koreaTimeDiff = 9 * 60 * 60 * 1000;
-  const korNow = new Date(utc + koreaTimeDiff);
-  // Row Data: The data to be displayed.
+  const onSearchInputChanged = (e: string) => {
+    setSearchTerm(e);
+  };
 
-  // Column Definitions: Defines the columns to be displayed.
+  const onCellClickChanged = (event: CellClickedEvent<IRow>) => {
+    setNextSearchTerm(
+      ' AND ' + event.colDef.field?.toUpperCase() + ' = "' + event.value + '"'
+    );
+  };
+  const onFromTimeChanged = (event: Moment) => {
+    setSelectedTimeFrom(event);
+  };
+  const onToTimeChanged = (event: Moment) => {
+    setSelectedTimeTo(event);
+  };
+
   const [colDefs, setColDefs] = useState<ColDef<IRow>[]>([
-    { field: 'time' },
-    { field: 'receiveTime' },
-    { field: 'serial' },
-    { field: 'hostid' },
-    { field: 'type' },
-    { field: 'subtype' },
-    { field: 'src' },
-    { field: 'dst' },
-    { field: 'natsrc' },
-    { field: 'natdst' },
-    { field: 'rule' },
-    { field: 'ruleUuid' },
-    { field: 'srcuser' },
-    { field: 'dstuser' },
-    { field: 'app' },
-    { field: 'zoneFrom' },
-    { field: 'zoneTo' },
-    { field: 'inboundIf' },
-    { field: 'outboundIf' },
-    { field: 'sessionid' },
-    { field: 'repeatcnt' },
-    { field: 'sport' },
-    { field: 'dport' },
-    { field: 'natsport' },
-    { field: 'natdport' },
-    { field: 'flags' },
-    { field: 'proto' },
-    { field: 'action' },
-    { field: 'misc' },
-    { field: 'threatid' },
-    { field: 'thrCategory' },
-    { field: 'severity' },
-    { field: 'direction' },
-    { field: 'bytes' },
-    { field: 'bytesSent' },
-    { field: 'bytesReceived' },
-    { field: 'packets' },
-    { field: 'pktsSent' },
-    { field: 'pktsReceived' },
-    { field: 'sessionEndReason' },
-    { field: 'deviceName' },
-    { field: 'eventid' },
-    { field: 'object' },
-    { field: 'module' },
-    { field: 'opaque' },
-    { field: 'srcloc' },
-    { field: 'dstloc' },
-    { field: 'urlIdx' },
-    { field: 'category' },
-    { field: 'urlCategoryList' },
-    { field: 'domainEdl' },
-    { field: 'reason' },
-    { field: 'justification' },
-    { field: 'subcategoryOfApp' },
-    { field: 'categoryOfApp' },
-    { field: 'technologyOfApp' },
-    { field: 'riskOfApp' },
-    { field: 'raw' },
+    {
+      field: 'time',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'receiveTime',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'serial',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'hostid',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'type',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'subtype',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'src',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'dst',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'natsrc',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'natdst',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'rule',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'ruleUuid',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'srcuser',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'dstuser',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'app',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'zoneFrom',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'zoneTo',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'inboundIf',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'outboundIf',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'sessionid',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'repeatcnt',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'sport',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'dport',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'natsport',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'natdport',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'flags',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'proto',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'action',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'misc',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'threatid',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'thrCategory',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'severity',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'direction',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'bytes',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'bytesSent',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'bytesReceived',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'packets',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'pktsSent',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'pktsReceived',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'sessionEndReason',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'deviceName',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'eventid',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'object',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'module',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'opaque',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'srcloc',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'dstloc',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'urlIdx',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'category',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'urlCategoryList',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'domainEdl',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'reason',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'justification',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'subcategoryOfApp',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'categoryOfApp',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'technologyOfApp',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'riskOfApp',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
+    {
+      field: 'raw',
+      minWidth: 50,
+      width: 100,
+      onCellClicked: onCellClickChanged,
+    },
   ]);
 
-  const beforeHourTime: Moment = moment().subtract(1, 'hour');
-  const nowTime: Moment = moment();
+  useEffect(() => {
+    setSearchTerm(searchTerm + nextSearchTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextSearchTerm]);
+
+  useEffect(() => {
+    onFromTimeChanged(moment(selectedDayFrom));
+    console.log(
+      'selectedTimeFrom',
+      selectedTimeFrom.format('YYYY-MM-DD HH:mm:SS')
+    );
+  }, [selectedDayFrom]);
+
+  useEffect(() => {
+    onToTimeChanged(moment(selectedDayTo));
+    console.log('selectedTimeTo', selectedTimeTo.format('YYYY-MM-DD HH:mm:SS'));
+  }, [selectedDayTo]);
 
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
         <Stack spacing={2}>
-          <Heading flex="none" size="md">
-            TRAFFIC
-          </Heading>
           <Flex justifyContent="space-between">
             <Flex
               flexDirection={{ base: 'column', md: 'row' }}
               alignItems={{ base: 'start', md: 'center' }}
               gap={4}
             >
+              <Heading flex="none" fontSize="40px" color="gray.400">
+                TRAFFIC
+              </Heading>
               <Flex gap={2}>
                 <Box color="gray.500" textAlign="right">
                   <Heading flex="none" size="sm">
@@ -211,7 +482,11 @@ export default function PageAdminProjects() {
                   />
                 </Box>
                 <Box w="180px" h="100%">
-                  <TimePicker clearIcon={<></>} defaultValue={beforeHourTime} />
+                  <TimePicker
+                    clearIcon={<></>}
+                    value={selectedTimeFrom}
+                    onChange={onFromTimeChanged}
+                  />
                 </Box>
                 <Heading color="gray.500" flex="none" size="sm" pt="10px">
                   ~
@@ -219,23 +494,28 @@ export default function PageAdminProjects() {
                 <Box w="180px" h="100%" textAlign="center">
                   <DayPicker
                     value={selectedDayTo}
-                    textAlign="center"
                     onChange={setSelectedDayTo}
                   />
                 </Box>
                 <Box w="180px" h="100%">
-                  <TimePicker clearIcon={<></>} defaultValue={nowTime} />
+                  <TimePicker
+                    clearIcon={<></>}
+                    value={selectedTimeTo}
+                    onChange={onToTimeChanged}
+                  />
                 </Box>
               </Flex>
             </Flex>
-            <IconButton aria-label="Search database" icon={<SearchIcon />} />
           </Flex>
-          <SearchInput
-            value={searchTerm}
-            onChange={(value) => setSearchTerm(value || null)}
-            size="md"
-            maxW="100%"
-          />
+          <Flex gap={2}>
+            <SearchInput
+              value={searchTerm}
+              onChange={onSearchInputChanged}
+              size="md"
+              maxW="100%"
+            />
+            <Button aria-label="Search database">{'Search'}</Button>
+          </Flex>
           <div
             className={
               colorMode === 'light' ? 'ag-theme-quartz' : 'ag-theme-quartz-dark'
@@ -243,10 +523,15 @@ export default function PageAdminProjects() {
             style={{ width: '100%', height: '80vh' }}
           >
             <AgGridReact
-              rowData={projects.data?.pages[0]?.logs ?? []}
-              // columnDefs={colDefs}
+              ref={gridRef}
+              rowData={
+                dummy
+                // projects.data?.pages[0]?.logs ?? []
+              }
+              columnDefs={colDefs}
+              rowSelection={'single'}
               pagination
-              paginationPageSize={10}
+              paginationPageSize={100}
               paginationPageSizeSelector={[
                 100, 500, 1000, 5000, 10000, 50000, 100000, 500000,
               ]}
