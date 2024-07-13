@@ -14,6 +14,7 @@ export const env = createEnv({
    */
   server: {
     MACHBASE_URL: z.string().url(),
+    MACHBASE_PORT: z.string(),
     DATABASE_URL: z.string().url(),
     NODE_ENV: zNodeEnv,
 
@@ -75,6 +76,7 @@ export const env = createEnv({
    */
   runtimeEnv: {
     MACHBASE_URL: process.env.MACHBASE_URL,
+    MACHBASE_PORT: process.env.MACHBASE_PORT,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     AUTH_SECRET: process.env.AUTH_SECRET,

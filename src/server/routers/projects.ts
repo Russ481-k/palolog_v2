@@ -1,6 +1,7 @@
-import { Prisma } from '@prisma/client';
+import moment from 'moment-timezone';
 import { z } from 'zod';
 
+import { env } from '@/env.mjs';
 import { zLogs, zPaloLogs } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
@@ -8,7 +9,7 @@ export function createObject(
   keys: Array<string>,
   values: Array<string | number | null> | undefined
 ) {
-  const obj = {
+  const obj: zLogs = {
     time: null,
     receiveTime: null,
     serial: null,
@@ -66,8 +67,7 @@ export function createObject(
     categoryOfApp: null,
     technologyOfApp: null,
     riskOfApp: null,
-    raw: null,
-  } as zLogs;
+  };
 
   if (keys.length !== values?.length) {
     throw new Error('Keys and values arrays must have the same length');
@@ -95,10 +95,10 @@ export const projectsRouter = createTRPCRouter({
     .input(
       z
         .object({
-          dateFrom: z.string().optional().default(JSON.stringify(Date.now())),
-          dateTo: z.string().optional().default(JSON.stringify(Date.now())),
+          timeFrom: z.number().optional().default(new Date().getTime()),
+          timeTo: z.number().optional().default(new Date().getTime()),
+          limit: z.number().min(1).max(500000).default(1000),
           cursor: z.string().cuid().optional(),
-          limit: z.number().min(1).max(100).default(20),
           searchTerm: z.string().optional(),
         })
         .default({})
@@ -110,11 +110,24 @@ export const projectsRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       const result: Array<zLogs> = [];
-      const query = 'select * from panetlog limit 20';
+      console.log('timeFrom', input.timeFrom);
+      console.log('timeTo', input.timeTo);
+      console.log('limit', input.limit);
+      console.log('searchTerm', input.searchTerm);
+
+      const timeRange = `TIME BETWEEN TO_DATE('${moment(input.timeFrom).format('YYYY-MM-DD HH:mm:SS')}') AND TO_DATE('${moment(input.timeTo).format('YYYY-MM-DD HH:mm:SS')}')`;
+      const searchTerm = input.searchTerm;
+      const query = `SELECT * FROM PANETLOG WHERE ${timeRange} ${searchTerm} LIMIT ${input.limit}`;
+      console.log(
+        'query',
+        `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+          encodeURIComponent(query)
+      );
 
       try {
         await fetch(
-          'http://192.168.1.46:5654/db/query?q=' + encodeURIComponent(query)
+          `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+            encodeURIComponent(query)
         )
           .then((res) => {
             return res.json();

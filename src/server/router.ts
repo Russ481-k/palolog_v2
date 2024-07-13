@@ -16,7 +16,6 @@ export const appRouter = createTRPCRouter({
   account: accountRouter,
   auth: authRouter,
   projects: projectsRouter,
-  // palolog: palologRouter,
   repositories: repositoriesRouter,
   users: usersRouter,
 });

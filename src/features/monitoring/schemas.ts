@@ -60,5 +60,4 @@ export const zPaloLogs = () =>
     categoryOfApp: z.string().nullish(),
     technologyOfApp: z.string().nullish(),
     riskOfApp: z.string().nullish(),
-    raw: z.string().nullish(),
   });

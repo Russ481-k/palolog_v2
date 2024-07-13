@@ -15,7 +15,7 @@
     "dev:email": "maildev -outgoing-host smtp.example.com --outgoing-secure --outgoing-user 'username' --outgoing-pass 'password'",
     "build": "pnpm build:info && next build",
     "build:info": "tsx scripts/build-info.ts",
-    "start": "next start",
+    "start": "next start -p 8080",
     "pretty": "prettier -w .",
     "lint": "run-p lint:*",
     "lint:next": "cross-env SKIP_ENV_VALIDATION=true next lint",
@@ -79,6 +79,7 @@
     "jsonwebtoken": "9.0.2",
     "lodash": "4.17.21",
     "moment": "^2.30.1",
+    "moment-timezone": "^0.5.45",
     "next": "14.1.4",
     "nodemailer": "6.9.12",
     "nuqs": "1.17.1",
@@ -158,23 +159,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bearstudio/start-ui-web.git"
+    "url": "git+https://github.com/Russ481-k/palolog_v2.git"
   },
   "author": {
-    "name": "Ivan Dalmet",
-    "email": "ivan@dalmet.fr",
-    "url": "https://github.com/ivan-dalmet"
+    "name": "Yun Su-bin",
+    "email": "yunsubin481@gmail.com",
+    "url": "https://github.com/Russ481-k"
   },
   "contributors": [
     {
-      "name": "Yoann Fleury",
-      "email": "yoannfleurydev@gmail.com",
-      "url": "https://github.com/yoannfleurydev"
+      "name": "Yun Su-bin",
+      "email": "yunsubin481@gmail.com",
+      "url": "https://github.com/Russ481-k"
     }
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/bearstudio/start-ui-web/issues"
+    "url": "https://github.com/Russ481-k/palolog_v2"
   },
   "homepage": "https://github.com/bearstudio/start-ui-web#readme"
 }

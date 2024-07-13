@@ -1,28 +1,27 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 
-import { SearchIcon } from '@chakra-ui/icons';
 import {
   Box,
   Button,
   Flex,
   Heading,
-  IconButton,
+  Select,
   Stack,
   useColorMode,
 } from '@chakra-ui/react';
-import { CellClickedEvent, ColDef } from 'ag-grid-community';
-// Theme
-// React Grid Logic
+import {
+  CellClickedEvent,
+  ColDef,
+  ValueFormatterParams,
+} from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
-// Mandatory CSS required by the Data Grid
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 // Core CSS
 import { AgGridReact } from 'ag-grid-react';
-import moment, { Moment } from 'moment';
+import moment, { Moment } from 'moment-timezone';
 import 'moment/locale/ko';
-import { useQueryState } from 'nuqs';
 import TimePicker from 'rc-time-picker';
 import 'rc-time-picker/assets/index.css';
 
@@ -34,21 +33,15 @@ import {
 } from '@/features/admin/AdminLayoutPage';
 import { trpc } from '@/lib/trpc/client';
 
-import { IRow, dummy } from './dummy';
+import { zLogs } from './schemas';
 
-// Row Data Interface
-
-// Optional Theme applied to the Data Grid
 export default function PageAdminProjects() {
   const { colorMode } = useColorMode();
 
-  const now = new Date();
+  const beforeHourTime: Moment = moment().tz('Asia/Seoul').subtract(1, 'hours');
+  const nowTime: Moment = moment().tz('Asia/Seoul');
 
-  // Row Data: The data to be displayed.
-  const beforeHourTime: Moment = moment().subtract(1, 'hour');
-  const nowTime: Moment = moment();
-
-  // console.log(nowTime > beforeHourTime ? now : moment(now).subtract('1', 'M'));
+  const [limit, setLimit] = useState<number>(1000);
   const [nextSearchTerm, setNextSearchTerm] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedDayFrom, setSelectedDayFrom] = useState<Date | null>(
@@ -59,23 +52,50 @@ export default function PageAdminProjects() {
   const [selectedDayTo, setSelectedDayTo] = useState<Date | null>(new Date());
   const [selectedTimeTo, setSelectedTimeTo] = useState<Moment>(nowTime);
 
-  const gridRef = useRef<AgGridReact<IRow>>(null);
+  const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
   const projects = trpc.projects.getAll.useInfiniteQuery(
     {
+      timeFrom: new Date(
+        moment(selectedTimeFrom)
+          .tz('Asia/Seoul')
+          .format('YYYY-MM-DD HH:mm:SS') ??
+          beforeHourTime.format('YYYY-MM-DD HH:mm:SS')
+      ).getTime(),
+      timeTo: new Date(
+        moment(selectedTimeTo).tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:SS') ??
+          nowTime.format('YYYY-MM-DD HH:mm:SS')
+      ).getTime(),
+      limit,
       searchTerm,
     },
     {}
   );
-  // console.log(moment(now).subtract('1', 'm').format('YYYY-MM-DD HH:mm:SS'));
+
+  const onRowLoadLimitChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    setLimit(Number(e.target.value));
+  };
 
   const onSearchInputChanged = (e: string) => {
     setSearchTerm(e);
   };
 
-  const onCellClickChanged = (event: CellClickedEvent<IRow>) => {
-    setNextSearchTerm(
-      ' AND ' + event.colDef.field?.toUpperCase() + ' = "' + event.value + '"'
-    );
+  const onCellClickChanged = (
+    event: CellClickedEvent<zLogs>,
+    dateType: 'Y' | 'N'
+  ) => {
+    let eventValue = event.value;
+    if (dateType === 'Y') {
+      eventValue = moment(event.value)
+        .tz('Asia/Seoul')
+        .format('YYYY-MM-DD HH:mm:SS');
+      setNextSearchTerm(
+        ' AND ' + event.colDef.field?.toUpperCase() + ' = "' + eventValue + '"'
+      );
+    } else if (dateType === 'N') {
+      setNextSearchTerm(
+        ' AND ' + event.colDef.field?.toUpperCase() + ' = "' + eventValue + '"'
+      );
+    }
   };
   const onFromTimeChanged = (event: Moment) => {
     setSelectedTimeFrom(event);
@@ -83,355 +103,355 @@ export default function PageAdminProjects() {
   const onToTimeChanged = (event: Moment) => {
     setSelectedTimeTo(event);
   };
-
-  const [colDefs, setColDefs] = useState<ColDef<IRow>[]>([
+  const timeFormatter = (event: ValueFormatterParams<zLogs>) => {
+    return moment(event.value / 1000000)
+      .tz('Asia/Seoul')
+      .format('YYYY-MM-DD HH:mm:SS');
+  };
+  const [colDefs, setColDefs] = useState<ColDef<zLogs>[]>([
     {
       field: 'time',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 170,
+      onCellClicked: (e) => onCellClickChanged(e, 'Y'),
+      valueFormatter: timeFormatter,
     },
     {
       field: 'receiveTime',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 170,
+      onCellClicked: (e) => onCellClickChanged(e, 'Y'),
+      valueFormatter: timeFormatter,
     },
     {
       field: 'serial',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 135,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'hostid',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 75,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'type',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 90,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'subtype',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 90,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'src',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 135,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'dst',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 135,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'natsrc',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 75,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'natdst',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 75,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'rule',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 165,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'ruleUuid',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'srcuser',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'dstuser',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'app',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'zoneFrom',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'zoneTo',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'inboundIf',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'outboundIf',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'sessionid',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'repeatcnt',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'sport',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'dport',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'natsport',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'natdport',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'flags',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'proto',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 70,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'action',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 75,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'misc',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 75,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'threatid',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 90,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'thrCategory',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 120,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'severity',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'direction',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'bytes',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 70,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'bytesSent',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'bytesReceived',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'packets',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'pktsSent',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'pktsReceived',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 120,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'sessionEndReason',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 150,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'deviceName',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 120,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'eventid',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'object',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'module',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'opaque',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'srcloc',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 220,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'dstloc',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 150,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'urlIdx',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'category',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'urlCategoryList',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 145,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'domainEdl',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 110,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'reason',
       minWidth: 50,
       width: 100,
-      onCellClicked: onCellClickChanged,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'justification',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 80,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'subcategoryOfApp',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 135,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'categoryOfApp',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 135,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'technologyOfApp',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 135,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
     {
       field: 'riskOfApp',
       minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
-    },
-    {
-      field: 'raw',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: onCellClickChanged,
+      width: 135,
+      onCellClicked: (e) => onCellClickChanged(e, 'N'),
     },
   ]);
 
@@ -441,40 +461,37 @@ export default function PageAdminProjects() {
   }, [nextSearchTerm]);
 
   useEffect(() => {
-    onFromTimeChanged(moment(selectedDayFrom));
-    console.log(
-      'selectedTimeFrom',
-      selectedTimeFrom.format('YYYY-MM-DD HH:mm:SS')
-    );
+    console.log('selectedDayFrom : ', selectedDayFrom);
+    if (!!selectedDayFrom) {
+      onFromTimeChanged(moment(selectedDayFrom).tz('Asia/Seoul'));
+    } else {
+      onFromTimeChanged(moment(selectedTimeFrom).tz('Asia/Seoul'));
+    }
   }, [selectedDayFrom]);
 
   useEffect(() => {
-    onToTimeChanged(moment(selectedDayTo));
-    console.log('selectedTimeTo', selectedTimeTo.format('YYYY-MM-DD HH:mm:SS'));
+    console.log('selectedDayTo : ', selectedDayTo);
+    if (!!selectedDayTo) {
+      onToTimeChanged(moment(selectedDayTo).tz('Asia/Seoul'));
+    } else {
+      onToTimeChanged(moment(selectedTimeTo).tz('Asia/Seoul'));
+    }
   }, [selectedDayTo]);
 
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
         <Stack spacing={2}>
-          <Flex justifyContent="space-between">
+          <Flex justifyContent="space-between" gap={4}>
             <Flex
               flexDirection={{ base: 'column', md: 'row' }}
               alignItems={{ base: 'start', md: 'center' }}
-              gap={4}
+              gap={2}
             >
               <Heading flex="none" fontSize="40px" color="gray.400">
                 TRAFFIC
               </Heading>
               <Flex gap={2}>
-                <Box color="gray.500" textAlign="right">
-                  <Heading flex="none" size="sm">
-                    From
-                  </Heading>
-                  <Heading flex="none" size="sm">
-                    {'~ To'}
-                  </Heading>
-                </Box>
                 <Box w="180px" h="100%" textAlign="center">
                   <DayPicker
                     value={selectedDayFrom}
@@ -506,6 +523,18 @@ export default function PageAdminProjects() {
                 </Box>
               </Flex>
             </Flex>
+            <Flex
+              flexDirection={{ base: 'column', md: 'row' }}
+              alignItems={{ base: 'start', md: 'center' }}
+              gap={4}
+            >
+              <Select variant="filled" onChange={onRowLoadLimitChange}>
+                <option value="1000">1000</option>
+                <option value="5000">5000</option>
+                <option value="10000">10000</option>
+                <option value="50000">50000</option>
+              </Select>
+            </Flex>
           </Flex>
           <Flex gap={2}>
             <SearchInput
@@ -522,12 +551,10 @@ export default function PageAdminProjects() {
             }
             style={{ width: '100%', height: '80vh' }}
           >
+            {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
             <AgGridReact
               ref={gridRef}
-              rowData={
-                dummy
-                // projects.data?.pages[0]?.logs ?? []
-              }
+              rowData={projects.data?.pages[0]?.logs}
               columnDefs={colDefs}
               rowSelection={'single'}
               pagination
@@ -537,46 +564,6 @@ export default function PageAdminProjects() {
               ]}
             />
           </div>
-          {/*<DataList height="20vh" overflow="scroll">
-            {projects.isLoading && <DataListLoadingState />}
-            {projects.isError && (
-              <DataListErrorState retry={() => projects.refetch()} />
-            )}
-            {projects.isSuccess &&
-              !projects.data.pages.flatMap((p) => p.items).length && (
-                <DataListEmptyState searchTerm={searchTerm} />
-              )}
-            {projects.data?.pages
-              .flatMap((p) => p.items)
-              .map((project) => (
-                <DataListRow key={project.id}>
-                  <DataListCell>
-                    <DataListText fontWeight="bold">
-                      {project.name}
-                    </DataListText>
-                  </DataListCell>
-                  <DataListCell>
-                    <DataListText color="text-dimmed">
-                      {project.description}
-                    </DataListText>
-                  </DataListCell>
-                </DataListRow>
-              ))}
-            {projects.isSuccess && (
-              <DataListRow mt="auto">
-                <DataListCell>
-                  <Button
-                    size="sm"
-                    onClick={() => projects.fetchNextPage()}
-                    isLoading={projects.isFetchingNextPage}
-                    isDisabled={!projects.hasNextPage}
-                  >
-                    Load more
-                  </Button>
-                </DataListCell>
-              </DataListRow>
-            )}
-          </DataList>*/}
         </Stack>
       </AdminLayoutPageContent>
     </AdminLayoutPage>
