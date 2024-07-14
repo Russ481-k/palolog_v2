@@ -2,12 +2,12 @@
 
 import { Suspense } from 'react';
 
-import PageAdminProjects from '@/features/monitoring/PageProjects';
+import PageProjects from '@/features/monitoring/PageProjects';
 
 export default function Page() {
   return (
     <Suspense>
-      <PageAdminProjects />
+      <PageProjects />
     </Suspense>
   );
 }

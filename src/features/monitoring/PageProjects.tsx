@@ -35,7 +35,7 @@ import { trpc } from '@/lib/trpc/client';
 
 import { zLogs } from './schemas';
 
-export default function PageAdminProjects() {
+export default function PageProjects() {
   const { colorMode } = useColorMode();
 
   const beforeHourTime: Moment = moment().tz('Asia/Seoul').subtract(1, 'hours');
@@ -56,21 +56,20 @@ export default function PageAdminProjects() {
   const projects = trpc.projects.getAll.useInfiniteQuery(
     {
       timeFrom: new Date(
-        moment(selectedTimeFrom)
+        moment(selectedTimeFrom ?? beforeHourTime)
           .tz('Asia/Seoul')
-          .format('YYYY-MM-DD HH:mm:SS') ??
-          beforeHourTime.format('YYYY-MM-DD HH:mm:SS')
+          .format('YYYY-MM-DD HH:mm:SS')
       ).getTime(),
       timeTo: new Date(
-        moment(selectedTimeTo).tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:SS') ??
-          nowTime.format('YYYY-MM-DD HH:mm:SS')
+        moment(selectedTimeTo ?? nowTime)
+          .tz('Asia/Seoul')
+          .format('YYYY-MM-DD HH:mm:SS')
       ).getTime(),
       limit,
       searchTerm,
     },
     {}
   );
-
   const onRowLoadLimitChange = (e: ChangeEvent<HTMLSelectElement>) => {
     setLimit(Number(e.target.value));
   };
@@ -488,7 +487,7 @@ export default function PageAdminProjects() {
               alignItems={{ base: 'start', md: 'center' }}
               gap={2}
             >
-              <Heading flex="none" fontSize="40px" color="gray.400">
+              <Heading flex="none" fontSize="32px" color="gray.400">
                 TRAFFIC
               </Heading>
               <Flex gap={2}>
@@ -549,7 +548,7 @@ export default function PageAdminProjects() {
             className={
               colorMode === 'light' ? 'ag-theme-quartz' : 'ag-theme-quartz-dark'
             }
-            style={{ width: '100%', height: '80vh' }}
+            style={{ width: '100%', height: '79vh' }}
           >
             {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
             <AgGridReact
@@ -557,6 +556,7 @@ export default function PageAdminProjects() {
               rowData={projects.data?.pages[0]?.logs}
               columnDefs={colDefs}
               rowSelection={'single'}
+              isLoading={projects.isLoading}
               pagination
               paginationPageSize={100}
               paginationPageSizeSelector={[
