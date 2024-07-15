@@ -44,12 +44,14 @@ export default function PageProjects() {
   const [limit, setLimit] = useState<number>(1000);
   const [nextSearchTerm, setNextSearchTerm] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedDayFrom, setSelectedDayFrom] = useState<Date | null>(
-    new Date()
+  const [selectedDayFrom, setSelectedDayFrom] = useState<number | null>(
+    new Date().getTime()
   );
   const [selectedTimeFrom, setSelectedTimeFrom] =
     useState<Moment>(beforeHourTime);
-  const [selectedDayTo, setSelectedDayTo] = useState<Date | null>(new Date());
+  const [selectedDayTo, setSelectedDayTo] = useState<number | null>(
+    new Date().getTime()
+  );
   const [selectedTimeTo, setSelectedTimeTo] = useState<Moment>(nowTime);
 
   const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
@@ -460,7 +462,6 @@ export default function PageProjects() {
   }, [nextSearchTerm]);
 
   useEffect(() => {
-    console.log('selectedDayFrom : ', selectedDayFrom);
     if (!!selectedDayFrom) {
       onFromTimeChanged(moment(selectedDayFrom).tz('Asia/Seoul'));
     } else {
@@ -469,7 +470,6 @@ export default function PageProjects() {
   }, [selectedDayFrom]);
 
   useEffect(() => {
-    console.log('selectedDayTo : ', selectedDayTo);
     if (!!selectedDayTo) {
       onToTimeChanged(moment(selectedDayTo).tz('Asia/Seoul'));
     } else {
@@ -493,8 +493,14 @@ export default function PageProjects() {
               <Flex gap={2}>
                 <Box w="180px" h="100%" textAlign="center">
                   <DayPicker
-                    value={selectedDayFrom}
-                    onChange={setSelectedDayFrom}
+                    value={
+                      new Date(
+                        moment(selectedDayTo).format('YYYY-MM-DD HH:mm:SS')
+                      )
+                    }
+                    onChange={(e) =>
+                      setSelectedDayTo(e?.getTime() ?? new Date().getTime())
+                    }
                   />
                 </Box>
                 <Box w="180px" h="100%">
@@ -509,8 +515,14 @@ export default function PageProjects() {
                 </Heading>
                 <Box w="180px" h="100%" textAlign="center">
                   <DayPicker
-                    value={selectedDayTo}
-                    onChange={setSelectedDayTo}
+                    value={
+                      new Date(
+                        moment(selectedDayFrom).format('YYYY-MM-DD HH:mm:SS')
+                      )
+                    }
+                    onChange={(e) =>
+                      setSelectedDayFrom(e?.getTime() ?? new Date().getTime())
+                    }
                   />
                 </Box>
                 <Box w="180px" h="100%">
@@ -542,7 +554,6 @@ export default function PageProjects() {
               size="md"
               maxW="100%"
             />
-            <Button aria-label="Search database">{'Search'}</Button>
           </Flex>
           <div
             className={
@@ -559,9 +570,7 @@ export default function PageProjects() {
               isLoading={projects.isLoading}
               pagination
               paginationPageSize={100}
-              paginationPageSizeSelector={[
-                100, 500, 1000, 5000, 10000, 50000, 100000, 500000,
-              ]}
+              paginationPageSizeSelector={[100, 500, 1000, 5000, 10000, 50000]}
             />
           </div>
         </Stack>
