@@ -11,7 +11,7 @@ import {
 import { AgCharts } from 'ag-charts-react';
 
 export const DashboardStatics = () => {
-  const [optionsA, setOptionsA] = useState<AgChartOptions>({
+  const [optionsA] = useState<AgChartOptions>({
     theme: 'ag-polychroma',
     // Data: Data to be displayed in the chart
     data: [
@@ -31,7 +31,7 @@ export const DashboardStatics = () => {
       } as AgBarSeriesOptions,
     ],
   });
-  const [optionsB, setOptionsB] = useState<AgChartOptions>({
+  const [optionsB] = useState<AgChartOptions>({
     theme: 'ag-polychroma',
     // Data: Data to be displayed in the chart
     data: [
@@ -51,7 +51,7 @@ export const DashboardStatics = () => {
       } as AgDonutSeriesOptions,
     ],
   });
-  const [optionsC, setOptionsC] = useState<AgChartOptions>({
+  const [optionsC] = useState<AgChartOptions>({
     theme: 'ag-polychroma',
     // Data: Data to be displayed in the chart
     title: {
@@ -2627,7 +2627,7 @@ export const DashboardStatics = () => {
       } as AgScatterSeriesOptions,
     ],
   });
-  const [optionsD, setOptionsD] = useState<AgChartOptions>({
+  const [optionsD] = useState<AgChartOptions>({
     theme: 'ag-polychroma',
     // Data: Data to be displayed in the chart
     data: [
@@ -2666,46 +2666,6 @@ export const DashboardStatics = () => {
         yKey: 'diesel',
         yName: 'Diesel',
       } as AgLineSeriesOptions,
-    ],
-  });
-  const [optionsE, setOptionsE] = useState<AgChartOptions>({
-    theme: 'ag-polychroma',
-    // Data: Data to be displayed in the chart
-    data: [
-      { month: 'Jan', avgTemp: 2.3, iceCreamSales: 162000 },
-      { month: 'Mar', avgTemp: 6.3, iceCreamSales: 302000 },
-      { month: 'May', avgTemp: 16.2, iceCreamSales: 800000 },
-      { month: 'Jul', avgTemp: 22.8, iceCreamSales: 1254000 },
-      { month: 'Sep', avgTemp: 14.5, iceCreamSales: 950000 },
-      { month: 'Nov', avgTemp: 8.9, iceCreamSales: 200000 },
-    ],
-    // Series: Defines which chart type and data to use
-    series: [
-      {
-        type: 'bar',
-        xKey: 'month',
-        yKey: 'iceCreamSales',
-      } as AgBarSeriesOptions,
-    ],
-  });
-  const [optionsF, setOptionsF] = useState<AgChartOptions>({
-    theme: 'ag-polychroma',
-    // Data: Data to be displayed in the chart
-    data: [
-      { month: 'Jan', avgTemp: 2.3, iceCreamSales: 162000 },
-      { month: 'Mar', avgTemp: 6.3, iceCreamSales: 302000 },
-      { month: 'May', avgTemp: 16.2, iceCreamSales: 800000 },
-      { month: 'Jul', avgTemp: 22.8, iceCreamSales: 1254000 },
-      { month: 'Sep', avgTemp: 14.5, iceCreamSales: 950000 },
-      { month: 'Nov', avgTemp: 8.9, iceCreamSales: 200000 },
-    ],
-    // Series: Defines which chart type and data to use
-    series: [
-      {
-        type: 'bar',
-        xKey: 'month',
-        yKey: 'iceCreamSales',
-      } as AgBarSeriesOptions,
     ],
   });
 

@@ -4,12 +4,12 @@ import { ChangeEvent, useEffect, useRef, useState } from 'react';
 
 import {
   Box,
-  Button,
   Flex,
   Heading,
   Select,
   Stack,
   useColorMode,
+  useToast,
 } from '@chakra-ui/react';
 import {
   CellClickedEvent,
@@ -55,6 +55,7 @@ export default function PageProjects() {
   const [selectedTimeTo, setSelectedTimeTo] = useState<Moment>(nowTime);
 
   const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
+  const toast = useToast();
   const projects = trpc.projects.getAll.useInfiniteQuery(
     {
       timeFrom: new Date(
@@ -85,17 +86,20 @@ export default function PageProjects() {
     dateType: 'Y' | 'N'
   ) => {
     let eventValue = event.value;
+    const eventColDef = event.colDef.field
+      ?.replace(/[A-Z]/g, (letter) => `_${letter}`)
+      .toUpperCase();
+
     if (dateType === 'Y') {
-      eventValue = moment(event.value)
+      eventValue = moment(new Date(event.value / 1000000))
         .tz('Asia/Seoul')
         .format('YYYY-MM-DD HH:mm:SS');
-      setNextSearchTerm(
-        ' AND ' + event.colDef.field?.toUpperCase() + ' = "' + eventValue + '"'
-      );
+      const newDateTypeTerm =
+        ' AND ' + eventColDef + " = TO_DATE('" + eventValue + "')";
+      return setNextSearchTerm(newDateTypeTerm);
     } else if (dateType === 'N') {
-      setNextSearchTerm(
-        ' AND ' + event.colDef.field?.toUpperCase() + ' = "' + eventValue + '"'
-      );
+      const newTerm = ' AND ' + eventColDef + " = '" + eventValue + "'";
+      setNextSearchTerm(newTerm);
     }
   };
   const onFromTimeChanged = (event: Moment) => {
@@ -109,7 +113,7 @@ export default function PageProjects() {
       .tz('Asia/Seoul')
       .format('YYYY-MM-DD HH:mm:SS');
   };
-  const [colDefs, setColDefs] = useState<ColDef<zLogs>[]>([
+  const [colDefs] = useState<ColDef<zLogs>[]>([
     {
       field: 'time',
       minWidth: 50,
@@ -457,7 +461,27 @@ export default function PageProjects() {
   ]);
 
   useEffect(() => {
-    setSearchTerm(searchTerm + nextSearchTerm);
+    if (!nextSearchTerm) return;
+    if (searchTerm.includes(nextSearchTerm)) {
+      toast({
+        position: 'top-right',
+        title: 'Duplication',
+        description: 'This is a search condition that has already been added.',
+        status: 'error',
+        duration: 9000,
+        isClosable: true,
+      });
+    } else {
+      toast({
+        position: 'top-right',
+        title: 'Added',
+        description: 'Search conditions added.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+      setSearchTerm(searchTerm + nextSearchTerm);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextSearchTerm]);
 
@@ -467,6 +491,7 @@ export default function PageProjects() {
     } else {
       onFromTimeChanged(moment(selectedTimeFrom).tz('Asia/Seoul'));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDayFrom]);
 
   useEffect(() => {
@@ -475,6 +500,7 @@ export default function PageProjects() {
     } else {
       onToTimeChanged(moment(selectedTimeTo).tz('Asia/Seoul'));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDayTo]);
 
   return (
@@ -495,11 +521,13 @@ export default function PageProjects() {
                   <DayPicker
                     value={
                       new Date(
-                        moment(selectedDayTo).format('YYYY-MM-DD HH:mm:SS')
+                        moment(selectedDayFrom ?? new Date().getTime()).format(
+                          'YYYY-MM-DD HH:mm:SS'
+                        )
                       )
                     }
                     onChange={(e) =>
-                      setSelectedDayTo(e?.getTime() ?? new Date().getTime())
+                      setSelectedDayFrom(e?.getTime() ?? new Date().getTime())
                     }
                   />
                 </Box>
@@ -517,11 +545,13 @@ export default function PageProjects() {
                   <DayPicker
                     value={
                       new Date(
-                        moment(selectedDayFrom).format('YYYY-MM-DD HH:mm:SS')
+                        moment(selectedDayTo ?? new Date().getTime()).format(
+                          'YYYY-MM-DD HH:mm:SS'
+                        )
                       )
                     }
                     onChange={(e) =>
-                      setSelectedDayFrom(e?.getTime() ?? new Date().getTime())
+                      setSelectedDayTo(e?.getTime() ?? new Date().getTime())
                     }
                   />
                 </Box>
@@ -566,11 +596,11 @@ export default function PageProjects() {
               ref={gridRef}
               rowData={projects.data?.pages[0]?.logs}
               columnDefs={colDefs}
-              rowSelection={'single'}
-              isLoading={projects.isLoading}
+              onLoading={!projects.isLoading}
+              suppressServerSideFullWidthLoadingRow
               pagination
               paginationPageSize={100}
-              paginationPageSizeSelector={[100, 500, 1000, 5000, 10000, 50000]}
+              paginationPageSizeSelector={[100, 500, 1000, 5000, 10000]}
             />
           </div>
         </Stack>
