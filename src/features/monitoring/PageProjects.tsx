@@ -33,6 +33,8 @@ import {
 } from '@/features/admin/AdminLayoutPage';
 import { trpc } from '@/lib/trpc/client';
 
+import { colDefs } from './colDefs';
+import { dummy } from './dummy';
 import { zLogs } from './schemas';
 
 export default function PageProjects() {
@@ -85,6 +87,7 @@ export default function PageProjects() {
     event: CellClickedEvent<zLogs>,
     dateType: 'Y' | 'N'
   ) => {
+    if (projects.isLoading) return;
     let eventValue = event.value;
     const eventColDef = event.colDef.field
       ?.replace(/[A-Z]/g, (letter) => `_${letter}`)
@@ -109,356 +112,15 @@ export default function PageProjects() {
     setSelectedTimeTo(event);
   };
   const timeFormatter = (event: ValueFormatterParams<zLogs>) => {
-    return moment(event.value / 1000000)
-      .tz('Asia/Seoul')
-      .format('YYYY-MM-DD HH:mm:SS');
+    console.log(event);
+    if (Number(event.value) < 1000000) {
+      return '-';
+    } else {
+      return moment(event.value / 1000000)
+        .tz('Asia/Seoul')
+        .format('YYYY-MM-DD HH:mm:SS');
+    }
   };
-  const [colDefs] = useState<ColDef<zLogs>[]>([
-    {
-      field: 'time',
-      minWidth: 50,
-      width: 170,
-      onCellClicked: (e) => onCellClickChanged(e, 'Y'),
-      valueFormatter: timeFormatter,
-    },
-    {
-      field: 'receiveTime',
-      minWidth: 50,
-      width: 170,
-      onCellClicked: (e) => onCellClickChanged(e, 'Y'),
-      valueFormatter: timeFormatter,
-    },
-    {
-      field: 'serial',
-      minWidth: 50,
-      width: 135,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'hostid',
-      minWidth: 50,
-      width: 75,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'type',
-      minWidth: 50,
-      width: 90,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'subtype',
-      minWidth: 50,
-      width: 90,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'src',
-      minWidth: 50,
-      width: 135,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'dst',
-      minWidth: 50,
-      width: 135,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'natsrc',
-      minWidth: 50,
-      width: 75,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'natdst',
-      minWidth: 50,
-      width: 75,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'rule',
-      minWidth: 50,
-      width: 165,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'ruleUuid',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'srcuser',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'dstuser',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'app',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'zoneFrom',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'zoneTo',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'inboundIf',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'outboundIf',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'sessionid',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'repeatcnt',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'sport',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'dport',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'natsport',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'natdport',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'flags',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'proto',
-      minWidth: 50,
-      width: 70,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'action',
-      minWidth: 50,
-      width: 75,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'misc',
-      minWidth: 50,
-      width: 75,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'threatid',
-      minWidth: 50,
-      width: 90,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'thrCategory',
-      minWidth: 50,
-      width: 120,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'severity',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'direction',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'bytes',
-      minWidth: 50,
-      width: 70,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'bytesSent',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'bytesReceived',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'packets',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'pktsSent',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'pktsReceived',
-      minWidth: 50,
-      width: 120,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'sessionEndReason',
-      minWidth: 50,
-      width: 150,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'deviceName',
-      minWidth: 50,
-      width: 120,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'eventid',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'object',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'module',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'opaque',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'srcloc',
-      minWidth: 50,
-      width: 220,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'dstloc',
-      minWidth: 50,
-      width: 150,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'urlIdx',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'category',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'urlCategoryList',
-      minWidth: 50,
-      width: 145,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'domainEdl',
-      minWidth: 50,
-      width: 110,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'reason',
-      minWidth: 50,
-      width: 100,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'justification',
-      minWidth: 50,
-      width: 80,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'subcategoryOfApp',
-      minWidth: 50,
-      width: 135,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'categoryOfApp',
-      minWidth: 50,
-      width: 135,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'technologyOfApp',
-      minWidth: 50,
-      width: 135,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-    {
-      field: 'riskOfApp',
-      minWidth: 50,
-      width: 135,
-      onCellClicked: (e) => onCellClickChanged(e, 'N'),
-    },
-  ]);
 
   useEffect(() => {
     if (!nextSearchTerm) return;
@@ -489,7 +151,7 @@ export default function PageProjects() {
     if (!!selectedDayFrom) {
       onFromTimeChanged(moment(selectedDayFrom).tz('Asia/Seoul'));
     } else {
-      onFromTimeChanged(moment(selectedTimeFrom).tz('Asia/Seoul'));
+      onFromTimeChanged(moment(new Date().getTime()).tz('Asia/Seoul'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDayFrom]);
@@ -498,11 +160,12 @@ export default function PageProjects() {
     if (!!selectedDayTo) {
       onToTimeChanged(moment(selectedDayTo).tz('Asia/Seoul'));
     } else {
-      onToTimeChanged(moment(selectedTimeTo).tz('Asia/Seoul'));
+      onToTimeChanged(moment(new Date().getTime()).tz('Asia/Seoul'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDayTo]);
 
+  console.log(projects.isLoading);
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
@@ -573,7 +236,6 @@ export default function PageProjects() {
                 <option value="1000">1000</option>
                 <option value="5000">5000</option>
                 <option value="10000">10000</option>
-                <option value="50000">50000</option>
               </Select>
             </Flex>
           </Flex>
@@ -594,13 +256,17 @@ export default function PageProjects() {
             {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
             <AgGridReact
               ref={gridRef}
-              rowData={projects.data?.pages[0]?.logs}
-              columnDefs={colDefs}
-              onLoading={!projects.isLoading}
-              suppressServerSideFullWidthLoadingRow
+              rowData={
+                !projects.isLoading ? projects.data?.pages[0]?.logs : dummy
+              }
+              columnDefs={colDefs(
+                !projects.isLoading,
+                onCellClickChanged,
+                timeFormatter
+              )}
               pagination
-              paginationPageSize={100}
-              paginationPageSizeSelector={[100, 500, 1000, 5000, 10000]}
+              paginationPageSize={1000}
+              paginationPageSizeSelector={[1000, 5000, 10000]}
             />
           </div>
         </Stack>
