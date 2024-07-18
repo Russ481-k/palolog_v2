@@ -112,9 +112,14 @@ export default function PageProjects() {
     setSelectedTimeTo(event);
   };
   const timeFormatter = (event: ValueFormatterParams<zLogs>) => {
-    return moment(event.value / 1000000)
-      .tz('Asia/Seoul')
-      .format('YYYY-MM-DD HH:mm:SS');
+    console.log(event);
+    if (Number(event.value) < 1000000) {
+      return '-';
+    } else {
+      return moment(event.value / 1000000)
+        .tz('Asia/Seoul')
+        .format('YYYY-MM-DD HH:mm:SS');
+    }
   };
 
   useEffect(() => {
