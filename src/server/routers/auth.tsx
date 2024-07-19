@@ -4,22 +4,17 @@ import { cookies } from 'next/headers';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-import EmailLoginCode from '@/emails/templates/login-code';
-import { EmailLoginNotFound } from '@/emails/templates/login-not-found';
-import EmailRegisterCode from '@/emails/templates/register-code';
 import {
   VALIDATION_RETRY_DELAY_IN_SECONDS,
   VALIDATION_TOKEN_EXPIRATION_IN_MINUTES,
 } from '@/features/auth/utils';
 import { zUser, zUserAuthorization } from '@/features/users/schemas';
-import i18n from '@/lib/i18n/server';
 import {
   AUTH_COOKIE_NAME,
   deleteUsedCode,
   setAuthCookie,
   validateCode,
 } from '@/server/config/auth';
-import { sendEmail } from '@/server/config/email';
 import { ExtendedTRPCError } from '@/server/config/errors';
 import { createTRPCRouter, publicProcedure } from '@/server/config/trpc';
 

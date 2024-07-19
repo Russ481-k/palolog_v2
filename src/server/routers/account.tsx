@@ -3,12 +3,9 @@ import dayjs from 'dayjs';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-import EmailAddressChange from '@/emails/templates/email-address-change';
 import { zUserAccount } from '@/features/account/schemas';
 import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
-import i18n from '@/lib/i18n/server';
 import { deleteUsedCode, validateCode } from '@/server/config/auth';
-import { sendEmail } from '@/server/config/email';
 import { ExtendedTRPCError } from '@/server/config/errors';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 

@@ -28,7 +28,6 @@ export default function PageRegisterValidate() {
   const searchParams = useSearchParams();
 
   const token = params?.token?.toString() ?? '';
-  const id = searchParams.get('id');
 
   const form = useForm<FormFieldsVerificationCode>({
     mode: 'onBlur',

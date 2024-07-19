@@ -9,7 +9,7 @@ test.describe('App access', () => {
   test(`Redirect to App (${APP_PATH})`, async ({ page }) => {
     const utils = pageUtils(page);
 
-    await utils.loginApp({ email: USER_ID });
+    await utils.loginApp({ id: USER_ID, password: USER_ID });
     await page.waitForURL(`${env.NEXT_PUBLIC_BASE_URL}${APP_PATH || '/'}**`);
 
     await expect(page.getByTestId('app-layout')).toBeVisible();
