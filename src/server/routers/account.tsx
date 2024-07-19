@@ -169,14 +169,14 @@ export const accountRouter = createTRPCRouter({
         ...input,
       });
 
-      if (!verificationToken.email) {
-        ctx.logger.error('verificationToken does not contain an email');
+      if (!verificationToken.userId) {
+        ctx.logger.error('verificationToken does not contain an userId');
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
         });
       }
 
-      ctx.logger.info('Update the user email');
+      ctx.logger.info('Update the user userId');
       const user = await ctx.db.user.update({
         where: {
           id: verificationToken.userId,

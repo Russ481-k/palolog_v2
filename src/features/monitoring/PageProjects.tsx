@@ -112,7 +112,6 @@ export default function PageProjects() {
     setSelectedTimeTo(event);
   };
   const timeFormatter = (event: ValueFormatterParams<zLogs>) => {
-    console.log(event);
     if (Number(event.value) < 1000000) {
       return '-';
     } else {
@@ -165,7 +164,6 @@ export default function PageProjects() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDayTo]);
 
-  console.log(projects.isLoading);
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>

@@ -135,7 +135,6 @@ export const authRouter = createTRPCRouter({
 
       ctx.logger.info('Updating user');
       try {
-        console.log(verificationToken.userId);
         await ctx.db.user.update({
           where: { id: verificationToken.userId },
           data: {
