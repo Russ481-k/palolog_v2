@@ -33,6 +33,7 @@ export default function PageAdminUserUpdate() {
   const user = trpc.users.getById.useQuery(
     {
       id: params?.id?.toString() ?? '',
+      password: params?.password?.toString() ?? '',
     },
     {
       staleTime: Infinity,
@@ -66,6 +67,7 @@ export default function PageAdminUserUpdate() {
   const form = useForm<FormFieldUser>({
     resolver: zodResolver(zFormFieldsUser()),
     values: {
+      id: user.data?.id ?? '',
       email: user.data?.email ?? '',
       name: user.data?.name ?? '',
       language: user.data?.language ?? DEFAULT_LANGUAGE_KEY,
@@ -79,7 +81,6 @@ export default function PageAdminUserUpdate() {
       onSubmit={(values) => {
         if (!user.data?.id) return;
         userUpdate.mutate({
-          id: user.data.id,
           ...values,
         });
       }}

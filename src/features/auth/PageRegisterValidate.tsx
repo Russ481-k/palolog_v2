@@ -10,7 +10,6 @@ import { LuArrowLeft, LuArrowRight } from 'react-icons/lu';
 import { Form } from '@/components/Form';
 import { APP_PATH } from '@/features/app/constants';
 import {
-  VerificationCodeForm,
   useOnVerificationCodeError,
   useOnVerificationCodeSuccess,
 } from '@/features/auth/VerificationCodeForm';
@@ -29,7 +28,7 @@ export default function PageRegisterValidate() {
   const searchParams = useSearchParams();
 
   const token = params?.token?.toString() ?? '';
-  const email = searchParams.get('email');
+  const id = searchParams.get('id');
 
   const form = useForm<FormFieldsVerificationCode>({
     mode: 'onBlur',
@@ -67,10 +66,7 @@ export default function PageRegisterValidate() {
       </Button>
 
       <Form {...form} onSubmit={onSubmit}>
-        <VerificationCodeForm
-          email={email ?? ''}
-          isLoading={validate.isLoading || validate.isSuccess}
-        />
+        <></>
       </Form>
     </Stack>
   );

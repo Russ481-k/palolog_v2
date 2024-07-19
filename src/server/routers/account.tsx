@@ -7,11 +7,7 @@ import EmailAddressChange from '@/emails/templates/email-address-change';
 import { zUserAccount } from '@/features/account/schemas';
 import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
 import i18n from '@/lib/i18n/server';
-import {
-  deleteUsedCode,
-  generateCode,
-  validateCode,
-} from '@/server/config/auth';
+import { deleteUsedCode, validateCode } from '@/server/config/auth';
 import { sendEmail } from '@/server/config/email';
 import { ExtendedTRPCError } from '@/server/config/errors';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
@@ -62,7 +58,11 @@ export const accountRouter = createTRPCRouter({
     })
     .input(
       zUserAccount().required().pick({
+        id: true,
+        password: true,
         name: true,
+        email: true,
+        authorizations: true,
         language: true,
       })
     )
@@ -82,80 +82,67 @@ export const accountRouter = createTRPCRouter({
       }
     }),
 
-  updateEmail: protectedProcedure()
+  updateId: protectedProcedure()
     .meta({
       openapi: {
         method: 'PUT',
-        path: '/accounts/update-email/',
+        path: '/accounts/update-id/',
         protect: true,
         tags: ['accounts'],
       },
     })
     .input(
       zUserAccount().pick({
+        id: true,
+        password: true,
+        name: true,
         email: true,
+        authorizations: true,
+        language: true,
       })
     )
     .output(z.object({ token: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      ctx.logger.info('Checking existing email');
-      if (ctx.user.email === input.email) {
-        ctx.logger.warn('Same email for current user and input');
+      ctx.logger.info('Checking existing id');
+      if (ctx.user.id === input.id) {
+        ctx.logger.warn('Same id for current user and input');
         throw new TRPCError({
           code: 'CONFLICT',
-          message: 'Same email for current user and input',
+          message: 'Same id for current user and input',
         });
       }
 
       const token = randomUUID();
 
-      ctx.logger.info('Checking if new email is already used');
-      const existingEmail = await ctx.db.user.findUnique({
+      ctx.logger.info('Checking if new id is already used');
+      const existingId = await ctx.db.user.findUnique({
         where: {
-          email: input.email,
+          id: input.id,
         },
       });
 
-      if (existingEmail) {
-        ctx.logger.warn(
-          'Email already used, silent error for security reasons'
-        );
+      if (existingId) {
+        ctx.logger.warn('Id already used, silent error for security reasons');
         return {
           token,
         };
       }
 
-      // If we got here, the user can update the email
-      // and we send the email to verify the new email.
+      // If we got here, the user can update the id
+      // and we send the id to verify the new id.
       ctx.logger.info('Creating code');
-      const code = await generateCode();
+      const code = '000000';
 
       ctx.logger.info('Creating verification token in database');
       await ctx.db.verificationToken.create({
         data: {
           userId: ctx.user.id,
           token,
-          email: input.email,
           expires: dayjs()
             .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
             .toDate(),
-          code: code.hashed,
+          code: code,
         },
-      });
-
-      ctx.logger.info('Sending email with verification code');
-      await sendEmail({
-        to: input.email,
-        subject: i18n.t('emails:emailAddressChange.subject', {
-          lng: ctx.user.language,
-        }),
-        template: (
-          <EmailAddressChange
-            language={ctx.user.language}
-            name={ctx.user.name ?? ''}
-            code={code.readable}
-          />
-        ),
       });
 
       return {

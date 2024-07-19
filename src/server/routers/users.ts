@@ -19,13 +19,14 @@ export const usersRouter = createTRPCRouter({
     .input(
       zUser().pick({
         id: true,
+        password: true,
       })
     )
     .output(zUser())
     .query(async ({ ctx, input }) => {
       ctx.logger.info('Getting user');
       const user = await ctx.db.user.findUnique({
-        where: { id: input.id },
+        where: { id: input.id, password: input.password },
       });
 
       if (!user) {
@@ -75,7 +76,7 @@ export const usersRouter = createTRPCRouter({
             },
           },
           {
-            email: {
+            id: {
               contains: input.searchTerm,
               mode: 'insensitive',
             },
@@ -122,6 +123,7 @@ export const usersRouter = createTRPCRouter({
     })
     .input(
       zUser().required().pick({
+        id: true,
         name: true,
         email: true,
       })

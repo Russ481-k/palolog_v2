@@ -11,7 +11,7 @@ import { env } from '@/env.mjs';
 
 export const LoginHint = () => {
   const form = useFormContext();
-  const mockedEmail = 'admin@admin.com';
+  const mockedId = 'admin';
 
   if (env.NEXT_PUBLIC_NODE_ENV !== 'development' && !env.NEXT_PUBLIC_IS_DEMO)
     return null;
@@ -28,9 +28,12 @@ export const LoginHint = () => {
           as="button"
           type="button"
           fontWeight="bold"
-          onClick={() => form.setValue('email', mockedEmail)}
+          onClick={() => {
+            form.setValue('id', mockedId);
+            form.setValue('password', mockedId);
+          }}
         >
-          {mockedEmail}
+          {mockedId}
         </ChakraLink>
       </AlertDescription>
     </Alert>

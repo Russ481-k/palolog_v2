@@ -16,7 +16,6 @@ import i18n from '@/lib/i18n/server';
 import {
   AUTH_COOKIE_NAME,
   deleteUsedCode,
-  generateCode,
   setAuthCookie,
   validateCode,
 } from '@/server/config/auth';
@@ -66,15 +65,16 @@ export const authRouter = createTRPCRouter({
     })
     .input(
       zUser().pick({
-        email: true,
+        id: true,
+        password: true,
         language: true,
       })
     )
     .output(z.object({ token: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      ctx.logger.info('Retrieving user info by email');
+      ctx.logger.info('Retrieving user info');
       const user = await ctx.db.user.findUnique({
-        where: { email: input.email },
+        where: { id: input.id },
       });
 
       ctx.logger.info('Creating token');
@@ -82,14 +82,6 @@ export const authRouter = createTRPCRouter({
 
       if (!user) {
         ctx.logger.warn('User not found, silent error for security reasons');
-
-        await sendEmail({
-          to: input.email,
-          subject: i18n.t('emails:loginNotFound.subject', {
-            lng: input.language,
-          }),
-          template: <EmailLoginNotFound language={input.language} />,
-        });
 
         return {
           token,
@@ -104,7 +96,7 @@ export const authRouter = createTRPCRouter({
       }
 
       ctx.logger.info('Creating code');
-      const code = await generateCode();
+      const code = '000000';
 
       ctx.logger.info('Saving code and token to database');
       await ctx.db.verificationToken.create({
@@ -113,22 +105,9 @@ export const authRouter = createTRPCRouter({
           expires: dayjs()
             .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
             .toDate(),
-          code: code.hashed,
+          code: code,
           token,
         },
-      });
-
-      ctx.logger.info('Send email with code');
-      await sendEmail({
-        to: input.email,
-        subject: i18n.t('emails:loginCode.subject', { lng: user.language }),
-        template: (
-          <EmailLoginCode
-            language={user.language}
-            name={user.name ?? ''}
-            code={code.readable}
-          />
-        ),
       });
 
       return {
@@ -140,12 +119,18 @@ export const authRouter = createTRPCRouter({
     .meta({
       openapi: {
         method: 'POST',
-        path: '/auth/login/validate/{token}',
+        path: '/admin/login',
         tags: ['auth'],
         description: `Failed requests will increment retry delay timeout based on the number of attempts multiplied by ${VALIDATION_RETRY_DELAY_IN_SECONDS} seconds. The number of attempts will not be returned in the response for security purposes. You will have to save the number of attemps in the client.`,
       },
     })
-    .input(z.object({ code: z.string().length(6), token: z.string().uuid() }))
+    .input(
+      z.object({
+        code: z.string().length(6),
+        token: z.string().uuid(),
+        userId: z.string(),
+      })
+    )
     .output(z.object({ token: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const { verificationToken, userJwt } = await validateCode({
@@ -155,8 +140,9 @@ export const authRouter = createTRPCRouter({
 
       ctx.logger.info('Updating user');
       try {
+        console.log(verificationToken.userId);
         await ctx.db.user.update({
-          where: { id: verificationToken.userId, accountStatus: 'ENABLED' },
+          where: { id: verificationToken.userId },
           data: {
             lastLoginAt: new Date(),
           },
@@ -204,7 +190,8 @@ export const authRouter = createTRPCRouter({
     })
     .input(
       zUser().required().pick({
-        email: true,
+        id: true,
+        password: true,
         name: true,
         language: true,
       })
@@ -214,7 +201,8 @@ export const authRouter = createTRPCRouter({
       ctx.logger.info('Checking if the user exists');
       const user = await ctx.db.user.findUnique({
         where: {
-          email: input.email,
+          id: input.id,
+          password: input.password,
         },
       });
 
@@ -228,7 +216,8 @@ export const authRouter = createTRPCRouter({
           ctx.logger.info('Creating a new user');
           newUser = await ctx.db.user.create({
             data: {
-              email: input.email,
+              id: input.id,
+              password: input.password,
               name: input.name,
               language: input.language,
             },
@@ -244,31 +233,32 @@ export const authRouter = createTRPCRouter({
       // someone else) did register using this email but did not complete the
       // validation flow. So we update the data according to the new
       // informations.
-      else if (user && user.accountStatus === 'NOT_VERIFIED') {
-        newUser = await ctx.db.user.update({
-          where: {
-            email: input.email,
-          },
-          data: {
-            language: input.language,
-            name: input.name,
-          },
-        });
-      }
+      // else if (user && user.accountStatus === 'NOT_VERIFIED') {
+      newUser = await ctx.db.user.update({
+        where: {
+          id: input.id,
+          password: input.password,
+        },
+        data: {
+          language: input.language,
+          name: input.name,
+        },
+      });
+      // }
 
-      if (!newUser) {
-        ctx.logger.error(
-          'An error occured while creating or updating the user, the address may already exists, silent error for security reasons'
-        );
-        return {
-          token,
-        };
-      }
+      // if (!newUser) {
+      //   ctx.logger.error(
+      //     'An error occured while creating or updating the user, the address may already exists, silent error for security reasons'
+      //   );
+      //   return {
+      //     token,
+      //   };
+      // }
 
       // If we got here, the user exists and email is verified, no need to
       // register, send the email to login the user.
       ctx.logger.info('Creating code');
-      const code = await generateCode();
+      const code = '000000';
 
       ctx.logger.info('Creating verification token in database');
       await ctx.db.verificationToken.create({
@@ -278,23 +268,8 @@ export const authRouter = createTRPCRouter({
           expires: dayjs()
             .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
             .toDate(),
-          code: code.hashed,
+          code: code,
         },
-      });
-
-      ctx.logger.info('Sending email to register');
-      await sendEmail({
-        to: input.email,
-        subject: i18n.t('emails:registerCode.subject', {
-          lng: newUser.language,
-        }),
-        template: (
-          <EmailRegisterCode
-            language={newUser.language}
-            name={newUser.name ?? ''}
-            code={code.readable}
-          />
-        ),
       });
 
       return {

@@ -21,4 +21,6 @@ export type FormFieldsAccountProfile = z.infer<
   ReturnType<typeof zFormFieldsAccountProfile>
 >;
 export const zFormFieldsAccountProfile = () =>
-  zUserAccount().pick({ name: true, language: true }).required();
+  zUserAccount()
+    .pick({ id: true, password: true, email: true, name: true, language: true })
+    .required();

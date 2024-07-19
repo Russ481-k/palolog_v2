@@ -17,18 +17,19 @@ import { useToastError } from '@/components/Toast';
 import { FormFieldsLogin, zFormFieldsLogin } from '@/features/auth/schemas';
 import { LoginHint } from '@/features/devtools/LoginHint';
 import { trpc } from '@/lib/trpc/client';
-import type { RouterInputs, RouterOutputs } from '@/lib/trpc/types';
+import type { RouterOutputs } from '@/lib/trpc/types';
+
+import { ADMIN_PATH } from '../admin/constants';
+import {
+  useOnVerificationCodeError,
+  useOnVerificationCodeSuccess,
+} from './VerificationCodeForm';
 
 type LoginFormProps = BoxProps & {
-  onSuccess?: (
-    data: RouterOutputs['auth']['login'],
-    variables: RouterInputs['auth']['login']
-  ) => void;
   buttonVariant?: ButtonProps['variant'];
 };
 
 export const LoginForm = ({
-  onSuccess = () => undefined,
   buttonVariant = '@primary',
   ...rest
 }: LoginFormProps) => {
@@ -36,7 +37,7 @@ export const LoginForm = ({
   const toastError = useToastError();
 
   const login = trpc.auth.login.useMutation({
-    onSuccess,
+    onSuccess: (data) => onSuccess(data, form.getValues('id')),
     onError: () => {
       toastError({
         title: t('auth:login.feedbacks.loginError.title'),
@@ -48,8 +49,33 @@ export const LoginForm = ({
     mode: 'onBlur',
     resolver: zodResolver(zFormFieldsLogin()),
     defaultValues: {
-      email: '',
+      id: '',
+      password: '',
     },
+  });
+
+  const onSuccess = (data: RouterOutputs['auth']['login'], userId: string) => {
+    validate.mutate({
+      code: '000000',
+      token: data.token,
+      userId,
+    });
+  };
+
+  const onVerificationCodeSuccess = useOnVerificationCodeSuccess({
+    defaultRedirect: ADMIN_PATH,
+  });
+  const onVerificationCodeError = useOnVerificationCodeError({
+    onError: (error) => {
+      return form.setError('password', {
+        message: error,
+      });
+    },
+  });
+
+  const validate = trpc.auth.loginValidate.useMutation({
+    onSuccess: onVerificationCodeSuccess,
+    onError: onVerificationCodeError,
   });
 
   return (
@@ -57,16 +83,23 @@ export const LoginForm = ({
       <Form
         {...form}
         onSubmit={(values) => {
-          login.mutate(values);
+          login.mutate({ id: values.id, password: values.password });
         }}
       >
         <Stack spacing={4}>
           <FormField
-            type="email"
+            type="text"
             control={form.control}
-            name="email"
+            name="id"
             size="lg"
-            placeholder={t('auth:data.email.label')}
+            placeholder={t('auth:data.id.label')}
+          />
+          <FormField
+            type="password"
+            control={form.control}
+            name="password"
+            size="lg"
+            placeholder={t('auth:data.password.label')}
           />
           <Flex>
             <Button

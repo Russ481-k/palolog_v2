@@ -211,7 +211,7 @@ export const protectedProcedure = (
       if (!user || user.accountStatus !== 'ENABLED') {
         throw new TRPCError({
           code: 'UNAUTHORIZED',
-          message: user?.email,
+          message: user?.id,
         });
       }
 

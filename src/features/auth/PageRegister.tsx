@@ -26,9 +26,7 @@ export default function PageRegister() {
 
   const register = trpc.auth.register.useMutation({
     onSuccess: (data, variables) => {
-      router.push(
-        `${APP_PATH}/register/${data.token}?email=${variables.email}`
-      );
+      router.push(`${APP_PATH}/register/${data.token}?id=${variables.id}`);
     },
     onError: () => {
       toastError({
@@ -41,7 +39,7 @@ export default function PageRegister() {
     resolver: zodResolver(zFormFieldsRegister()),
     defaultValues: {
       name: '',
-      email: '',
+      id: '',
       language: i18n.language,
     },
   });
@@ -103,12 +101,6 @@ export default function PageRegister() {
             type="text"
             name="name"
             label={t('auth:data.name.label')}
-          />
-          <FormField
-            control={form.control}
-            type="email"
-            name="email"
-            label={t('auth:data.email.label')}
           />
           <Flex>
             <Button

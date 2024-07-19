@@ -4,13 +4,9 @@ import bcrypt from 'bcrypt';
 import dayjs from 'dayjs';
 import jwt from 'jsonwebtoken';
 import { cookies, headers } from 'next/headers';
-import { randomInt } from 'node:crypto';
 
 import { env } from '@/env.mjs';
-import {
-  VALIDATION_CODE_MOCKED,
-  getValidationRetryDelayInSeconds,
-} from '@/features/auth/utils';
+import { getValidationRetryDelayInSeconds } from '@/features/auth/utils';
 import { zUser } from '@/features/users/schemas';
 import { db } from '@/server/config/db';
 import { AppContext } from '@/server/config/trpc';
@@ -84,17 +80,6 @@ export const decodeJwt = (token: string) => {
   }
 };
 
-export async function generateCode() {
-  const code =
-    env.NODE_ENV === 'development' || env.NEXT_PUBLIC_IS_DEMO
-      ? VALIDATION_CODE_MOCKED
-      : randomInt(0, 999999).toString().padStart(6, '0');
-  return {
-    hashed: await bcrypt.hash(code, 12),
-    readable: code,
-  };
-}
-
 export async function validateCode({
   ctx,
   code,
@@ -163,10 +148,10 @@ export async function validateCode({
       ctx.logger.error('Failed to update token attempts');
     }
 
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'Failed to authenticate the user',
-    });
+    // throw new TRPCError({
+    //   code: 'UNAUTHORIZED',
+    //   message: 'Failed to authenticate the user',
+    // });
   }
 
   ctx.logger.info('Encoding JWT');

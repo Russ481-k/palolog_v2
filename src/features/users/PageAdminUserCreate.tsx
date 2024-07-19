@@ -38,8 +38,8 @@ export default function PageAdminUserCreate() {
       router.back();
     },
     onError: (error) => {
-      if (isErrorDatabaseConflict(error, 'email')) {
-        form.setError('email', { message: t('users:data.email.alreadyUsed') });
+      if (isErrorDatabaseConflict(error, 'id')) {
+        form.setError('id', { message: t('users:data.id.alreadyUsed') });
         return;
       }
       toastError({
@@ -52,7 +52,7 @@ export default function PageAdminUserCreate() {
     resolver: zodResolver(zFormFieldsUser()),
     defaultValues: {
       name: '',
-      email: '',
+      id: '',
       language: DEFAULT_LANGUAGE_KEY,
       authorizations: ['APP'],
     },

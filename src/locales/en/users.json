@@ -40,6 +40,12 @@
     }
   },
   "data": {
+    "id": {
+      "label": "ID",
+      "alreadyUsed": "ID already used",
+      "required": "ID is required",
+      "invalid": "ID is invalid"
+    },
     "email": {
       "label": "Email",
       "alreadyUsed": "Email already used",
