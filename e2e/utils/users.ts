@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-export const USER_EMAIL = 'user@user.com';
-export const ADMIN_EMAIL = 'admin@admin.com';
+export const USER_ID = 'user';
+export const ADMIN_ID = 'admin';
 
-export const getRandomEmail = async () => {
+export const getRandomId = async () => {
   const randomId = await randomUUID();
-  return `${randomId}@example.com`;
+  return `${randomId}`;
 };
