@@ -115,9 +115,9 @@ export const projectsRouter = createTRPCRouter({
       console.log('limit', input.limit);
       console.log('searchTerm', input.searchTerm);
 
-      const timeRange = `AND TIME BETWEEN TO_DATE('${moment(input.timeFrom).format('YYYY-MM-DD HH:mm:SS')}') AND TO_DATE('${moment(input.timeTo).format('YYYY-MM-DD HH:mm:SS')}')`;
+      const timeRange = `DURATION FROM TO_DATE('${moment(input.timeFrom).format('YYYY-MM-DD HH:mm:SS')}') TO TO_DATE('${moment(input.timeTo).format('YYYY-MM-DD HH:mm:SS')}')`;
       const searchTerm = input.searchTerm;
-      const query = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange} LIMIT ${input.limit}`;
+      const query = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${input.limit} ${timeRange}`;
       console.log(
         'query',
         `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
