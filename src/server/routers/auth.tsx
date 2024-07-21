@@ -145,7 +145,7 @@ export const authRouter = createTRPCRouter({
         ctx.logger.warn('Failed to update the user, probably not enabled');
         throw new TRPCError({
           code: 'UNAUTHORIZED',
-          message: 'Failed to authenticate the user',
+          message: 'Failed to authenticate the user ' + e,
         });
       }
 
@@ -303,7 +303,7 @@ export const authRouter = createTRPCRouter({
         ctx.logger.warn('Failed to update the user, probably already verified');
         throw new TRPCError({
           code: 'UNAUTHORIZED',
-          message: 'Failed to authenticate the user',
+          message: 'Failed to authenticate the user ' + e,
         });
       }
 
