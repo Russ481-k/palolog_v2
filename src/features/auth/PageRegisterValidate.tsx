@@ -2,54 +2,61 @@ import React from 'react';
 
 import { Button, Stack } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { SubmitHandler, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft, LuArrowRight } from 'react-icons/lu';
 
-import { Form } from '@/components/Form';
+import { Form, FormField } from '@/components/Form';
 import { APP_PATH } from '@/features/app/constants';
 import {
-  useOnVerificationCodeError,
-  useOnVerificationCodeSuccess,
-} from '@/features/auth/VerificationCodeForm';
+  useOnVerificationError,
+  useOnVerificationSuccess,
+} from '@/features/auth/VerificationForm';
 import {
-  FormFieldsVerificationCode,
-  zFormFieldsVerificationCode,
+  FormFieldsVerification,
+  zFormFieldsVerification,
 } from '@/features/auth/schemas';
 import { useRtl } from '@/hooks/useRtl';
 import { trpc } from '@/lib/trpc/client';
 
 export default function PageRegisterValidate() {
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(['common', 'auth']);
   const { rtlValue } = useRtl();
   const router = useRouter();
-  const params = useParams();
 
-  const token = params?.token?.toString() ?? '';
-
-  const form = useForm<FormFieldsVerificationCode>({
+  const form = useForm<FormFieldsVerification>({
     mode: 'onBlur',
-    resolver: zodResolver(zFormFieldsVerificationCode()),
+    resolver: zodResolver(zFormFieldsVerification()),
     defaultValues: {
-      code: '',
+      id: '',
+      password: '',
+      name: '',
     },
   });
 
-  const onSubmit: SubmitHandler<FormFieldsVerificationCode> = (values) => {
-    validate.mutate({ ...values, token });
+  const onSubmit: SubmitHandler<FormFieldsVerification> = ({
+    id,
+    password,
+    name,
+  }: {
+    id: string;
+    password: string;
+    name: string;
+  }) => {
+    validate.mutate({ id, password, name });
   };
 
-  const onVerificationCodeSuccess = useOnVerificationCodeSuccess({
+  const onVerificationSuccess = useOnVerificationSuccess({
     defaultRedirect: APP_PATH,
   });
-  const onVerificationCodeError = useOnVerificationCodeError({
-    onError: (error) => form.setError('code', { message: error }),
+  const onVerificationError = useOnVerificationError({
+    onError: (error) => form.setError('name', { message: error }),
   });
 
-  const validate = trpc.auth.registerValidate.useMutation({
-    onSuccess: onVerificationCodeSuccess,
-    onError: onVerificationCodeError,
+  const validate = trpc.auth.register.useMutation({
+    onSuccess: onVerificationSuccess,
+    onError: onVerificationError,
   });
 
   return (
@@ -64,7 +71,27 @@ export default function PageRegisterValidate() {
       </Button>
 
       <Form {...form} onSubmit={onSubmit}>
-        <></>
+        <FormField
+          type="text"
+          control={form.control}
+          name="id"
+          size="lg"
+          placeholder={t('auth:data.id.label')}
+        />
+        <FormField
+          type="password"
+          control={form.control}
+          name="password"
+          size="lg"
+          placeholder={t('auth:data.password.label')}
+        />
+        <FormField
+          type="text"
+          control={form.control}
+          name="name"
+          size="lg"
+          placeholder={t('auth:data.name.label')}
+        />
       </Form>
     </Stack>
   );

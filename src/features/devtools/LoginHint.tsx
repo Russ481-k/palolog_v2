@@ -12,6 +12,7 @@ import { env } from '@/env.mjs';
 export const LoginHint = () => {
   const form = useFormContext();
   const mockedId = 'admin';
+  const mockedPw = 'core2020';
 
   if (env.NEXT_PUBLIC_NODE_ENV !== 'development' && !env.NEXT_PUBLIC_IS_DEMO)
     return null;
@@ -30,7 +31,7 @@ export const LoginHint = () => {
           fontWeight="bold"
           onClick={() => {
             form.setValue('id', mockedId);
-            form.setValue('password', mockedId);
+            form.setValue('password', mockedPw);
           }}
         >
           {mockedId}

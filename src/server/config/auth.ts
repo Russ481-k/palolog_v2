@@ -1,12 +1,16 @@
 import { VerificationToken } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import dayjs from 'dayjs';
 import jwt from 'jsonwebtoken';
 import { cookies, headers } from 'next/headers';
 
 import { env } from '@/env.mjs';
-import { getValidationRetryDelayInSeconds } from '@/features/auth/utils';
+import {
+  VALIDATION_TOKEN_EXPIRATION_IN_MINUTES,
+  getValidationRetryDelayInSeconds,
+} from '@/features/auth/utils';
 import { zUser } from '@/features/users/schemas';
 import { db } from '@/server/config/db';
 import { AppContext } from '@/server/config/trpc';
@@ -80,21 +84,58 @@ export const decodeJwt = (token: string) => {
   }
 };
 
-export async function validateCode({
+export async function validate({
   ctx,
-  code,
-  token,
+  id,
+  password,
 }: {
   ctx: AppContext;
-  code: string;
-  token: string;
+  id: string;
+  password: string;
 }): Promise<{ verificationToken: VerificationToken; userJwt: string }> {
   ctx.logger.info('Removing expired verification tokens from database');
   await ctx.db.verificationToken.deleteMany({
     where: { expires: { lt: new Date() } },
   });
 
-  ctx.logger.info('Checking if verification token exists');
+  ctx.logger.info('Checking password');
+  const salt = await bcrypt.genSalt(12);
+  const hashPassword = await bcrypt.hash(password, salt);
+
+  ctx.logger.info('Checking if verification token exists' + hashPassword);
+  const user = await ctx.db.user.findUnique({
+    where: { id, password },
+  });
+
+  if (!user) {
+    ctx.logger.warn('User not found, silent error for security reasons');
+
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Failed to authenticate the user',
+    });
+  }
+
+  if (user.accountStatus !== 'ENABLED') {
+    ctx.logger.warn('Invalid user, silent error for security reasons');
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Failed to authenticate the user',
+    });
+  }
+
+  ctx.logger.info('Saving token to database');
+  const token = randomUUID();
+  await ctx.db.verificationToken.create({
+    data: {
+      userId: user.id,
+      expires: dayjs()
+        .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
+        .toDate(),
+      token,
+    },
+  });
+
   const verificationToken = await ctx.db.verificationToken.findUnique({
     where: {
       token,
@@ -124,34 +165,6 @@ export async function validateCode({
       code: 'UNAUTHORIZED',
       message: 'Failed to authenticate the user',
     });
-  }
-
-  ctx.logger.info('Checking code');
-  const isCodeValid = await bcrypt.compare(code, verificationToken.code);
-
-  if (!isCodeValid) {
-    ctx.logger.warn('Invalid code');
-
-    try {
-      ctx.logger.info('Updating token attempts');
-      await ctx.db.verificationToken.update({
-        where: {
-          token,
-        },
-        data: {
-          attempts: {
-            increment: 1,
-          },
-        },
-      });
-    } catch (e) {
-      ctx.logger.error('Failed to update token attempts');
-    }
-
-    // throw new TRPCError({
-    //   code: 'UNAUTHORIZED',
-    //   message: 'Failed to authenticate the user',
-    // });
   }
 
   ctx.logger.info('Encoding JWT');

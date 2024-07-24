@@ -13,17 +13,15 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { Form, FormField } from '@/components/Form';
-import { useToastError } from '@/components/Toast';
 import { FormFieldsLogin, zFormFieldsLogin } from '@/features/auth/schemas';
 import { LoginHint } from '@/features/devtools/LoginHint';
 import { trpc } from '@/lib/trpc/client';
-import type { RouterOutputs } from '@/lib/trpc/types';
 
 import { ADMIN_PATH } from '../admin/constants';
 import {
-  useOnVerificationCodeError,
-  useOnVerificationCodeSuccess,
-} from './VerificationCodeForm';
+  useOnVerificationError,
+  useOnVerificationSuccess,
+} from './VerificationForm';
 
 type LoginFormProps = BoxProps & {
   buttonVariant?: ButtonProps['variant'];
@@ -34,15 +32,21 @@ export const LoginForm = ({
   ...rest
 }: LoginFormProps) => {
   const { t } = useTranslation(['auth']);
-  const toastError = useToastError();
 
-  const login = trpc.auth.login.useMutation({
-    onSuccess: (data) => onSuccess(data, form.getValues('id')),
-    onError: () => {
-      toastError({
-        title: t('auth:login.feedbacks.loginError.title'),
+  const onVerificationSuccess = useOnVerificationSuccess({
+    defaultRedirect: ADMIN_PATH,
+  });
+  const onVerificationError = useOnVerificationError({
+    onError: (error) => {
+      return form.setError('password', {
+        message: error,
       });
     },
+  });
+
+  const login = trpc.auth.login.useMutation({
+    onSuccess: onVerificationSuccess,
+    onError: onVerificationError,
   });
 
   const form = useForm<FormFieldsLogin>({
@@ -54,36 +58,19 @@ export const LoginForm = ({
     },
   });
 
-  const onSuccess = (data: RouterOutputs['auth']['login'], userId: string) => {
-    validate.mutate({
-      code: '000000',
-      token: data.token,
-      userId,
+  const onSubmit = (id: string, password: string) => {
+    login.mutate({
+      id,
+      password,
     });
   };
-
-  const onVerificationCodeSuccess = useOnVerificationCodeSuccess({
-    defaultRedirect: ADMIN_PATH,
-  });
-  const onVerificationCodeError = useOnVerificationCodeError({
-    onError: (error) => {
-      return form.setError('password', {
-        message: error,
-      });
-    },
-  });
-
-  const validate = trpc.auth.loginValidate.useMutation({
-    onSuccess: onVerificationCodeSuccess,
-    onError: onVerificationCodeError,
-  });
 
   return (
     <Box {...rest}>
       <Form
         {...form}
         onSubmit={(values) => {
-          login.mutate({ id: values.id, password: values.password });
+          onSubmit(values.id, values.password);
         }}
       >
         <Stack spacing={4}>

@@ -8,7 +8,7 @@ import { getValidationRetryDelayInSeconds } from '@/features/auth/utils';
 import { trpc } from '@/lib/trpc/client';
 import { AppRouter } from '@/lib/trpc/types';
 
-export const useOnVerificationCodeSuccess = ({
+export const useOnVerificationSuccess = ({
   defaultRedirect = '/',
 }: {
   defaultRedirect: string;
@@ -29,7 +29,7 @@ export const useOnVerificationCodeSuccess = ({
   };
 };
 
-export const useOnVerificationCodeError = ({
+export const useOnVerificationError = ({
   onError,
 }: {
   onError: (error: string) => void;

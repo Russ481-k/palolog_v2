@@ -4,16 +4,13 @@ import { cookies } from 'next/headers';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-import {
-  VALIDATION_RETRY_DELAY_IN_SECONDS,
-  VALIDATION_TOKEN_EXPIRATION_IN_MINUTES,
-} from '@/features/auth/utils';
+import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
 import { zUser, zUserAuthorization } from '@/features/users/schemas';
 import {
   AUTH_COOKIE_NAME,
   deleteUsedCode,
   setAuthCookie,
-  validateCode,
+  validate,
 } from '@/server/config/auth';
 import { ExtendedTRPCError } from '@/server/config/errors';
 import { createTRPCRouter, publicProcedure } from '@/server/config/trpc';
@@ -62,78 +59,32 @@ export const authRouter = createTRPCRouter({
       zUser().pick({
         id: true,
         password: true,
+        name: true,
         language: true,
       })
     )
-    .output(z.object({ token: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      ctx.logger.info('Retrieving user info');
-      const user = await ctx.db.user.findUnique({
-        where: { id: input.id },
-      });
-
-      ctx.logger.info('Creating token');
-      const token = randomUUID();
-
-      if (!user) {
-        ctx.logger.warn('User not found, silent error for security reasons');
-
-        return {
-          token,
-        };
-      }
-
-      if (user.accountStatus !== 'ENABLED') {
-        ctx.logger.warn('Invalid user, silent error for security reasons');
-        return {
-          token,
-        };
-      }
-
-      ctx.logger.info('Creating code');
-      const code = '000000';
-
-      ctx.logger.info('Saving code and token to database');
-      await ctx.db.verificationToken.create({
-        data: {
-          userId: user.id,
-          expires: dayjs()
-            .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
-            .toDate(),
-          code: code,
-          token,
-        },
-      });
-
-      return {
-        token,
-      };
-    }),
-
-  loginValidate: publicProcedure()
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/admin/login',
-        tags: ['auth'],
-        description: `Failed requests will increment retry delay timeout based on the number of attempts multiplied by ${VALIDATION_RETRY_DELAY_IN_SECONDS} seconds. The number of attempts will not be returned in the response for security purposes. You will have to save the number of attemps in the client.`,
-      },
-    })
-    .input(
+    .output(
       z.object({
-        code: z.string().length(6),
-        token: z.string().uuid(),
-        userId: z.string(),
+        verificationToken: z.object({
+          userId: z.string(),
+          token: z.string(),
+          expires: z.date(),
+          lastAttemptAt: z.date(),
+          attempts: z.number(),
+        }),
+        userJwt: z.string(),
       })
     )
-    .output(z.object({ token: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const { verificationToken, userJwt } = await validateCode({
+      ctx.logger.info('Retrieving user info');
+
+      ctx.logger.info('Creating token');
+      const { verificationToken, userJwt } = await validate({
         ctx,
-        ...input,
+        id: input.id,
+        password: input.password,
       });
 
-      ctx.logger.info('Updating user');
       try {
         await ctx.db.user.update({
           where: { id: verificationToken.userId },
@@ -154,9 +105,7 @@ export const authRouter = createTRPCRouter({
       ctx.logger.info('Set auth cookie');
       setAuthCookie(userJwt);
 
-      return {
-        token: userJwt,
-      };
+      return { verificationToken, userJwt };
     }),
 
   logout: publicProcedure()
@@ -251,8 +200,6 @@ export const authRouter = createTRPCRouter({
 
       // If we got here, the user exists and email is verified, no need to
       // register, send the email to login the user.
-      ctx.logger.info('Creating code');
-      const code = '000000';
 
       ctx.logger.info('Creating verification token in database');
       await ctx.db.verificationToken.create({
@@ -262,58 +209,11 @@ export const authRouter = createTRPCRouter({
           expires: dayjs()
             .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
             .toDate(),
-          code: code,
         },
       });
 
       return {
         token,
-      };
-    }),
-  registerValidate: publicProcedure()
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/auth/register/validate/{token}',
-        tags: ['auth'],
-        description: `Failed requests will increment retry delay timeout based on the number of attempts multiplied by ${VALIDATION_RETRY_DELAY_IN_SECONDS} seconds. The number of attempts will not be returned in the response for security purposes. You will have to save the number of attemps in the client.`,
-      },
-    })
-    .input(z.object({ code: z.string().length(6), token: z.string().uuid() }))
-    .output(z.object({ token: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const { verificationToken, userJwt } = await validateCode({
-        ctx,
-        ...input,
-      });
-
-      ctx.logger.info('Updating user');
-      try {
-        await ctx.db.user.update({
-          where: {
-            id: verificationToken.userId,
-            accountStatus: 'NOT_VERIFIED',
-          },
-          data: {
-            lastLoginAt: new Date(),
-            accountStatus: 'ENABLED',
-          },
-        });
-      } catch (e) {
-        ctx.logger.warn('Failed to update the user, probably already verified');
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Failed to authenticate the user ' + e,
-        });
-      }
-
-      await deleteUsedCode({ ctx, token: verificationToken.token });
-
-      ctx.logger.info('Set auth cookie');
-      setAuthCookie(userJwt);
-
-      return {
-        token: userJwt,
       };
     }),
 });

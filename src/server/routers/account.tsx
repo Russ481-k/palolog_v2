@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { zUserAccount } from '@/features/account/schemas';
 import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
-import { deleteUsedCode, validateCode } from '@/server/config/auth';
+import { deleteUsedCode, validate } from '@/server/config/auth';
 import { ExtendedTRPCError } from '@/server/config/errors';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
@@ -127,8 +127,6 @@ export const accountRouter = createTRPCRouter({
 
       // If we got here, the user can update the id
       // and we send the id to verify the new id.
-      ctx.logger.info('Creating code');
-      const code = '000000';
 
       ctx.logger.info('Creating verification token in database');
       await ctx.db.verificationToken.create({
@@ -138,7 +136,6 @@ export const accountRouter = createTRPCRouter({
           expires: dayjs()
             .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
             .toDate(),
-          code: code,
         },
       });
 
@@ -147,7 +144,7 @@ export const accountRouter = createTRPCRouter({
       };
     }),
 
-  updateEmailValidate: protectedProcedure()
+  updateValidate: protectedProcedure()
     .meta({
       openapi: {
         method: 'POST',
@@ -158,15 +155,16 @@ export const accountRouter = createTRPCRouter({
     })
     .input(
       z.object({
-        token: z.string().uuid(),
-        code: z.string().length(6),
+        id: z.string().uuid(),
+        password: z.string(),
       })
     )
     .output(zUserAccount())
     .mutation(async ({ ctx, input }) => {
-      const { verificationToken } = await validateCode({
+      const { verificationToken } = await validate({
         ctx,
-        ...input,
+        id: input.id,
+        password: input.password,
       });
 
       if (!verificationToken.userId) {
@@ -182,7 +180,7 @@ export const accountRouter = createTRPCRouter({
           id: verificationToken.userId,
         },
         data: {
-          email: verificationToken.email,
+          id: verificationToken.userId,
         },
       });
 

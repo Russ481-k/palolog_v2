@@ -1,4 +1,3 @@
-import { t } from 'i18next';
 import { z } from 'zod';
 
 import { zUser } from '@/features/users/schemas';
@@ -15,16 +14,12 @@ export const zFormFieldsRegister = () =>
     .pick({ id: true, password: true, email: true, name: true, language: true })
     .required();
 
-export type FormFieldsVerificationCode = z.infer<
-  ReturnType<typeof zFormFieldsVerificationCode>
+export type FormFieldsVerification = z.infer<
+  ReturnType<typeof zFormFieldsVerification>
 >;
-export const zFormFieldsVerificationCode = () =>
+export const zFormFieldsVerification = () =>
   z.object({
-    code: z
-      .string({
-        invalid_type_error: t('auth:data.verificationCode.invalid'),
-        required_error: t('auth:data.verificationCode.required'),
-      })
-      .min(6, t('auth:data.verificationCode.invalid'))
-      .max(6, t('auth:data.verificationCode.invalid')),
+    id: z.string(),
+    password: z.string(),
+    name: z.string(),
   });
