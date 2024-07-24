@@ -5,8 +5,8 @@ import {
   IconButton,
   Input,
   InputGroup,
+  InputLeftElement,
   InputProps,
-  InputRightElement,
   forwardRef,
   useControllableState,
   useMergeRefs,
@@ -87,15 +87,7 @@ export const SearchInput = forwardRef<SearchInputProps, 'input'>(
 
     return (
       <InputGroup {...rest}>
-        <Input
-          ref={refs}
-          onChange={handleChange}
-          value={search || ''}
-          placeholder={placeholder ?? t('components:searchInput.placeholder')}
-          isDisabled={isDisabled}
-          onKeyDown={handleEscape}
-        />
-        <InputRightElement pointerEvents="none">
+        <InputLeftElement pointerEvents="none">
           {!isDisabled && search ? (
             <IconButton
               onClick={handleClear}
@@ -111,7 +103,15 @@ export const SearchInput = forwardRef<SearchInputProps, 'input'>(
               <LuSearch />
             </Box>
           )}
-        </InputRightElement>
+        </InputLeftElement>
+        <Input
+          ref={refs}
+          onChange={handleChange}
+          value={search || ''}
+          placeholder={placeholder ?? t('components:searchInput.placeholder')}
+          isDisabled={isDisabled}
+          onKeyDown={handleEscape}
+        />
       </InputGroup>
     );
   }

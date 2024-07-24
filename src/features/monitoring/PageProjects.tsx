@@ -4,8 +4,13 @@ import { ChangeEvent, useEffect, useRef, useState } from 'react';
 
 import {
   Box,
+  Button,
   Flex,
   Heading,
+  Input,
+  InputGroup,
+  InputLeftAddon,
+  InputRightElement,
   Select,
   Stack,
   useColorMode,
@@ -174,12 +179,13 @@ export default function PageProjects() {
               alignItems={{ base: 'start', md: 'center' }}
               gap={2}
             >
-              <Heading flex="none" fontSize="32px" color="gray.400">
+              <Heading flex="none" fontSize="24px" color="gray.400">
                 TRAFFIC
               </Heading>
               <Flex gap={2}>
-                <Box w="180px" h="100%" textAlign="center">
+                <Box w="140px" h="100%" textAlign="center">
                   <DayPicker
+                    inputProps={{ size: 'sm' }}
                     value={
                       new Date(
                         moment(selectedDayFrom ?? new Date().getTime()).format(
@@ -192,18 +198,19 @@ export default function PageProjects() {
                     }
                   />
                 </Box>
-                <Box w="180px" h="100%">
+                <Box w="100px" h="100%">
                   <TimePicker
                     clearIcon={<></>}
                     value={selectedTimeFrom}
                     onChange={onFromTimeChanged}
                   />
                 </Box>
-                <Heading color="gray.500" flex="none" size="sm" pt="10px">
+                <Heading color="gray.500" flex="none" size="sm" py="5px">
                   ~
                 </Heading>
-                <Box w="180px" h="100%" textAlign="center">
+                <Box w="140px" h="100%" textAlign="center">
                   <DayPicker
+                    inputProps={{ size: 'sm' }}
                     value={
                       new Date(
                         moment(selectedDayTo ?? new Date().getTime()).format(
@@ -216,7 +223,7 @@ export default function PageProjects() {
                     }
                   />
                 </Box>
-                <Box w="180px" h="100%">
+                <Box w="100px" h="100%">
                   <TimePicker
                     clearIcon={<></>}
                     value={selectedTimeTo}
@@ -225,25 +232,24 @@ export default function PageProjects() {
                 </Box>
               </Flex>
             </Flex>
-            <Flex
-              flexDirection={{ base: 'column', md: 'row' }}
-              alignItems={{ base: 'start', md: 'center' }}
-              gap={4}
-            >
-              <Select variant="filled" onChange={onRowLoadLimitChange}>
-                <option value="1000">1000</option>
-                <option value="5000">5000</option>
-                <option value="10000">10000</option>
-              </Select>
-            </Flex>
-          </Flex>
-          <Flex gap={2}>
-            <SearchInput
-              value={searchTerm}
-              onChange={onSearchInputChanged}
-              size="md"
-              maxW="100%"
-            />
+            <InputGroup w="100%" size="sm">
+              <SearchInput
+                value={searchTerm}
+                onChange={onSearchInputChanged}
+                maxW="100%"
+              />
+              <InputRightElement w="4.5rem" p={0} m={0}>
+                <Button
+                  h="32px"
+                  w="4.5rem"
+                  size="xs"
+                  borderLeftRadius={0}
+                  onClick={() => {}}
+                >
+                  Search
+                </Button>
+              </InputRightElement>
+            </InputGroup>
           </Flex>
           <div
             className={
@@ -262,13 +268,47 @@ export default function PageProjects() {
                 onCellClickChanged,
                 timeFormatter
               )}
-              pagination
-              paginationPageSize={1000}
-              paginationPageSizeSelector={[1000, 5000, 10000]}
             />
           </div>
+          <Pagination />
         </Stack>
       </AdminLayoutPageContent>
     </AdminLayoutPage>
   );
 }
+
+const Pagination = () => {
+  // 페이지 길이
+  // 현재 페이지
+  //
+  return (
+    <Flex justifyContent="space-between">
+      <Flex alignItems="end" flex={1}>
+        <Heading size="sm">{`Total : ` + 'totalNum'}</Heading>
+      </Flex>
+      <Flex gap={2} flex={1}>
+        <Button size="sm">{`<`}</Button>
+        <Button size="sm">1</Button>
+        <Button size="sm">2</Button>
+        <Button size="sm">3</Button>
+        <Button size="sm">4</Button>
+        <Input placeholder="page" size="sm" w="32px" />
+        <Button size="sm">6</Button>
+        <Button size="sm">7</Button>
+        <Button size="sm">8</Button>
+        <Button size="sm">9</Button>
+        <Button size="sm">{`>`}</Button>
+      </Flex>
+      <Flex flex={1} w="180px" justifyContent="right">
+        <InputGroup size="sm" w="180px">
+          <InputLeftAddon>Batch</InputLeftAddon>
+          <Select variant="filled" onChange={() => {}}>
+            <option value="1000">1000</option>
+            <option value="5000">5000</option>
+            <option value="10000">10000</option>
+          </Select>
+        </InputGroup>
+      </Flex>
+    </Flex>
+  );
+};
