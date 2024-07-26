@@ -33,7 +33,6 @@ export const authRouter = createTRPCRouter({
     )
     .query(async ({ ctx }) => {
       ctx.logger.info(`User ${ctx.user ? 'is' : 'is not'} logged`);
-      ctx.logger.info({ ctxUser: ctx.user });
 
       if (ctx.user) {
         const cookieToken = cookies().get(AUTH_COOKIE_NAME)?.value;
