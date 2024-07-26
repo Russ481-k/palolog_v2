@@ -63,7 +63,8 @@ export const setAuthCookie = (token: string) => {
     name: AUTH_COOKIE_NAME,
     value: token,
     httpOnly: true,
-    secure: env.NODE_ENV === 'production',
+    secure: false,
+    // env.NODE_ENV === 'production',
     expires: dayjs().add(1, 'year').toDate(),
   });
 };
@@ -99,8 +100,8 @@ export async function validate({
   });
 
   ctx.logger.info('Checking password');
-  const salt = await bcrypt.genSalt(12);
-  const hashPassword = await bcrypt.hash(password, salt);
+  // const salt = await bcrypt.genSalt(12);
+  // const hashPassword = await bcrypt.hash(password, salt);
 
   ctx.logger.info('Checking if verification token exists');
   const user = await ctx.db.user.findUnique({
