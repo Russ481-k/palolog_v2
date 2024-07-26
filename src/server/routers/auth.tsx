@@ -33,6 +33,7 @@ export const authRouter = createTRPCRouter({
     )
     .query(async ({ ctx }) => {
       ctx.logger.info(`User ${ctx.user ? 'is' : 'is not'} logged`);
+      ctx.logger.info({ ctxUser: ctx.user });
 
       if (ctx.user) {
         const cookieToken = cookies().get(AUTH_COOKIE_NAME)?.value;
@@ -51,7 +52,7 @@ export const authRouter = createTRPCRouter({
     .meta({
       openapi: {
         method: 'POST',
-        path: '/auth/login',
+        path: '/admin/login',
         tags: ['auth'],
       },
     })
@@ -96,7 +97,7 @@ export const authRouter = createTRPCRouter({
         ctx.logger.warn('Failed to update the user, probably not enabled');
         throw new TRPCError({
           code: 'UNAUTHORIZED',
-          message: 'Failed to authenticate the user ' + e,
+          message: 'Failed to authenticate the user ',
         });
       }
 
@@ -189,14 +190,14 @@ export const authRouter = createTRPCRouter({
       });
       // }
 
-      // if (!newUser) {
-      //   ctx.logger.error(
-      //     'An error occured while creating or updating the user, the address may already exists, silent error for security reasons'
-      //   );
-      //   return {
-      //     token,
-      //   };
-      // }
+      if (!newUser) {
+        ctx.logger.error(
+          'An error occured while creating or updating the user, the address may already exists, silent error for security reasons'
+        );
+        return {
+          token,
+        };
+      }
 
       // If we got here, the user exists and email is verified, no need to
       // register, send the email to login the user.

@@ -13,7 +13,7 @@ FROM base AS build
 # We still need devDependencies to build PaloLog [web], so no --prod option
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 # Building as a production application though
-ENV NODE_ENV production
+ENV NODE_ENV=production
 RUN pnpm run build
 
 FROM base AS runner
@@ -30,9 +30,9 @@ WORKDIR /app
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
 
 # Learn more here: https://nextjs.org/telemetry
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 
 CMD ["pnpm", "start"]

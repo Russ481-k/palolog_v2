@@ -99,7 +99,6 @@ export const LoginForm = ({
               {t('auth:login.actions.login')}
             </Button>
           </Flex>
-
           <LoginHint />
         </Stack>
       </Form>

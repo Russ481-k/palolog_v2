@@ -102,14 +102,13 @@ export async function validate({
   const salt = await bcrypt.genSalt(12);
   const hashPassword = await bcrypt.hash(password, salt);
 
-  ctx.logger.info('Checking if verification token exists' + hashPassword);
+  ctx.logger.info('Checking if verification token exists');
   const user = await ctx.db.user.findUnique({
     where: { id, password },
   });
 
   if (!user) {
     ctx.logger.warn('User not found, silent error for security reasons');
-
     throw new TRPCError({
       code: 'UNAUTHORIZED',
       message: 'Failed to authenticate the user',
@@ -142,6 +141,26 @@ export async function validate({
     },
   });
 
+  let retryDelayInSeconds = getValidationRetryDelayInSeconds(
+    verificationToken?.attempts ?? 0
+  );
+
+  ctx.logger.info('Check last attempt date');
+  if (
+    dayjs().isBefore(
+      dayjs(verificationToken?.lastAttemptAt).add(
+        retryDelayInSeconds,
+        'seconds'
+      )
+    )
+  ) {
+    ctx.logger.warn('Last attempt was to close');
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Failed to authenticate the user',
+    });
+  }
+
   if (!verificationToken) {
     ctx.logger.warn('Verification token does not exist');
     throw new TRPCError({
@@ -150,7 +169,7 @@ export async function validate({
     });
   }
 
-  const retryDelayInSeconds = getValidationRetryDelayInSeconds(
+  retryDelayInSeconds = getValidationRetryDelayInSeconds(
     verificationToken.attempts
   );
 

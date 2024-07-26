@@ -110,10 +110,6 @@ export const projectsRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       const result: Array<zLogs> = [];
-      console.log('timeFrom', input.timeFrom);
-      console.log('timeTo', input.timeTo);
-      console.log('limit', input.limit);
-      console.log('searchTerm', input.searchTerm);
 
       const timeRange = `DURATION FROM TO_DATE('${moment(input.timeFrom).format('YYYY-MM-DD HH:mm:SS')}') TO TO_DATE('${moment(input.timeTo).format('YYYY-MM-DD HH:mm:SS')}')`;
       const searchTerm = input.searchTerm;

@@ -286,13 +286,13 @@ const Pagination = () => {
       <Flex alignItems="end" flex={1}>
         <Heading size="sm">{`Total : ` + 'totalNum'}</Heading>
       </Flex>
-      <Flex gap={2} flex={1}>
+      <Flex gap={2} flex={1} justifyContent="center">
         <Button size="sm">{`<`}</Button>
         <Button size="sm">1</Button>
         <Button size="sm">2</Button>
         <Button size="sm">3</Button>
         <Button size="sm">4</Button>
-        <Input placeholder="page" size="sm" w="32px" />
+        <Input size="sm" w="36px" value="5" p={0} textAlign="center" />
         <Button size="sm">6</Button>
         <Button size="sm">7</Button>
         <Button size="sm">8</Button>

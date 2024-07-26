@@ -12,10 +12,10 @@ export const zUserAccount = () =>
     language: true,
   });
 
-export type FormFieldsAccountEmail = z.infer<
-  ReturnType<typeof zFormFieldsAccountEmail>
+export type FormFieldsAccountId = z.infer<
+  ReturnType<typeof zFormFieldsAccountId>
 >;
-export const zFormFieldsAccountEmail = () => zUser().pick({ email: true });
+export const zFormFieldsAccountId = () => zUser().pick({ id: true });
 
 export type FormFieldsAccountProfile = z.infer<
   ReturnType<typeof zFormFieldsAccountProfile>
