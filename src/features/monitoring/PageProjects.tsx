@@ -48,7 +48,7 @@ export default function PageProjects() {
   const beforeHourTime: Moment = moment().tz('Asia/Seoul').subtract(1, 'hours');
   const nowTime: Moment = moment().tz('Asia/Seoul');
 
-  const [limit, setLimit] = useState<number>(1000);
+  const [limit, setLimit] = useState<number>(100);
   const [nextSearchTerm, setNextSearchTerm] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedDayFrom, setSelectedDayFrom] = useState<number | null>(
@@ -63,7 +63,7 @@ export default function PageProjects() {
 
   const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
   const toast = useToast();
-  const projects = trpc.projects.getAll.useInfiniteQuery(
+  const { data, isLoading } = trpc.projects.getAll.useInfiniteQuery(
     {
       timeFrom: new Date(
         moment(selectedTimeFrom ?? beforeHourTime)
@@ -92,7 +92,7 @@ export default function PageProjects() {
     event: CellClickedEvent<zLogs>,
     dateType: 'Y' | 'N'
   ) => {
-    if (projects.isLoading) return;
+    if (isLoading) return;
     let eventValue = event.value;
     const eventColDef = event.colDef.field
       ?.replace(/[A-Z]/g, (letter) => `_${letter}`)
@@ -172,8 +172,8 @@ export default function PageProjects() {
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
-        <Stack spacing={2}>
-          <Flex justifyContent="space-between" gap={4}>
+        <Stack spacing={3}>
+          <Flex justifyContent="space-between" gap={3}>
             <Flex
               flexDirection={{ base: 'column', md: 'row' }}
               alignItems={{ base: 'start', md: 'center' }}
@@ -260,52 +260,90 @@ export default function PageProjects() {
             {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
             <AgGridReact
               ref={gridRef}
-              rowData={
-                !projects.isLoading ? projects.data?.pages[0]?.logs : dummy
-              }
+              rowData={!isLoading ? data?.pages[0]?.logs : dummy}
               columnDefs={colDefs(
-                !projects.isLoading,
+                !isLoading,
                 onCellClickChanged,
                 timeFormatter
               )}
             />
           </div>
-          <Pagination />
+          <PaginationSet
+            currentPage={data?.pages[0]?.pagination.currentPage ?? 0}
+            pageLength={data?.pages[0]?.pagination.pageLength ?? 0}
+            totalCnt={data?.pages[0]?.pagination.pageLength ?? 0}
+          />
         </Stack>
       </AdminLayoutPageContent>
     </AdminLayoutPage>
   );
 }
 
-const Pagination = () => {
-  // 페이지 길이
-  // 현재 페이지
-  //
+const PaginationSet = ({
+  currentPage,
+  pageLength,
+  totalCnt,
+}: {
+  currentPage: number;
+  pageLength: number;
+  totalCnt: number;
+}) => {
   return (
     <Flex justifyContent="space-between">
       <Flex alignItems="end" flex={1}>
-        <Heading size="sm">{`Total : ` + 'totalNum'}</Heading>
+        <InputGroup size="sm" w="180px">
+          <InputLeftAddon>Total</InputLeftAddon>
+          <Input
+            textAlign="right"
+            borderRightWidth={0}
+            borderRightRadius={0}
+            value={totalCnt
+              .toString()
+              .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')}
+          />
+        </InputGroup>
+        <Button size="sm" borderLeftRadius={0}>
+          Download
+        </Button>
       </Flex>
-      <Flex gap={2} flex={1} justifyContent="center">
+      <Flex gap={1} flex={1} justifyContent="center">
         <Button size="sm">{`<`}</Button>
         <Button size="sm">1</Button>
         <Button size="sm">2</Button>
-        <Button size="sm">3</Button>
-        <Button size="sm">4</Button>
-        <Input size="sm" w="36px" value="5" p={0} textAlign="center" />
-        <Button size="sm">6</Button>
-        <Button size="sm">7</Button>
-        <Button size="sm">8</Button>
-        <Button size="sm">9</Button>
+        {pageLength > 10 && (
+          <Heading size="md" lineHeight="">
+            ···
+          </Heading>
+        )}
+        <Button size="sm">{currentPage - 2}</Button>
+        <Button size="sm">{currentPage - 1}</Button>
+        <Input
+          size="sm"
+          w="36px"
+          value={currentPage}
+          p={0}
+          textAlign="center"
+        />
+        <Button size="sm">{currentPage + 1}</Button>
+        <Button size="sm">{currentPage + 2}</Button>
+        {pageLength > 10 && (
+          <Heading size="md" lineHeight="">
+            ···
+          </Heading>
+        )}
+        <Button size="sm">{pageLength - 1}</Button>
+        <Button size="sm">{pageLength}</Button>
         <Button size="sm">{`>`}</Button>
       </Flex>
       <Flex flex={1} w="180px" justifyContent="right">
         <InputGroup size="sm" w="180px">
           <InputLeftAddon>Batch</InputLeftAddon>
-          <Select variant="filled" onChange={() => {}}>
-            <option value="1000">1000</option>
-            <option value="5000">5000</option>
-            <option value="10000">10000</option>
+          <Select textAlign="center" variant="filled" onChange={() => {}}>
+            <option value="100">100</option>
+            <option value="500">500</option>
+            <option value="1000">1,000</option>
+            <option value="5000">5,000</option>
+            <option value="10000">10,000</option>
           </Select>
         </InputGroup>
       </Flex>

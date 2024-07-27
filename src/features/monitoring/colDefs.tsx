@@ -26,7 +26,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={40} borderRadius={5} />
+              <Skeleton h={3} w={40} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -44,7 +44,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={140} borderRadius={5} />
+              <Skeleton h={3} w={140} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -62,7 +62,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={140} borderRadius={5} />
+              <Skeleton h={3} w={140} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -79,7 +79,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -96,7 +96,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={45} borderRadius={5} />
+              <Skeleton h={3} w={45} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -113,7 +113,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={60} borderRadius={5} />
+              <Skeleton h={3} w={60} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -130,7 +130,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={60} borderRadius={5} />
+              <Skeleton h={3} w={60} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -147,7 +147,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -164,7 +164,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -181,7 +181,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={45} borderRadius={5} />
+              <Skeleton h={3} w={45} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -198,7 +198,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={135} borderRadius={5} />
+              <Skeleton h={3} w={135} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -215,7 +215,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -232,7 +232,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -249,7 +249,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -266,7 +266,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -283,7 +283,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -300,7 +300,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -317,7 +317,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -334,7 +334,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -351,7 +351,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -368,7 +368,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -385,7 +385,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -402,7 +402,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -419,7 +419,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -436,7 +436,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -453,7 +453,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -470,7 +470,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={40} borderRadius={5} />
+              <Skeleton h={3} w={40} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -487,7 +487,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={45} borderRadius={5} />
+              <Skeleton h={3} w={45} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -504,7 +504,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={45} borderRadius={5} />
+              <Skeleton h={3} w={45} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -521,7 +521,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={60} borderRadius={5} />
+              <Skeleton h={3} w={60} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -538,7 +538,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={90} borderRadius={5} />
+              <Skeleton h={3} w={90} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -555,7 +555,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -572,7 +572,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -589,7 +589,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={40} borderRadius={5} />
+              <Skeleton h={3} w={40} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -606,7 +606,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -623,7 +623,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -640,7 +640,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -657,7 +657,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -674,7 +674,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={90} borderRadius={5} />
+              <Skeleton h={3} w={90} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -691,7 +691,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={120} borderRadius={5} />
+              <Skeleton h={3} w={120} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -708,7 +708,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={90} borderRadius={5} />
+              <Skeleton h={3} w={90} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -725,7 +725,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -742,7 +742,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -759,7 +759,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -776,7 +776,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -793,7 +793,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -810,7 +810,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={120} borderRadius={5} />
+              <Skeleton h={3} w={120} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -827,7 +827,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -844,7 +844,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -861,7 +861,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={115} borderRadius={5} />
+              <Skeleton h={3} w={115} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -878,7 +878,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={80} borderRadius={5} />
+              <Skeleton h={3} w={80} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -895,7 +895,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -912,7 +912,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={50} borderRadius={5} />
+              <Skeleton h={3} w={50} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -929,7 +929,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -946,7 +946,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -963,7 +963,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -980,7 +980,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {

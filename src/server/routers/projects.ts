@@ -97,7 +97,8 @@ export const projectsRouter = createTRPCRouter({
         .object({
           timeFrom: z.number().optional().default(new Date().getTime()),
           timeTo: z.number().optional().default(new Date().getTime()),
-          limit: z.number().min(1).max(500000).default(1000),
+          currentPage: z.number().min(1).default(1),
+          limit: z.number().min(1).max(500000).default(100),
           cursor: z.string().cuid().optional(),
           searchTerm: z.string().optional(),
         })
@@ -106,24 +107,43 @@ export const projectsRouter = createTRPCRouter({
     .output(
       z.object({
         logs: z.array(zPaloLogs().nullish()),
+        pagination: z.object({
+          currentPage: z.number().min(0).default(0),
+          pageLength: z.number().min(0).default(0),
+          totalCnt: z.number().min(0).default(0),
+        }),
       })
     )
     .query(async ({ input }) => {
-      const result: Array<zLogs> = [];
+      const logsArray: Array<zLogs> = [];
 
       const timeRange = `DURATION FROM TO_DATE('${moment(input.timeFrom).format('YYYY-MM-DD HH:mm:SS')}') TO TO_DATE('${moment(input.timeTo).format('YYYY-MM-DD HH:mm:SS')}')`;
       const searchTerm = input.searchTerm;
-      const query = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${input.limit} ${timeRange}`;
+      const queryLogs = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${input.limit} ${timeRange}`;
+      const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
+      let totalCnt = 0;
+      let pageLength = 1;
       console.log(
         'query',
         `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-          encodeURIComponent(query)
+          encodeURIComponent(queryLogs)
       );
 
       try {
         await fetch(
           `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-            encodeURIComponent(query)
+            encodeURIComponent(queryTotalCnt)
+        )
+          .then((res) => {
+            return res.json();
+          })
+          .then((data) => {
+            totalCnt = data.data.rows[0][0];
+            pageLength = Math.ceil(totalCnt / input.limit);
+          });
+        await fetch(
+          `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+            encodeURIComponent(queryLogs)
         )
           .then((res) => {
             return res.json();
@@ -149,7 +169,7 @@ export const projectsRouter = createTRPCRouter({
               if (columns.length !== logs.rows[i]?.length) {
                 throw new Error('Arrays must have the same length');
               }
-              result.push(createObject(columns, logs.rows[i]));
+              logsArray.push(createObject(columns, logs.rows[i]));
             }
           })
           .catch((e) => {
@@ -158,6 +178,12 @@ export const projectsRouter = createTRPCRouter({
       } catch {
         console.log('error');
       }
-      return { logs: result };
+      return {
+        logs: logsArray,
+        pagination: {
+          pageLength,
+          totalCnt,
+        },
+      };
     }),
 });
