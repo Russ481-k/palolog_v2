@@ -1,41 +1,63 @@
 import { ReactNode } from 'react';
 
-import { InputProps } from '@chakra-ui/react';
+import {
+  Input,
+  InputGroup,
+  InputLeftElement,
+  InputProps,
+  InputRightElement,
+} from '@chakra-ui/react';
 import { Controller, FieldPath, FieldValues } from 'react-hook-form';
 
-import { DayPicker } from '@/components/DayPicker';
 import { FieldCommonProps } from '@/components/Form/FormField';
 import { FormFieldError } from '@/components/Form/FormFieldError';
 import { FormFieldHelper } from '@/components/Form/FormFieldHelper';
 import { FormFieldItem } from '@/components/Form/FormFieldItem';
 import { FormFieldLabel } from '@/components/Form/FormFieldLabel';
+import { SearchInput } from '@/components/SearchInput';
 
-export type FieldDateProps<
+export type FieldSearchInputProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 > = {
-  type: 'date';
+  type: 'search-input';
   label?: ReactNode;
   helper?: ReactNode;
-} & Pick<InputProps, 'placeholder' | 'size' | 'width' | 'autoFocus'> &
+  startElement?: ReactNode;
+  endElement?: ReactNode;
+} & Pick<
+  InputProps,
+  'borderRightRadius' | 'placeholder' | 'size' | 'autoFocus'
+> &
   FieldCommonProps<TFieldValues, TName>;
 
-export const FieldDate = <
+export const FieldSearchInput = <
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 >(
-  props: FieldDateProps<TFieldValues, TName>
+  props: FieldSearchInputProps<TFieldValues, TName>
 ) => {
   return (
     <Controller
       {...props}
-      render={({ field: { ref: _ref, ...field } }) => (
+      render={({ field }) => (
         <FormFieldItem>
           {!!props.label && <FormFieldLabel>{props.label}</FormFieldLabel>}
-          <DayPicker
-            {...field}
-            inputProps={{ size: props.size, width: props.width }}
-          />
+          <InputGroup size={props.size}>
+            <SearchInput
+              type={props.type}
+              placeholder={props.placeholder}
+              autoFocus={props.autoFocus}
+              borderRightRadius={props.borderRightRadius}
+              {...field}
+            />
+            {!!props.startElement && (
+              <InputLeftElement>{props.startElement}</InputLeftElement>
+            )}
+            {!!props.endElement && (
+              <InputRightElement>{props.endElement}</InputRightElement>
+            )}
+          </InputGroup>
           {!!props.helper && <FormFieldHelper>{props.helper}</FormFieldHelper>}
           <FormFieldError />
         </FormFieldItem>

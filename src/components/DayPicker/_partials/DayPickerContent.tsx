@@ -1,7 +1,13 @@
-import React, { RefObject, forwardRef } from 'react';
+import React, {
+  ChangeEventHandler,
+  RefObject,
+  forwardRef,
+  useState,
+} from 'react';
 
-import { Box, Button, Portal } from '@chakra-ui/react';
-import fr from 'date-fns/locale/fr';
+import { Box, Button, Input, Portal } from '@chakra-ui/react';
+import { setHours, setMinutes } from 'date-fns';
+import en from 'date-fns/locale/en-US';
 import dayjs from 'dayjs';
 import {
   DayModifiers,
@@ -24,6 +30,7 @@ import { matcherToArray } from '@/components/DayPicker/matcherToArray';
 import { MonthPicker } from '@/components/MonthPicker';
 
 type DayPickerContentProps = {
+  timeValue: string;
   isCalendarFocused: boolean;
   setIsCalendarFocused: (value: boolean) => void;
   buttonRef: RefObject<HTMLButtonElement>;
@@ -31,6 +38,7 @@ type DayPickerContentProps = {
   handleSelectMonth: (date: Date) => void;
   handleChangeMonth: (date?: Date | null) => void;
   handleDaySelect: (date?: Date | null) => void;
+  handleTimeSelect: (time: string) => void;
   handleOnTapEnter: () => void;
   value?: Date | null;
   popperManagement: UseDayPickerPopperManagementValue;
@@ -42,6 +50,7 @@ export const DayPickerContent = forwardRef<
 >(
   (
     {
+      timeValue,
       isCalendarFocused,
       setIsCalendarFocused,
       buttonRef,
@@ -51,6 +60,7 @@ export const DayPickerContent = forwardRef<
       handleOnTapEnter,
       dayPickerProps,
       handleDaySelect,
+      handleTimeSelect,
       value,
       popperManagement,
       arePastDaysDisabled = false,
@@ -64,6 +74,24 @@ export const DayPickerContent = forwardRef<
     const { t } = useTranslation(['components']);
     const { mode, toggleMode, month } = hookMonthNavigation;
     // Gestion des modifiers et leurs styles
+
+    const [selected, setSelected] = useState<Date>();
+
+    const handleTimeChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+      const time = e.target.value;
+      if (!selected) {
+        handleTimeSelect(time);
+        return;
+      }
+      const [hours, minutes] = time.split(':').map((str) => parseInt(str, 10));
+      const newSelectedDate = setHours(
+        setMinutes(selected, minutes ?? 0),
+        hours ?? 0
+      );
+      setSelected(newSelectedDate);
+      handleTimeSelect(time);
+    };
+
     const modifiers: DayModifiers = {
       ...DEFAULT_MODIFIERS,
       ...dayPickerProps?.modifiers,
@@ -87,7 +115,9 @@ export const DayPickerContent = forwardRef<
       ? {
           footer: (
             <Button
-              onClick={() => handleDaySelect(dayjs().startOf('day').toDate())}
+              onClick={() =>
+                handleDaySelect(new Date(dayjs().startOf('day').toISOString()))
+              }
               variant="@secondary"
               size="sm"
               w="full"
@@ -123,7 +153,17 @@ export const DayPickerContent = forwardRef<
             }}
             {...rest}
           >
-            {mode === 'DAY' ? (
+            {
+              <form style={{ marginBlockEnd: '1em' }}>
+                <Input
+                  size="sm"
+                  type="time"
+                  value={timeValue}
+                  onChange={handleTimeChange}
+                />
+              </form>
+            }
+            {mode === 'DAY' && (
               <ReactDayPicker
                 mode="single"
                 initialFocus={isCalendarFocused}
@@ -131,7 +171,9 @@ export const DayPickerContent = forwardRef<
                 onMonthChange={(date) => {
                   handleChangeMonth(date);
                 }}
-                selected={value ?? undefined}
+                selected={
+                  new Date(dayjs(value).format('YYYY-MM-DD')) ?? undefined
+                }
                 onSelect={handleDaySelect}
                 components={{
                   Caption: (props) => (
@@ -148,7 +190,11 @@ export const DayPickerContent = forwardRef<
                 disabled={
                   arePastDaysDisabled
                     ? [
-                        { before: dayjs().startOf('day').toDate() },
+                        {
+                          before: new Date(
+                            dayjs().startOf('day').toISOString()
+                          ),
+                        },
                         ...matcherToArray(dayPickerProps?.disabled),
                       ]
                     : dayPickerProps?.disabled
@@ -156,15 +202,18 @@ export const DayPickerContent = forwardRef<
                 modifiers={modifiers}
                 modifiersStyles={modifiersStyles}
                 {...todayButtonProps}
-                locale={fr}
+                locale={en}
                 required={required}
               />
-            ) : (
+            )}
+            {mode === 'MONTH' && (
               <MonthPicker
                 year={month?.getFullYear()}
                 onMonthClick={handleSelectMonth}
                 onTodayButtonClick={() =>
-                  handleSelectMonth(dayjs().startOf('day').toDate())
+                  handleSelectMonth(
+                    new Date(dayjs().startOf('day').toISOString())
+                  )
                 }
               />
             )}

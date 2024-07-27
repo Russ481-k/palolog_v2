@@ -216,13 +216,13 @@ const PaginationButtons = ({
         >{`<`}</Button>
         {paginationButtonsData.map((page) => (
           <Button
-            bgColor={currentPage === page.buttonNumber() ? 'teal.100' : 'white'}
+            bgColor={currentPage === page.buttonNumber() ? 'gray.200' : 'white'}
             borderColor={
-              currentPage === page.buttonNumber() ? 'white' : 'gray.300'
+              currentPage === page.buttonNumber() ? 'gray.400' : 'gray.300'
             }
             borderWidth={1}
             color={
-              currentPage === page.buttonNumber() ? 'teal.700' : 'gray.800'
+              currentPage === page.buttonNumber() ? 'gray.700' : 'gray.800'
             }
             display={
               page.buttonNumber() > pageList.length ? 'none' : 'inline-flex'

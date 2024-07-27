@@ -62,9 +62,15 @@ export const PageProjectsFooter = ({
                 textAlign="right"
                 borderRightWidth={0}
                 borderRightRadius={0}
-                placeholder={pageLength
-                  .toString()
-                  .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')}
+                placeholder={
+                  currentPage
+                    .toString()
+                    .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',') +
+                  ' / ' +
+                  pageLength
+                    .toString()
+                    .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')
+                }
                 onChange={(e) => setGoToPage(Number(e.target.value))}
               />
             </InputGroup>

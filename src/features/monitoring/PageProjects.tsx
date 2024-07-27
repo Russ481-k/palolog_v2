@@ -24,7 +24,6 @@ import dayjs from 'dayjs';
 import { useForm } from 'react-hook-form';
 
 import { Form, FormField } from '@/components/Form';
-import { SearchInput } from '@/components/SearchInput';
 import {
   AdminLayoutPage,
   AdminLayoutPageContent,
@@ -43,6 +42,7 @@ export default function PageProjects() {
   const beforeHourTime = dayjs()
     .set('minute', dayjs().minute() - 1)
     .format('YYYY-MM-DD HH:mm:ss');
+  const nowDate = dayjs().format('YYYY-MM-DD HH:mm:ss');
 
   const form = useForm<FormFieldsPaloLogsParams>({
     mode: 'onSubmit',
@@ -125,17 +125,9 @@ export default function PageProjects() {
       const newTerm = ' AND ' + eventColDef + " = '" + eventValue + "'";
       setNextSearchTerm(newTerm);
     }
-  };
-  const timeFormatter = (event: ValueFormatterParams<zLogs>) => {
-    if (Number(event.value) < 1000000) {
-      return '-';
-    } else {
-      return dayjs(event.value / 1000000).format('YYYY-MM-DD HH:mm:ss');
-    }
-  };
 
-  useEffect(() => {
     if (!nextSearchTerm) return;
+
     if (searchTerm.includes(nextSearchTerm)) {
       toast({
         position: 'top-right',
@@ -154,28 +146,17 @@ export default function PageProjects() {
         duration: 5000,
         isClosable: true,
       });
-      setSearchTerm(searchTerm + nextSearchTerm);
+      form.setValue('searchTerm', searchTerm + nextSearchTerm);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nextSearchTerm]);
+  };
+  const timeFormatter = (event: ValueFormatterParams<zLogs>) => {
+    if (Number(event.value) < 1000000) {
+      return '-';
+    } else {
+      return dayjs(event.value / 1000000).format('YYYY-MM-DD HH:mm:ss');
+    }
+  };
 
-  // useEffect(() => {
-  //   if (!!selectedFromDate) {
-  //     onFromTimeChanged(dayjs(selectedFromDate));
-  //   } else {
-  //     onFromTimeChanged(dayjs(new Date().getTime()));
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [selectedFromDate]);
-
-  // useEffect(() => {
-  //   if (!!selectedToDate) {
-  //     onToTimeChanged(dayjs(selectedToDate));
-  //   } else {
-  //     onToTimeChanged(dayjs(new Date().getTime()));
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [selectedToDate]);
   console.log();
   // console.log(
   //   dayjs(selectedToDate ?? new Date().getTime()).format('YYYY-MM-DD HH:mm:ss'),
@@ -209,31 +190,38 @@ export default function PageProjects() {
                 </Heading>
                 <Flex gap={2}>
                   <FormField
-                    type="date"
                     control={form.control}
                     name="timeFrom"
+                    size="sm"
+                    type="date"
+                    width="200px"
                   />
                   <Heading color="gray.500" flex="none" size="sm" py="5px">
                     ~
                   </Heading>
-                  <FormField type="date" control={form.control} name="timeTo" />
+                  <FormField
+                    control={form.control}
+                    name="timeTo"
+                    size="sm"
+                    type="date"
+                    width="200px"
+                  />
                 </Flex>
               </Flex>
               <Flex w="100%">
-                <SearchInput
+                <FormField
+                  type="search-input"
                   size="sm"
-                  name="searchTerm"
-                  value={searchTerm}
-                  onChange={onSearchInputChanged}
-                  maxW="100%"
                   borderRightRadius={0}
+                  control={form.control}
+                  name="searchTerm"
                 />
                 <Button
+                  type="submit"
                   h="32px"
                   w="4.5rem"
                   size="xs"
                   borderLeftRadius={0}
-                  onClick={() => {}}
                 >
                   Search
                 </Button>
@@ -245,7 +233,7 @@ export default function PageProjects() {
                   ? 'ag-theme-quartz'
                   : 'ag-theme-quartz-dark'
               }
-              style={{ width: '100%', height: '79vh' }}
+              style={{ width: '100%', height: '79vh', zIndex: 0 }}
             >
               {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
               <AgGridReact
