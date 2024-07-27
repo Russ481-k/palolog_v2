@@ -1,3 +1,4 @@
+import dayjs, { Dayjs } from 'dayjs';
 import { z } from 'zod';
 
 export type zLogs = z.infer<ReturnType<typeof zPaloLogs>>;
@@ -61,3 +62,26 @@ export const zPaloLogs = () =>
     technologyOfApp: z.string().nullish(),
     riskOfApp: z.string().nullish(),
   });
+
+export type FormFieldsPaloLogsParams = z.infer<
+  ReturnType<typeof zPaloLogsParams>
+>;
+const nowTime: Dayjs = dayjs();
+const beforeHourTime: Dayjs = dayjs().set('minute', dayjs().minute() - 1);
+export const zPaloLogsParams = () =>
+  z
+    .object({
+      timeFrom: z.string(),
+      timeTo: z.string(),
+      currentPage: z.number().min(1).default(1),
+      limit: z.number().min(1).max(500000).default(100),
+      cursor: z.string().cuid().optional(),
+      searchTerm: z.string().default(''),
+    })
+    .default({
+      timeFrom: String(beforeHourTime),
+      timeTo: String(nowTime),
+      currentPage: 1,
+      limit: 100,
+      searchTerm: '',
+    });

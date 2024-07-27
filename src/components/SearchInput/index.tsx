@@ -111,6 +111,7 @@ export const SearchInput = forwardRef<SearchInputProps, 'input'>(
           placeholder={placeholder ?? t('components:searchInput.placeholder')}
           isDisabled={isDisabled}
           onKeyDown={handleEscape}
+          {...rest}
         />
       </InputGroup>
     );

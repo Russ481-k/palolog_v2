@@ -12,4 +12,4 @@ export const DEFAULT_MODIFIERS_STYLES: ModifiersStyles = {
   weekend: { color: 'gray' },
 };
 
-export const DATE_FORMAT = 'YYYY/MM/DD';
+export const DATE_FORMAT = 'YYYY/MM/DD HH:mm:ss';

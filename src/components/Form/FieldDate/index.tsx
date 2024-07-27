@@ -32,7 +32,7 @@ export const FieldDate = <
       render={({ field: { ref: _ref, ...field } }) => (
         <FormFieldItem>
           {!!props.label && <FormFieldLabel>{props.label}</FormFieldLabel>}
-          <DayPicker {...field} />
+          <DayPicker {...field} inputProps={{ size: 'sm', width: '190px' }} />
           {!!props.helper && <FormFieldHelper>{props.helper}</FormFieldHelper>}
           <FormFieldError />
         </FormFieldItem>

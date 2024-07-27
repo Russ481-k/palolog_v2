@@ -1,8 +1,11 @@
-import moment from 'moment-timezone';
 import { z } from 'zod';
 
 import { env } from '@/env.mjs';
-import { zLogs, zPaloLogs } from '@/features/monitoring/schemas';
+import {
+  zLogs,
+  zPaloLogs,
+  zPaloLogsParams,
+} from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
 export function createObject(
@@ -92,23 +95,12 @@ export const projectsRouter = createTRPCRouter({
         tags: ['projects'],
       },
     })
-    .input(
-      z
-        .object({
-          timeFrom: z.number().optional().default(new Date().getTime()),
-          timeTo: z.number().optional().default(new Date().getTime()),
-          currentPage: z.number().min(1).default(1),
-          limit: z.number().min(1).max(500000).default(100),
-          cursor: z.string().cuid().optional(),
-          searchTerm: z.string().optional(),
-        })
-        .default({})
-    )
+    .input(zPaloLogsParams())
     .output(
       z.object({
         logs: z.array(zPaloLogs().nullish()),
         pagination: z.object({
-          currentPage: z.number().min(0).default(0),
+          currentPage: z.number().min(1).default(1),
           pageLength: z.number().min(0).default(0),
           totalCnt: z.number().min(0).default(0),
         }),
@@ -116,13 +108,15 @@ export const projectsRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       const logsArray: Array<zLogs> = [];
-
-      const timeRange = `DURATION FROM TO_DATE('${moment(input.timeFrom).format('YYYY-MM-DD HH:mm:SS')}') TO TO_DATE('${moment(input.timeTo).format('YYYY-MM-DD HH:mm:SS')}')`;
+      const dateFrom = input.currentPage * input.limit;
+      const dateTo = input.limit;
+      const timeRange = `DURATION FROM TO_DATE('${input.timeFrom}') TO TO_DATE('${input.timeTo}')`;
       const searchTerm = input.searchTerm;
-      const queryLogs = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${input.limit} ${timeRange}`;
+      const queryLogs = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dateFrom}, ${dateTo} ${timeRange}`;
       const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
       let totalCnt = 0;
       let pageLength = 1;
+
       console.log(
         'query',
         `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
@@ -140,6 +134,9 @@ export const projectsRouter = createTRPCRouter({
           .then((data) => {
             totalCnt = data.data.rows[0][0];
             pageLength = Math.ceil(totalCnt / input.limit);
+            console.log('totalCnt : ' + totalCnt);
+            console.log('pageLength : ' + pageLength);
+            console.log('currentPage : ' + input.currentPage);
           });
         await fetch(
           `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
@@ -181,6 +178,7 @@ export const projectsRouter = createTRPCRouter({
       return {
         logs: logsArray,
         pagination: {
+          currentPage: input.currentPage,
           pageLength,
           totalCnt,
         },

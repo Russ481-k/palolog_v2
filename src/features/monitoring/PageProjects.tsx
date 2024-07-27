@@ -3,19 +3,14 @@
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
 
 import {
-  Box,
   Button,
   Flex,
   Heading,
-  Input,
-  InputGroup,
-  InputLeftAddon,
-  InputRightElement,
-  Select,
   Stack,
   useColorMode,
   useToast,
 } from '@chakra-ui/react';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   CellClickedEvent,
   ColDef,
@@ -25,12 +20,10 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 // Core CSS
 import { AgGridReact } from 'ag-grid-react';
-import moment, { Moment } from 'moment-timezone';
-import 'moment/locale/ko';
-import TimePicker from 'rc-time-picker';
-import 'rc-time-picker/assets/index.css';
+import dayjs from 'dayjs';
+import { useForm } from 'react-hook-form';
 
-import { DayPicker } from '@/components/DayPicker';
+import { Form, FormField } from '@/components/Form';
 import { SearchInput } from '@/components/SearchInput';
 import {
   AdminLayoutPage,
@@ -38,54 +31,77 @@ import {
 } from '@/features/admin/AdminLayoutPage';
 import { trpc } from '@/lib/trpc/client';
 
+import { PageProjectsFooter } from './PageProjectsFooter';
 import { colDefs } from './colDefs';
 import { dummy } from './dummy';
-import { zLogs } from './schemas';
+import { FormFieldsPaloLogsParams, zLogs, zPaloLogsParams } from './schemas';
 
 export default function PageProjects() {
   const { colorMode } = useColorMode();
 
-  const beforeHourTime: Moment = moment().tz('Asia/Seoul').subtract(1, 'hours');
-  const nowTime: Moment = moment().tz('Asia/Seoul');
+  const nowTime = dayjs().format('YYYY-MM-DD HH:mm:ss');
+  const beforeHourTime = dayjs()
+    .set('minute', dayjs().minute() - 1)
+    .format('YYYY-MM-DD HH:mm:ss');
+
+  const form = useForm<FormFieldsPaloLogsParams>({
+    mode: 'onSubmit',
+    resolver: zodResolver(zPaloLogsParams()),
+    defaultValues: {
+      timeFrom: String(beforeHourTime),
+      timeTo: String(nowTime),
+      currentPage: 1,
+      limit: 100,
+    },
+  });
 
   const [limit, setLimit] = useState<number>(100);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [nextSearchTerm, setNextSearchTerm] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedDayFrom, setSelectedDayFrom] = useState<number | null>(
-    new Date().getTime()
-  );
-  const [selectedTimeFrom, setSelectedTimeFrom] =
-    useState<Moment>(beforeHourTime);
-  const [selectedDayTo, setSelectedDayTo] = useState<number | null>(
-    new Date().getTime()
-  );
-  const [selectedTimeTo, setSelectedTimeTo] = useState<Moment>(nowTime);
-
+  const [selectedFromDate, setSelectedFromDate] =
+    useState<string>(beforeHourTime);
+  const [selectedToDate, setSelectedToDate] = useState<string>(nowTime);
   const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
   const toast = useToast();
   const { data, isLoading } = trpc.projects.getAll.useInfiniteQuery(
     {
-      timeFrom: new Date(
-        moment(selectedTimeFrom ?? beforeHourTime)
-          .tz('Asia/Seoul')
-          .format('YYYY-MM-DD HH:mm:SS')
-      ).getTime(),
-      timeTo: new Date(
-        moment(selectedTimeTo ?? nowTime)
-          .tz('Asia/Seoul')
-          .format('YYYY-MM-DD HH:mm:SS')
-      ).getTime(),
+      timeFrom: dayjs(selectedFromDate).format('YYYY-MM-DD HH:mm:ss'),
+      timeTo: dayjs(selectedToDate).format('YYYY-MM-DD HH:mm:ss'),
       limit,
       searchTerm,
+      currentPage,
     },
     {}
   );
+
+  const onSubmit = (
+    timeFrom: string,
+    timeTo: string,
+    limit: number,
+    searchTerm: string
+  ) => {
+    onFromDateChanged(timeFrom);
+    onToDateChanged(timeTo);
+    onSearchInputChanged(searchTerm);
+    setLimit(limit);
+  };
+
   const onRowLoadLimitChange = (e: ChangeEvent<HTMLSelectElement>) => {
     setLimit(Number(e.target.value));
   };
 
   const onSearchInputChanged = (e: string) => {
     setSearchTerm(e);
+  };
+  const onFromDateChanged = (e: string) => {
+    setSelectedFromDate(e);
+  };
+  const onToDateChanged = (e: string) => {
+    setSelectedToDate(e);
+  };
+  const onCurrentPageChange = (currentPage: number) => {
+    setCurrentPage(currentPage);
   };
 
   const onCellClickChanged = (
@@ -99,9 +115,9 @@ export default function PageProjects() {
       .toUpperCase();
 
     if (dateType === 'Y') {
-      eventValue = moment(new Date(event.value / 1000000))
-        .tz('Asia/Seoul')
-        .format('YYYY-MM-DD HH:mm:SS');
+      eventValue = dayjs(new Date(event.value / 1000000)).format(
+        'YYYY-MM-DD HH:mm:ss'
+      );
       const newDateTypeTerm =
         ' AND ' + eventColDef + " = TO_DATE('" + eventValue + "')";
       return setNextSearchTerm(newDateTypeTerm);
@@ -110,19 +126,11 @@ export default function PageProjects() {
       setNextSearchTerm(newTerm);
     }
   };
-  const onFromTimeChanged = (event: Moment) => {
-    setSelectedTimeFrom(event);
-  };
-  const onToTimeChanged = (event: Moment) => {
-    setSelectedTimeTo(event);
-  };
   const timeFormatter = (event: ValueFormatterParams<zLogs>) => {
     if (Number(event.value) < 1000000) {
       return '-';
     } else {
-      return moment(event.value / 1000000)
-        .tz('Asia/Seoul')
-        .format('YYYY-MM-DD HH:mm:SS');
+      return dayjs(event.value / 1000000).format('YYYY-MM-DD HH:mm:ss');
     }
   };
 
@@ -151,94 +159,75 @@ export default function PageProjects() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextSearchTerm]);
 
-  useEffect(() => {
-    if (!!selectedDayFrom) {
-      onFromTimeChanged(moment(selectedDayFrom).tz('Asia/Seoul'));
-    } else {
-      onFromTimeChanged(moment(new Date().getTime()).tz('Asia/Seoul'));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDayFrom]);
+  // useEffect(() => {
+  //   if (!!selectedFromDate) {
+  //     onFromTimeChanged(dayjs(selectedFromDate));
+  //   } else {
+  //     onFromTimeChanged(dayjs(new Date().getTime()));
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [selectedFromDate]);
 
-  useEffect(() => {
-    if (!!selectedDayTo) {
-      onToTimeChanged(moment(selectedDayTo).tz('Asia/Seoul'));
-    } else {
-      onToTimeChanged(moment(new Date().getTime()).tz('Asia/Seoul'));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDayTo]);
-
+  // useEffect(() => {
+  //   if (!!selectedToDate) {
+  //     onToTimeChanged(dayjs(selectedToDate));
+  //   } else {
+  //     onToTimeChanged(dayjs(new Date().getTime()));
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [selectedToDate]);
+  console.log();
+  // console.log(
+  //   dayjs(selectedToDate ?? new Date().getTime()).format('YYYY-MM-DD HH:mm:ss'),
+  //   dayjs(selectedFromDate ?? new Date().getTime()).format(
+  //     'YYYY-MM-DD HH:mm:ss'
+  //   )
+  // );
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
-        <Stack spacing={3}>
-          <Flex justifyContent="space-between" gap={3}>
-            <Flex
-              flexDirection={{ base: 'column', md: 'row' }}
-              alignItems={{ base: 'start', md: 'center' }}
-              gap={2}
-            >
-              <Heading flex="none" fontSize="24px" color="gray.400">
-                TRAFFIC
-              </Heading>
-              <Flex gap={2}>
-                <Box w="140px" h="100%" textAlign="center">
-                  <DayPicker
-                    inputProps={{ size: 'sm' }}
-                    value={
-                      new Date(
-                        moment(selectedDayFrom ?? new Date().getTime()).format(
-                          'YYYY-MM-DD HH:mm:SS'
-                        )
-                      )
-                    }
-                    onChange={(e) =>
-                      setSelectedDayFrom(e?.getTime() ?? new Date().getTime())
-                    }
-                  />
-                </Box>
-                <Box w="100px" h="100%">
-                  <TimePicker
-                    clearIcon={<></>}
-                    value={selectedTimeFrom}
-                    onChange={onFromTimeChanged}
-                  />
-                </Box>
-                <Heading color="gray.500" flex="none" size="sm" py="5px">
-                  ~
+        <Form
+          {...form}
+          onSubmit={(values) => {
+            onSubmit(
+              values.timeFrom,
+              values.timeTo,
+              values.currentPage,
+              values.searchTerm
+            );
+          }}
+        >
+          <Stack spacing={3}>
+            <Flex justifyContent="space-between" gap={3}>
+              <Flex
+                flexDirection={{ base: 'column', md: 'row' }}
+                alignItems={{ base: 'start', md: 'center' }}
+                gap={2}
+              >
+                <Heading flex="none" fontSize="24px" color="gray.400">
+                  TRAFFIC
                 </Heading>
-                <Box w="140px" h="100%" textAlign="center">
-                  <DayPicker
-                    inputProps={{ size: 'sm' }}
-                    value={
-                      new Date(
-                        moment(selectedDayTo ?? new Date().getTime()).format(
-                          'YYYY-MM-DD HH:mm:SS'
-                        )
-                      )
-                    }
-                    onChange={(e) =>
-                      setSelectedDayTo(e?.getTime() ?? new Date().getTime())
-                    }
+                <Flex gap={2}>
+                  <FormField
+                    type="date"
+                    control={form.control}
+                    name="timeFrom"
                   />
-                </Box>
-                <Box w="100px" h="100%">
-                  <TimePicker
-                    clearIcon={<></>}
-                    value={selectedTimeTo}
-                    onChange={onToTimeChanged}
-                  />
-                </Box>
+                  <Heading color="gray.500" flex="none" size="sm" py="5px">
+                    ~
+                  </Heading>
+                  <FormField type="date" control={form.control} name="timeTo" />
+                </Flex>
               </Flex>
-            </Flex>
-            <InputGroup w="100%" size="sm">
-              <SearchInput
-                value={searchTerm}
-                onChange={onSearchInputChanged}
-                maxW="100%"
-              />
-              <InputRightElement w="4.5rem" p={0} m={0}>
+              <Flex w="100%">
+                <SearchInput
+                  size="sm"
+                  name="searchTerm"
+                  value={searchTerm}
+                  onChange={onSearchInputChanged}
+                  maxW="100%"
+                  borderRightRadius={0}
+                />
                 <Button
                   h="32px"
                   w="4.5rem"
@@ -248,108 +237,38 @@ export default function PageProjects() {
                 >
                   Search
                 </Button>
-              </InputRightElement>
-            </InputGroup>
-          </Flex>
-          <div
-            className={
-              colorMode === 'light' ? 'ag-theme-quartz' : 'ag-theme-quartz-dark'
-            }
-            style={{ width: '100%', height: '79vh' }}
-          >
-            {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
-            <AgGridReact
-              ref={gridRef}
-              rowData={!isLoading ? data?.pages[0]?.logs : dummy}
-              columnDefs={colDefs(
-                !isLoading,
-                onCellClickChanged,
-                timeFormatter
-              )}
+              </Flex>
+            </Flex>
+            <div
+              className={
+                colorMode === 'light'
+                  ? 'ag-theme-quartz'
+                  : 'ag-theme-quartz-dark'
+              }
+              style={{ width: '100%', height: '79vh' }}
+            >
+              {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
+              <AgGridReact
+                ref={gridRef}
+                rowData={!isLoading ? data?.pages[0]?.logs : dummy}
+                columnDefs={colDefs(
+                  !isLoading,
+                  onCellClickChanged,
+                  timeFormatter
+                )}
+              />
+            </div>
+            <PageProjectsFooter
+              isLoading={isLoading}
+              currentPage={data?.pages[0]?.pagination.currentPage ?? 0}
+              pageLength={data?.pages[0]?.pagination.pageLength ?? 0}
+              totalCnt={data?.pages[0]?.pagination.totalCnt ?? 0}
+              onChangeLimit={onRowLoadLimitChange}
+              onCurrentPageChange={onCurrentPageChange}
             />
-          </div>
-          <PaginationSet
-            currentPage={data?.pages[0]?.pagination.currentPage ?? 0}
-            pageLength={data?.pages[0]?.pagination.pageLength ?? 0}
-            totalCnt={data?.pages[0]?.pagination.pageLength ?? 0}
-            onChangeLimit={onRowLoadLimitChange}
-          />
-        </Stack>
+          </Stack>
+        </Form>
       </AdminLayoutPageContent>
     </AdminLayoutPage>
   );
 }
-
-const PaginationSet = ({
-  currentPage,
-  pageLength,
-  totalCnt,
-  onChangeLimit,
-}: {
-  currentPage: number;
-  pageLength: number;
-  totalCnt: number;
-  onChangeLimit: (e: ChangeEvent<HTMLSelectElement>) => void;
-}) => {
-  return (
-    <Flex justifyContent="space-between">
-      <Flex alignItems="end" flex={1}>
-        <InputGroup size="sm" w="180px">
-          <InputLeftAddon>Total</InputLeftAddon>
-          <Input
-            textAlign="right"
-            borderRightWidth={0}
-            borderRightRadius={0}
-            value={totalCnt
-              .toString()
-              .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')}
-          />
-        </InputGroup>
-        <Button size="sm" borderLeftRadius={0}>
-          Download
-        </Button>
-      </Flex>
-      <Flex gap={1} flex={1} justifyContent="center">
-        <Button size="sm">{`<`}</Button>
-        <Button size="sm">1</Button>
-        <Button size="sm">2</Button>
-        {pageLength > 10 && (
-          <Heading size="md" lineHeight="">
-            ···
-          </Heading>
-        )}
-        <Button size="sm">{currentPage - 2}</Button>
-        <Button size="sm">{currentPage - 1}</Button>
-        <Input
-          size="sm"
-          w="36px"
-          value={currentPage}
-          p={0}
-          textAlign="center"
-        />
-        <Button size="sm">{currentPage + 1}</Button>
-        <Button size="sm">{currentPage + 2}</Button>
-        {pageLength > 10 && (
-          <Heading size="md" lineHeight="">
-            ···
-          </Heading>
-        )}
-        <Button size="sm">{pageLength - 1}</Button>
-        <Button size="sm">{pageLength}</Button>
-        <Button size="sm">{`>`}</Button>
-      </Flex>
-      <Flex flex={1} w="180px" justifyContent="right">
-        <InputGroup size="sm" w="180px">
-          <InputLeftAddon>Batch</InputLeftAddon>
-          <Select textAlign="center" variant="filled" onChange={onChangeLimit}>
-            <option value="100">100</option>
-            <option value="500">500</option>
-            <option value="1000">1,000</option>
-            <option value="5000">5,000</option>
-            <option value="10000">10,000</option>
-          </Select>
-        </InputGroup>
-      </Flex>
-    </Flex>
-  );
-};
