@@ -272,6 +272,7 @@ export default function PageProjects() {
             currentPage={data?.pages[0]?.pagination.currentPage ?? 0}
             pageLength={data?.pages[0]?.pagination.pageLength ?? 0}
             totalCnt={data?.pages[0]?.pagination.pageLength ?? 0}
+            onChangeLimit={onRowLoadLimitChange}
           />
         </Stack>
       </AdminLayoutPageContent>
@@ -283,10 +284,12 @@ const PaginationSet = ({
   currentPage,
   pageLength,
   totalCnt,
+  onChangeLimit,
 }: {
   currentPage: number;
   pageLength: number;
   totalCnt: number;
+  onChangeLimit: (e: ChangeEvent<HTMLSelectElement>) => void;
 }) => {
   return (
     <Flex justifyContent="space-between">
@@ -338,7 +341,7 @@ const PaginationSet = ({
       <Flex flex={1} w="180px" justifyContent="right">
         <InputGroup size="sm" w="180px">
           <InputLeftAddon>Batch</InputLeftAddon>
-          <Select textAlign="center" variant="filled" onChange={() => {}}>
+          <Select textAlign="center" variant="filled" onChange={onChangeLimit}>
             <option value="100">100</option>
             <option value="500">500</option>
             <option value="1000">1,000</option>
