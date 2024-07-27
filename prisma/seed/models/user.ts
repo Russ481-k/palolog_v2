@@ -11,7 +11,7 @@ export async function createUsers() {
       data: {
         name: 'Admin',
         id: 'admin',
-        password: 'admin',
+        password: '000000',
         authorizations: ['APP', 'ADMIN'],
         accountStatus: 'ENABLED',
         email: 'admin@admin.co.kr',
