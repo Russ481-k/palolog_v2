@@ -166,7 +166,7 @@ const PaginationButtons = ({
       const totalPageCount = pageLength ?? 1;
       const pageCount = [];
       for (let count = 2; count < totalPageCount + 1; count++) {
-        pageCount.push(count);
+        pageCount?.push(count);
       }
       setPageList([1, ...pageCount]);
       setCurrentPage(pagination.currentPage);

@@ -1,22 +1,32 @@
-'use client';
-
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useRef, useState } from 'react';
 
 import {
   Button,
   Flex,
+  Heading,
   Input,
   InputGroup,
   InputLeftAddon,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Progress,
   Select,
   useColorMode,
+  useDisclosure,
 } from '@chakra-ui/react';
+import { AgGridReact } from 'ag-grid-react';
 
 import PaginationButtons from './Pagination';
 
 export const PageProjectsFooter = ({
   isLoading,
   currentPage,
+  nextCurrentPage,
   pageLength,
   totalCnt,
   onChangeLimit,
@@ -24,16 +34,22 @@ export const PageProjectsFooter = ({
 }: {
   isLoading: boolean;
   currentPage: number;
+  nextCurrentPage: number;
   pageLength: number;
   totalCnt: number;
   onChangeLimit: (e: ChangeEvent<HTMLSelectElement>) => void;
   onCurrentPageChange: (page: number) => void;
 }) => {
+  const gridRef = useRef(null);
+
   const { colorMode } = useColorMode();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
   const [goToPage, setGoToPage] = useState<number>(1);
   const onGoToPageClick = () => {
     onCurrentPageChange(goToPage);
   };
+
   return (
     <Flex justifyContent="space-between">
       <Flex flex={1}>
@@ -59,11 +75,12 @@ export const PageProjectsFooter = ({
             <InputGroup size="sm" w="180px">
               <InputLeftAddon borderLeftRadius={5}>Go To</InputLeftAddon>
               <Input
+                id="pagination_batch"
                 textAlign="right"
                 borderRightWidth={0}
                 borderRightRadius={0}
                 placeholder={
-                  currentPage
+                  nextCurrentPage
                     .toString()
                     .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',') +
                   ' / ' +
@@ -102,9 +119,102 @@ export const PageProjectsFooter = ({
               .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')}
           />
         </InputGroup>
-        <Button size="sm" borderLeftRadius={0}>
+        <Button size="sm" borderLeftRadius={0} onClick={onOpen}>
           Download
         </Button>
+        <Modal isOpen={isOpen} size="xxl" onClose={onClose}>
+          <ModalOverlay />
+          <ModalContent my="auto">
+            <ModalHeader>
+              <Heading>DOWNLOAD CENTER</Heading>
+            </ModalHeader>
+            <ModalCloseButton />
+            <ModalBody minHeight="640px">
+              <div
+                className={
+                  colorMode === 'light'
+                    ? 'ag-theme-quartz'
+                    : 'ag-theme-quartz-dark'
+                }
+                style={{ width: '100%', height: '65vh', zIndex: 0 }}
+              >
+                <AgGridReact
+                  ref={gridRef}
+                  rowData={
+                    // !isLoading ? data?.pages[0]?.logs :
+                    [
+                      {
+                        no: 1,
+                        rows: 65151326,
+                        pages: 6513216516,
+                        files: 15211451412,
+                        progress: true,
+                        button: true,
+                      },
+                      {
+                        no: 2,
+                        rows: 42651516,
+                        pages: 651654116,
+                        files: 11114451412,
+                        progress: true,
+                        button: true,
+                      },
+                      {
+                        no: 3,
+                        rows: 986541516,
+                        pages: 6516516,
+                        files: 111451413212,
+                        progress: true,
+                        button: true,
+                      },
+                    ]
+                  }
+                  columnDefs={[
+                    {
+                      headerName: 'No',
+                      field: 'no',
+                      minWidth: 180,
+                      headerCheckboxSelection: true,
+                      headerCheckboxSelectionFilteredOnly: true,
+                      checkboxSelection: true,
+                    },
+                    { field: 'rows' },
+                    { field: 'pages' },
+                    { field: 'files' },
+                    {
+                      field: 'progress',
+                      cellRenderer: () => (
+                        <Progress size="sm" isIndeterminate m={4} />
+                      ),
+                      minWidth: 800,
+                    },
+                    {
+                      field: 'button',
+                      cellRenderer: () => (
+                        <Button size="sm" m={0}>
+                          DOWNLOAD
+                        </Button>
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+              <Flex gap={3}>
+                <Heading fontSize={16}>ROWS : {totalCnt}</Heading>
+                <Heading fontSize={16}>PAGES : {pageLength}</Heading>
+                <Heading fontSize={16}>
+                  FILES : {Math.ceil(totalCnt / 65535)}
+                </Heading>
+              </Flex>
+            </ModalBody>
+            <ModalFooter>
+              <Button colorScheme="blue" mr={3} onClick={onClose}>
+                Close
+              </Button>
+              <Button variant="ghost">DOWNLOAD</Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </Flex>
     </Flex>
   );

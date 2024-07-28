@@ -101,28 +101,25 @@ export const projectsRouter = createTRPCRouter({
         logs: z.array(zPaloLogs().nullish()),
         pagination: z.object({
           currentPage: z.number().min(1).default(1),
-          pageLength: z.number().min(0).default(0),
+          pageLength: z.number().min(0).default(1),
           totalCnt: z.number().min(0).default(0),
         }),
       })
     )
     .query(async ({ input }) => {
       const logsArray: Array<zLogs> = [];
-      const dateFrom = input.currentPage * input.limit;
-      const dateTo = input.limit;
+      const dataFrom = (input.currentPage - 1) * input.limit;
+      const dataTo = input.limit;
+
       const timeRange = `DURATION FROM TO_DATE('${input.timeFrom}') TO TO_DATE('${input.timeTo}')`;
       const searchTerm = input.searchTerm;
-      const queryLogs = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dateFrom}, ${dateTo} ${timeRange}`;
+      const queryLogs = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dataFrom}, ${dataTo} ${timeRange}`;
       const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
       let totalCnt = 0;
       let pageLength = 1;
-
-      console.log(
-        'query',
-        `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-          encodeURIComponent(queryLogs)
-      );
-
+      console.log('dataFrom', dataFrom);
+      console.log('dataTo', dataTo);
+      console.log('queryTotalCnt', queryTotalCnt);
       try {
         await fetch(
           `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
@@ -134,8 +131,9 @@ export const projectsRouter = createTRPCRouter({
           .then((data) => {
             totalCnt = data.data.rows[0][0];
             pageLength = Math.ceil(totalCnt / input.limit);
+            pageLength = pageLength === 0 ? 1 : pageLength;
             console.log('totalCnt : ' + totalCnt);
-            console.log('pageLength : ' + pageLength);
+            console.log('pageLength : ' + (pageLength === 0 ? 1 : pageLength));
             console.log('currentPage : ' + input.currentPage);
           });
         await fetch(

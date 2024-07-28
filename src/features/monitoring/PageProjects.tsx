@@ -1,13 +1,21 @@
 'use client';
 
-import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, useRef, useState } from 'react';
 
 import {
   Button,
+  Drawer,
+  DrawerBody,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerOverlay,
   Flex,
   Heading,
   Stack,
   useColorMode,
+  useDisclosure,
   useToast,
 } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,6 +45,8 @@ import { FormFieldsPaloLogsParams, zLogs, zPaloLogsParams } from './schemas';
 
 export default function PageProjects() {
   const { colorMode } = useColorMode();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const btnRef = useRef();
 
   const nowTime = dayjs().format('YYYY-MM-DD HH:mm:ss');
   const beforeHourTime = dayjs()
@@ -51,40 +61,45 @@ export default function PageProjects() {
       timeFrom: String(beforeHourTime),
       timeTo: String(nowTime),
       currentPage: 1,
-      limit: 100,
+      searchTerm: '',
     },
   });
 
   const [limit, setLimit] = useState<number>(100);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [nextSearchTerm, setNextSearchTerm] = useState<string>('');
+  const [nextCurrentPage, setNextCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedFromDate, setSelectedFromDate] =
     useState<string>(beforeHourTime);
   const [selectedToDate, setSelectedToDate] = useState<string>(nowTime);
+
   const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
   const toast = useToast();
+
   const { data, isLoading } = trpc.projects.getAll.useInfiniteQuery(
     {
       timeFrom: dayjs(selectedFromDate).format('YYYY-MM-DD HH:mm:ss'),
       timeTo: dayjs(selectedToDate).format('YYYY-MM-DD HH:mm:ss'),
-      limit,
       searchTerm,
-      currentPage,
+      currentPage: nextCurrentPage,
+      limit,
     },
     {}
   );
 
+  const currentPage = data?.pages[0]?.pagination.currentPage ?? 1;
+  const pageLength = data?.pages[0]?.pagination.pageLength ?? 1;
+  const totalCnt = data?.pages[0]?.pagination.totalCnt ?? 0;
+
   const onSubmit = (
     timeFrom: string,
     timeTo: string,
-    limit: number,
+    currentPage: number,
     searchTerm: string
   ) => {
     onFromDateChanged(timeFrom);
     onToDateChanged(timeTo);
     onSearchInputChanged(searchTerm);
-    setLimit(limit);
+    setNextCurrentPage(currentPage);
   };
 
   const onRowLoadLimitChange = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -100,8 +115,12 @@ export default function PageProjects() {
   const onToDateChanged = (e: string) => {
     setSelectedToDate(e);
   };
-  const onCurrentPageChange = (currentPage: number) => {
-    setCurrentPage(currentPage);
+  const onCurrentPageChange = (page: number) => {
+    if (page > pageLength) {
+      setNextCurrentPage(pageLength);
+    } else {
+      setNextCurrentPage(page);
+    }
   };
 
   const onCellClickChanged = (
@@ -109,10 +128,12 @@ export default function PageProjects() {
     dateType: 'Y' | 'N'
   ) => {
     if (isLoading) return;
+
     let eventValue = event.value;
     const eventColDef = event.colDef.field
       ?.replace(/[A-Z]/g, (letter) => `_${letter}`)
       .toUpperCase();
+    let nextSearchTermChecker = '';
 
     if (dateType === 'Y') {
       eventValue = dayjs(new Date(event.value / 1000000)).format(
@@ -120,21 +141,22 @@ export default function PageProjects() {
       );
       const newDateTypeTerm =
         ' AND ' + eventColDef + " = TO_DATE('" + eventValue + "')";
-      return setNextSearchTerm(newDateTypeTerm);
+      nextSearchTermChecker = newDateTypeTerm;
     } else if (dateType === 'N') {
       const newTerm = ' AND ' + eventColDef + " = '" + eventValue + "'";
-      setNextSearchTerm(newTerm);
+
+      nextSearchTermChecker = newTerm;
     }
+    if (nextSearchTermChecker === '') return;
 
-    if (!nextSearchTerm) return;
-
-    if (searchTerm.includes(nextSearchTerm)) {
+    const searchTermChecker = form.getValues('searchTerm');
+    if (searchTermChecker?.includes(nextSearchTermChecker)) {
       toast({
         position: 'top-right',
         title: 'Duplication',
         description: 'This is a search condition that has already been added.',
         status: 'error',
-        duration: 9000,
+        duration: 5000,
         isClosable: true,
       });
     } else {
@@ -143,10 +165,10 @@ export default function PageProjects() {
         title: 'Added',
         description: 'Search conditions added.',
         status: 'success',
-        duration: 5000,
+        duration: 3000,
         isClosable: true,
       });
-      form.setValue('searchTerm', searchTerm + nextSearchTerm);
+      form.setValue('searchTerm', searchTermChecker + nextSearchTermChecker);
     }
   };
   const timeFormatter = (event: ValueFormatterParams<zLogs>) => {
@@ -156,14 +178,6 @@ export default function PageProjects() {
       return dayjs(event.value / 1000000).format('YYYY-MM-DD HH:mm:ss');
     }
   };
-
-  console.log();
-  // console.log(
-  //   dayjs(selectedToDate ?? new Date().getTime()).format('YYYY-MM-DD HH:mm:ss'),
-  //   dayjs(selectedFromDate ?? new Date().getTime()).format(
-  //     'YYYY-MM-DD HH:mm:ss'
-  //   )
-  // );
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
@@ -185,15 +199,52 @@ export default function PageProjects() {
                 alignItems={{ base: 'start', md: 'center' }}
                 gap={2}
               >
-                <Heading flex="none" fontSize="24px" color="gray.400">
-                  TRAFFIC
-                </Heading>
+                <Flex>
+                  <Button
+                    fontSize="24px"
+                    size="sm"
+                    color="gray.400"
+                    onClick={onOpen}
+                  >
+                    TRAFFIC
+                  </Button>
+                  <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
+                    <DrawerOverlay />
+                    <DrawerContent>
+                      <DrawerCloseButton />
+                      <DrawerHeader>Monitoring Menu</DrawerHeader>
+                      <DrawerBody>
+                        <Flex flexDir="column" gap={2}>
+                          <Button fontSize="18px" size="sm" p={4}>
+                            TRAFFIC
+                          </Button>
+                          <Button fontSize="18px" size="sm" p={4}>
+                            TREAT
+                          </Button>
+                          <Button fontSize="18px" size="sm" p={4}>
+                            GLOBAL PROTECT
+                          </Button>
+                          <Button fontSize="18px" size="sm" p={4}>
+                            WILD FIRE
+                          </Button>
+                        </Flex>
+                      </DrawerBody>
+
+                      <DrawerFooter>
+                        {/* <Button variant="outline" mr={3} onClick={onClose}>
+                          Cancel
+                        </Button>
+                        <Button colorScheme="blue">Save</Button> */}
+                      </DrawerFooter>
+                    </DrawerContent>
+                  </Drawer>
+                </Flex>
                 <Flex gap={2}>
                   <FormField
                     control={form.control}
                     name="timeFrom"
                     size="sm"
-                    type="date"
+                    type="text"
                     width="200px"
                   />
                   <Heading color="gray.500" flex="none" size="sm" py="5px">
@@ -203,7 +254,7 @@ export default function PageProjects() {
                     control={form.control}
                     name="timeTo"
                     size="sm"
-                    type="date"
+                    type="text"
                     width="200px"
                   />
                 </Flex>
@@ -248,9 +299,10 @@ export default function PageProjects() {
             </div>
             <PageProjectsFooter
               isLoading={isLoading}
-              currentPage={data?.pages[0]?.pagination.currentPage ?? 0}
-              pageLength={data?.pages[0]?.pagination.pageLength ?? 0}
-              totalCnt={data?.pages[0]?.pagination.totalCnt ?? 0}
+              currentPage={currentPage}
+              nextCurrentPage={nextCurrentPage}
+              pageLength={pageLength}
+              totalCnt={totalCnt}
               onChangeLimit={onRowLoadLimitChange}
               onCurrentPageChange={onCurrentPageChange}
             />
