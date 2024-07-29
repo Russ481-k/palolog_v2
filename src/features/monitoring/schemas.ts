@@ -67,6 +67,7 @@ export type FormFieldsPaloLogsParams = z.infer<
 >;
 export const zPaloLogsParams = () =>
   z.object({
+    menu: z.string().default('TRAFFIC'),
     timeFrom: z.string(),
     timeTo: z.string(),
     currentPage: z.number().min(1).default(1),

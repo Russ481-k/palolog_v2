@@ -9,6 +9,7 @@ import {
 import { zLogs } from './schemas';
 
 export const colDefs = (
+  menu: 'TRAFFIC' | 'TREAT' | 'SYSLOG' | 'WILDFIRE',
   isLoading: boolean,
   onCellClickChanged: (
     event: CellClickedEvent<zLogs>,
@@ -18,7 +19,25 @@ export const colDefs = (
 ): ColDef<zLogs>[] => {
   return [
     {
+      field: 'deviceName',
+      minWidth: 50,
+      width: 120,
+      onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
+      cellRenderer: (e: ILoadingCellRendererParams) => {
+        if (!isLoading) {
+          return (
+            <Flex py="14px">
+              <Skeleton h={3} w={90} borderRadius={2} />
+            </Flex>
+          );
+        } else {
+          return e.value;
+        }
+      },
+    },
+    {
       field: 'time',
+      hide: true,
       minWidth: 50,
       width: 170,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'Y'),
@@ -692,23 +711,6 @@ export const colDefs = (
           return (
             <Flex py="14px">
               <Skeleton h={3} w={120} borderRadius={2} />
-            </Flex>
-          );
-        } else {
-          return e.value;
-        }
-      },
-    },
-    {
-      field: 'deviceName',
-      minWidth: 50,
-      width: 120,
-      onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
-      cellRenderer: (e: ILoadingCellRendererParams) => {
-        if (!isLoading) {
-          return (
-            <Flex py="14px">
-              <Skeleton h={3} w={90} borderRadius={2} />
             </Flex>
           );
         } else {

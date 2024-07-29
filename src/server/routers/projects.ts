@@ -110,10 +110,24 @@ export const projectsRouter = createTRPCRouter({
       const logsArray: Array<zLogs> = [];
       const dataFrom = (input.currentPage - 1) * input.limit;
       const dataTo = input.limit;
-
       const timeRange = `DURATION FROM TO_DATE('${input.timeFrom}') TO TO_DATE('${input.timeTo}')`;
       const searchTerm = input.searchTerm;
-      const queryLogs = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dataFrom}, ${dataTo} ${timeRange}`;
+      let column = '*';
+
+      switch (input.menu) {
+        case 'TRAFFIC':
+          column = '*';
+        case 'TREAT':
+          column = '*';
+        case 'SYSLOG':
+          column = '*';
+        case 'WILDFIRE':
+          column = '*';
+        default:
+      }
+
+      const queryLogs = `SELECT ${column} FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dataFrom}, ${dataTo} ${timeRange}`;
+
       const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
       let totalCnt = 0;
       let pageLength = 1;

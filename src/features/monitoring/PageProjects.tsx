@@ -4,18 +4,10 @@ import { ChangeEvent, useRef, useState } from 'react';
 
 import {
   Button,
-  Drawer,
-  DrawerBody,
-  DrawerCloseButton,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerOverlay,
   Flex,
   Heading,
   Stack,
   useColorMode,
-  useDisclosure,
   useToast,
 } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,7 +18,6 @@ import {
 } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
-// Core CSS
 import { AgGridReact } from 'ag-grid-react';
 import dayjs from 'dayjs';
 import { useForm } from 'react-hook-form';
@@ -38,6 +29,7 @@ import {
 } from '@/features/admin/AdminLayoutPage';
 import { trpc } from '@/lib/trpc/client';
 
+import MenuSetter from './MenuSetter';
 import { PageProjectsFooter } from './PageProjectsFooter';
 import { colDefs } from './colDefs';
 import { dummy } from './dummy';
@@ -45,14 +37,11 @@ import { FormFieldsPaloLogsParams, zLogs, zPaloLogsParams } from './schemas';
 
 export default function PageProjects() {
   const { colorMode } = useColorMode();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const btnRef = useRef();
 
   const nowTime = dayjs().format('YYYY-MM-DD HH:mm:ss');
   const beforeHourTime = dayjs()
     .set('minute', dayjs().minute() - 1)
     .format('YYYY-MM-DD HH:mm:ss');
-  const nowDate = dayjs().format('YYYY-MM-DD HH:mm:ss');
 
   const form = useForm<FormFieldsPaloLogsParams>({
     mode: 'onSubmit',
@@ -65,6 +54,9 @@ export default function PageProjects() {
     },
   });
 
+  const [menu, setMenu] = useState<'TRAFFIC' | 'TREAT' | 'SYSLOG' | 'WILDFIRE'>(
+    'TRAFFIC'
+  );
   const [limit, setLimit] = useState<number>(100);
   const [nextCurrentPage, setNextCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -77,6 +69,7 @@ export default function PageProjects() {
 
   const { data, isLoading } = trpc.projects.getAll.useInfiniteQuery(
     {
+      menu,
       timeFrom: dayjs(selectedFromDate).format('YYYY-MM-DD HH:mm:ss'),
       timeTo: dayjs(selectedToDate).format('YYYY-MM-DD HH:mm:ss'),
       searchTerm,
@@ -121,6 +114,12 @@ export default function PageProjects() {
     } else {
       setNextCurrentPage(page);
     }
+  };
+
+  const handleSetMenuChange = (
+    e: 'TRAFFIC' | 'TREAT' | 'SYSLOG' | 'WILDFIRE'
+  ) => {
+    setMenu(e);
   };
 
   const onCellClickChanged = (
@@ -199,46 +198,10 @@ export default function PageProjects() {
                 alignItems={{ base: 'start', md: 'center' }}
                 gap={2}
               >
-                <Flex>
-                  <Button
-                    fontSize="24px"
-                    size="sm"
-                    color="gray.400"
-                    onClick={onOpen}
-                  >
-                    TRAFFIC
-                  </Button>
-                  <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
-                    <DrawerOverlay />
-                    <DrawerContent>
-                      <DrawerCloseButton />
-                      <DrawerHeader>Monitoring Menu</DrawerHeader>
-                      <DrawerBody>
-                        <Flex flexDir="column" gap={2}>
-                          <Button fontSize="18px" size="sm" p={4}>
-                            TRAFFIC
-                          </Button>
-                          <Button fontSize="18px" size="sm" p={4}>
-                            TREAT
-                          </Button>
-                          <Button fontSize="18px" size="sm" p={4}>
-                            GLOBAL PROTECT
-                          </Button>
-                          <Button fontSize="18px" size="sm" p={4}>
-                            WILD FIRE
-                          </Button>
-                        </Flex>
-                      </DrawerBody>
-
-                      <DrawerFooter>
-                        {/* <Button variant="outline" mr={3} onClick={onClose}>
-                          Cancel
-                        </Button>
-                        <Button colorScheme="blue">Save</Button> */}
-                      </DrawerFooter>
-                    </DrawerContent>
-                  </Drawer>
-                </Flex>
+                <MenuSetter
+                  menu={menu}
+                  handleSetMenuChange={handleSetMenuChange}
+                />
                 <Flex gap={2}>
                   <FormField
                     control={form.control}
@@ -291,6 +254,7 @@ export default function PageProjects() {
                 ref={gridRef}
                 rowData={!isLoading ? data?.pages[0]?.logs : dummy}
                 columnDefs={colDefs(
+                  menu,
                   !isLoading,
                   onCellClickChanged,
                   timeFormatter
