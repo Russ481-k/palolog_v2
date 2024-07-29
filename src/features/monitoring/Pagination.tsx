@@ -166,12 +166,11 @@ const PaginationButtons = ({
       const totalPageCount = pageLength ?? 1;
       const pageCount = [];
       for (let count = 2; count < totalPageCount + 1; count++) {
-        pageCount?.push(count);
+        pageCount.push(count);
       }
       setPageList([1, ...pageCount]);
       setCurrentPage(pagination.currentPage);
-    }
-    if (!!pageLength && currentPage > pageLength) {
+    } else if (!!pageLength && currentPage > pageLength) {
       onCurrentPageChange?.(currentPage - 1);
     }
   }, [currentPage, pagination, pageLength, getValues, onCurrentPageChange]);
@@ -214,7 +213,7 @@ const PaginationButtons = ({
             currentPage > 1 ? handleCurrentPageChange(currentPage - 1) : ''
           }
         >{`<`}</Button>
-        {paginationButtonsData.map((page) => (
+        {paginationButtonsData?.map((page) => (
           <Button
             bgColor={currentPage === page.buttonNumber() ? 'gray.200' : 'white'}
             borderColor={
