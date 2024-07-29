@@ -41,9 +41,6 @@ export const AppNavBarMobile = (props: BoxProps) => {
           <AppNavBarMobileMainMenuItem icon={LuHome} href="/">
             {t('app:layout.mainMenu.home')}
           </AppNavBarMobileMainMenuItem>
-          <AppNavBarMobileMainMenuItem href="/repositories" icon={LuFolderGit2}>
-            {t('app:layout.mainMenu.repositories')}
-          </AppNavBarMobileMainMenuItem>
           <AppNavBarMobileMainMenuItem icon={LuUser} href="/account">
             {t('app:layout.mainMenu.account')}
           </AppNavBarMobileMainMenuItem>

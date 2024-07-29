@@ -12,7 +12,7 @@ import {
 } from '@chakra-ui/react';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { LuFolderGit2, LuHome } from 'react-icons/lu';
+import { LuHome } from 'react-icons/lu';
 
 import { Icon } from '@/components/Icons';
 import { LinkApp } from '@/features/app/LinkApp';
@@ -41,12 +41,6 @@ export const AppNavBarDesktop = (props: BoxProps) => {
             <HStack flex={1} spacing={0}>
               <AppNavBarDesktopMainMenuItem href="/" icon={LuHome}>
                 {t('app:layout.mainMenu.home')}
-              </AppNavBarDesktopMainMenuItem>
-              <AppNavBarDesktopMainMenuItem
-                href="/repositories"
-                icon={LuFolderGit2}
-              >
-                {t('app:layout.mainMenu.repositories')}
               </AppNavBarDesktopMainMenuItem>
             </HStack>
             <Avatar

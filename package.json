@@ -154,10 +154,6 @@
   "prisma": {
     "seed": "npx tsx prisma/seed/index.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Russ481-k/palolog_v2.git"
-  },
   "author": {
     "name": "Yun Su-bin",
     "email": "yunsubin481@gmail.com",

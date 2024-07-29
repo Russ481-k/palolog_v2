@@ -59,9 +59,6 @@ const AdminNavBarMainMenu = ({ ...rest }: StackProps) => {
       <AdminNavBarMainMenuItem href="/dashboard">
         {t('admin:layout.mainMenu.dashboard')}
       </AdminNavBarMainMenuItem>
-      <AdminNavBarMainMenuItem href="/repositories">
-        {t('admin:layout.mainMenu.repositories')}
-      </AdminNavBarMainMenuItem>
       <AdminNavBarMainMenuItem href="/monitoring">
         {t('admin:layout.mainMenu.monitoring')}
       </AdminNavBarMainMenuItem>

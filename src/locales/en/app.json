@@ -2,7 +2,6 @@
   "layout": {
     "mainMenu": {
       "home": "Home",
-      "repositories": "Repositories",
       "account": "Account"
     }
   }
