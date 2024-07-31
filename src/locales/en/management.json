@@ -1,6 +1,7 @@
 {
   "nav": {
     "title": "Management",
-    "users": "Users"
+    "users": "Users",
+    "menus": "Menus"
   }
 }

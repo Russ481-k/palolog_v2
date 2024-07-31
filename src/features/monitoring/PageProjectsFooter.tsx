@@ -1,4 +1,4 @@
-import { ChangeEvent, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 
 import {
   Button,
@@ -21,7 +21,7 @@ import {
 } from '@chakra-ui/react';
 import { AgGridReact } from 'ag-grid-react';
 
-import PaginationButtons from './Pagination';
+import PaginationButtons from './PaginationButtons';
 
 export const PageProjectsFooter = ({
   isLoading,
@@ -124,7 +124,7 @@ export const PageProjectsFooter = ({
           <ModalOverlay />
           <ModalContent my="auto">
             <ModalHeader>
-              <Heading>DOWNLOAD CENTER</Heading>
+              <Heading size="md">DOWNLOAD CENTER</Heading>
             </ModalHeader>
             <ModalCloseButton />
             <ModalBody minHeight="640px">
@@ -143,25 +143,28 @@ export const PageProjectsFooter = ({
                     [
                       {
                         no: 1,
-                        rows: 65151326,
+                        fromRows: 65151326,
+                        toRows: 65151326,
                         pages: 6513216516,
-                        files: 15211451412,
+                        size: 15211451412,
                         progress: true,
                         button: true,
                       },
                       {
                         no: 2,
-                        rows: 42651516,
+                        fromRows: 65151326,
+                        toRows: 65151326,
                         pages: 651654116,
-                        files: 11114451412,
+                        size: 11114451412,
                         progress: true,
                         button: true,
                       },
                       {
                         no: 3,
-                        rows: 986541516,
+                        fromRows: 65151326,
+                        toRows: 65151326,
                         pages: 6516516,
-                        files: 111451413212,
+                        size: 111451413212,
                         progress: true,
                         button: true,
                       },
@@ -171,14 +174,12 @@ export const PageProjectsFooter = ({
                     {
                       headerName: 'No',
                       field: 'no',
-                      minWidth: 180,
-                      headerCheckboxSelection: true,
-                      headerCheckboxSelectionFilteredOnly: true,
-                      checkboxSelection: true,
+                      width: 60,
                     },
-                    { field: 'rows' },
+                    { field: 'fromRows' },
+                    { field: 'toRows' },
                     { field: 'pages' },
-                    { field: 'files' },
+                    { field: 'size' },
                     {
                       field: 'progress',
                       cellRenderer: () => (

@@ -11,18 +11,18 @@ import {
   useDisclosure,
 } from '@chakra-ui/react';
 
+import { MenuType } from '@/types/project';
+
 export default function MenuSetter({
   menu,
   handleSetMenuChange,
 }: {
-  menu: 'TRAFFIC' | 'TREAT' | 'SYSLOG' | 'WILDFIRE';
-  handleSetMenuChange: (e: 'TRAFFIC' | 'TREAT' | 'SYSLOG' | 'WILDFIRE') => void;
+  menu: MenuType;
+  handleSetMenuChange: (e: MenuType) => void;
 }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const onMenuButtonClick = (
-    e: 'TRAFFIC' | 'TREAT' | 'SYSLOG' | 'WILDFIRE'
-  ) => {
+  const onMenuButtonClick = (e: MenuType) => {
     handleSetMenuChange(e);
     onClose();
   };
@@ -49,7 +49,16 @@ export default function MenuSetter({
                 fontSize="18px"
                 size="sm"
                 p={4}
-                disabled={menu === 'TRAFFIC'}
+                isDisabled={menu === 'ALL'}
+                onClick={() => onMenuButtonClick('ALL')}
+              >
+                ALL
+              </Button>
+              <Button
+                fontSize="18px"
+                size="sm"
+                p={4}
+                isDisabled={menu === 'TRAFFIC'}
                 onClick={() => onMenuButtonClick('TRAFFIC')}
               >
                 TRAFFIC
@@ -58,38 +67,24 @@ export default function MenuSetter({
                 fontSize="18px"
                 size="sm"
                 p={4}
-                disabled={menu === 'TREAT'}
-                onClick={() => onMenuButtonClick('TREAT')}
+                isDisabled={menu === 'THREAT'}
+                onClick={() => onMenuButtonClick('THREAT')}
               >
-                TREAT
+                THREAT
               </Button>
               <Button
                 fontSize="18px"
                 size="sm"
                 p={4}
-                disabled={menu === 'SYSLOG'}
+                isDisabled={menu === 'SYSLOG'}
                 onClick={() => onMenuButtonClick('SYSLOG')}
               >
                 SYSLOG
               </Button>
-              <Button
-                fontSize="18px"
-                size="sm"
-                p={4}
-                disabled={menu === 'WILDFIRE'}
-                onClick={() => onMenuButtonClick('WILDFIRE')}
-              >
-                WILDFIRE
-              </Button>
             </Flex>
           </DrawerBody>
 
-          <DrawerFooter>
-            {/* <Button variant="outline" mr={3} onClick={onClose}>
-                          Cancel
-                        </Button>
-                        <Button colorScheme="blue">Save</Button> */}
-          </DrawerFooter>
+          <DrawerFooter></DrawerFooter>
         </DrawerContent>
       </Drawer>
     </Flex>

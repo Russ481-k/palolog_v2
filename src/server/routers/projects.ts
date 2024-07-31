@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 import { env } from '@/env.mjs';
 import {
+  threatColumns,
+  trefficColumns,
+  urlColumns,
+} from '@/features/monitoring/MenuColumns';
+import {
   zLogs,
   zPaloLogs,
   zPaloLogsParams,
@@ -111,24 +116,31 @@ export const projectsRouter = createTRPCRouter({
       const dataFrom = (input.currentPage - 1) * input.limit;
       const dataTo = input.limit;
       const timeRange = `DURATION FROM TO_DATE('${input.timeFrom}') TO TO_DATE('${input.timeTo}')`;
-      const searchTerm = input.searchTerm;
-      let column = '*';
+      let searchTerm = input.searchTerm;
+      let columnString = '';
 
       switch (input.menu) {
+        case 'ALL':
+          columnString = '*';
+          break;
         case 'TRAFFIC':
-          column = '*';
-        case 'TREAT':
-          column = '*';
-        case 'SYSLOG':
-          column = '*';
-        case 'WILDFIRE':
-          column = '*';
+          columnString = trefficColumns.join(', ');
+          searchTerm = searchTerm + " AND TYPE = 'TRAFFIC'";
+          break;
+        case 'THREAT':
+          columnString = threatColumns.join(', ');
+          searchTerm = searchTerm + " AND TYPE = 'THREAT'";
+          break;
+        case 'URL':
+          columnString = urlColumns.join(', ');
+          searchTerm = searchTerm + " AND TYPE = 'URL'";
+          break;
         default:
       }
 
-      const queryLogs = `SELECT ${column} FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dataFrom}, ${dataTo} ${timeRange}`;
+      const queryLogs = `SELECT ${columnString} FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dataFrom}, ${dataTo} ${timeRange}`;
 
-      const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
+      const queryTotalCnt = `SELECT COUNT(RECEIVE_TIME) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
       let totalCnt = 0;
       let pageLength = 1;
       console.log('dataFrom', dataFrom);

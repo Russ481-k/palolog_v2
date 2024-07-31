@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 
 import {
   Button,
@@ -28,6 +28,7 @@ import {
   AdminLayoutPageContent,
 } from '@/features/admin/AdminLayoutPage';
 import { trpc } from '@/lib/trpc/client';
+import { MenuType } from '@/types/project';
 
 import MenuSetter from './MenuSetter';
 import { PageProjectsFooter } from './PageProjectsFooter';
@@ -54,9 +55,10 @@ export default function PageProjects() {
     },
   });
 
-  const [menu, setMenu] = useState<'TRAFFIC' | 'TREAT' | 'SYSLOG' | 'WILDFIRE'>(
-    'TRAFFIC'
+  const [menu, setMenu] = useState<'ALL' | 'TRAFFIC' | 'THREAT' | 'SYSLOG'>(
+    'ALL'
   );
+  const [pageLengthBuf, setPageLengthBuf] = useState<number>(1);
   const [limit, setLimit] = useState<number>(100);
   const [nextCurrentPage, setNextCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -80,7 +82,7 @@ export default function PageProjects() {
   );
 
   const currentPage = data?.pages[0]?.pagination.currentPage ?? 1;
-  const pageLength = data?.pages[0]?.pagination.pageLength ?? 1;
+  const pageLength = data?.pages[0]?.pagination.pageLength;
   const totalCnt = data?.pages[0]?.pagination.totalCnt ?? 0;
 
   const onSubmit = (
@@ -109,16 +111,14 @@ export default function PageProjects() {
     setSelectedToDate(e);
   };
   const onCurrentPageChange = (page: number) => {
-    if (page > pageLength) {
-      setNextCurrentPage(pageLength);
+    if (page > pageLengthBuf) {
+      setNextCurrentPage(pageLengthBuf);
     } else {
       setNextCurrentPage(page);
     }
   };
 
-  const handleSetMenuChange = (
-    e: 'TRAFFIC' | 'TREAT' | 'SYSLOG' | 'WILDFIRE'
-  ) => {
+  const handleSetMenuChange = (e: MenuType) => {
     setMenu(e);
   };
 
@@ -177,6 +177,12 @@ export default function PageProjects() {
       return dayjs(event.value / 1000000).format('YYYY-MM-DD HH:mm:ss');
     }
   };
+  useEffect(() => {
+    if (!!pageLength) {
+      setPageLengthBuf(pageLength);
+    }
+  }, [pageLength, setPageLengthBuf]);
+
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
@@ -265,7 +271,7 @@ export default function PageProjects() {
               isLoading={isLoading}
               currentPage={currentPage}
               nextCurrentPage={nextCurrentPage}
-              pageLength={pageLength}
+              pageLength={pageLengthBuf}
               totalCnt={totalCnt}
               onChangeLimit={onRowLoadLimitChange}
               onCurrentPageChange={onCurrentPageChange}
