@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 
 import {
-  Input,
   InputGroup,
   InputLeftElement,
   InputProps,

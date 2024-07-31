@@ -3,7 +3,7 @@ import React, { ReactNode } from 'react';
 import { Box, BoxProps, Container, Flex } from '@chakra-ui/react';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { LuFolderGit2, LuHome, LuUser } from 'react-icons/lu';
+import { LuHome, LuUser } from 'react-icons/lu';
 
 import { Icon } from '@/components/Icons';
 import { LinkApp } from '@/features/app/LinkApp';

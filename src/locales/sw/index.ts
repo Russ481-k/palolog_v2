@@ -10,6 +10,7 @@ import common from './common.json';
 import components from './components.json';
 import emails from './emails.json';
 import management from './management.json';
+import menus from './menus.json';
 import users from './users.json';
 
 export default {
@@ -23,5 +24,6 @@ export default {
   components,
   emails,
   management,
+  menus,
   users,
 } as const;

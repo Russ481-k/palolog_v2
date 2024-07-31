@@ -65,3 +65,28 @@ model Project {
   name        String   @unique
   description String?
 }
+
+model Menu {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  columns     MenuColumn[]
+  description String?
+
+}
+
+model Column {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  menus       MenuColumn[]
+  description String?
+}
+
+model MenuColumn {
+  id            Int     @id @default(autoincrement())
+  menuId        Int
+  columnId      Int
+  menu          Menu    @relation(fields: [menuId], references: [id])
+  column        Column  @relation(fields: [columnId], references: [id])
+  
+  @@unique([menuId, columnId])
+}
