@@ -24,8 +24,6 @@ import { AgGridReact } from 'ag-grid-react';
 import PaginationButtons from './PaginationButtons';
 
 export const PageProjectsFooter = ({
-  isLoading,
-  currentPage,
   nextCurrentPage,
   pageLength,
   totalCnt,
@@ -33,7 +31,6 @@ export const PageProjectsFooter = ({
   onCurrentPageChange,
 }: {
   isLoading: boolean;
-  currentPage: number;
   nextCurrentPage: number;
   pageLength: number;
   totalCnt: number;
@@ -97,10 +94,9 @@ export const PageProjectsFooter = ({
       </Flex>
       <Flex flex={1} w="180px" justifyContent="center">
         <PaginationButtons
-          isLoading={isLoading}
           pageLength={pageLength}
           pagination={{
-            currentPage: currentPage,
+            currentPage: nextCurrentPage,
           }}
           onCurrentPageChange={onCurrentPageChange}
         />

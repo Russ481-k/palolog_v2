@@ -80,8 +80,6 @@ export default function PageProjects() {
     },
     {}
   );
-
-  const currentPage = data?.pages[0]?.pagination.currentPage ?? 1;
   const pageLength = data?.pages[0]?.pagination.pageLength;
   const totalCnt = data?.pages[0]?.pagination.totalCnt ?? 0;
 
@@ -180,8 +178,9 @@ export default function PageProjects() {
   useEffect(() => {
     if (!!pageLength) {
       setPageLengthBuf(pageLength);
+      setNextCurrentPage(nextCurrentPage);
     }
-  }, [pageLength, setPageLengthBuf]);
+  }, [pageLength, nextCurrentPage, setPageLengthBuf, setNextCurrentPage]);
 
   return (
     <AdminLayoutPage>
@@ -269,7 +268,6 @@ export default function PageProjects() {
             </div>
             <PageProjectsFooter
               isLoading={isLoading}
-              currentPage={currentPage}
               nextCurrentPage={nextCurrentPage}
               pageLength={pageLengthBuf}
               totalCnt={totalCnt}

@@ -106,7 +106,7 @@ export const projectsRouter = createTRPCRouter({
         logs: z.array(zPaloLogs().nullish()),
         pagination: z.object({
           currentPage: z.number().min(1).default(1),
-          pageLength: z.number().min(0).default(1),
+          pageLength: z.number().min(0),
           totalCnt: z.number().min(0).default(0),
         }),
       })
@@ -131,7 +131,7 @@ export const projectsRouter = createTRPCRouter({
           columnString = threatColumns.join(', ');
           searchTerm = searchTerm + " AND TYPE = 'THREAT'";
           break;
-        case 'URL':
+        case 'SYSLOG':
           columnString = urlColumns.join(', ');
           searchTerm = searchTerm + " AND TYPE = 'URL'";
           break;
@@ -146,6 +146,7 @@ export const projectsRouter = createTRPCRouter({
       console.log('dataFrom', dataFrom);
       console.log('dataTo', dataTo);
       console.log('queryTotalCnt', queryTotalCnt);
+      console.log('queryLogs', queryLogs);
       try {
         await fetch(
           `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
