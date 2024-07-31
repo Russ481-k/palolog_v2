@@ -23,7 +23,7 @@ export const colDefs = (
     {
       field: 'deviceName', //TRAFFIC THREAT URL
       minWidth: 50,
-      width: 120,
+      width: 160,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
       cellRenderer: (e: ILoadingCellRendererParams) => {
         if (!isLoading) {
