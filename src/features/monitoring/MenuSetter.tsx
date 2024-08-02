@@ -49,15 +49,6 @@ export default function MenuSetter({
                 fontSize="18px"
                 size="sm"
                 p={4}
-                isDisabled={menu === 'ALL'}
-                onClick={() => onMenuButtonClick('ALL')}
-              >
-                ALL
-              </Button>
-              <Button
-                fontSize="18px"
-                size="sm"
-                p={4}
                 isDisabled={menu === 'TRAFFIC'}
                 onClick={() => onMenuButtonClick('TRAFFIC')}
               >

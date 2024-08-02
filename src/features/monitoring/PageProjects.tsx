@@ -55,9 +55,7 @@ export default function PageProjects() {
     },
   });
 
-  const [menu, setMenu] = useState<'ALL' | 'TRAFFIC' | 'THREAT' | 'SYSLOG'>(
-    'ALL'
-  );
+  const [menu, setMenu] = useState<MenuType>('TRAFFIC');
   const [pageLengthBuf, setPageLengthBuf] = useState<number>(1);
   const [limit, setLimit] = useState<number>(100);
   const [nextCurrentPage, setNextCurrentPage] = useState<number>(1);

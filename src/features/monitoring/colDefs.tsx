@@ -519,7 +519,7 @@ export const colDefs = (
     },
     {
       field: 'misc', // THREAT
-      hide: menu !== 'ALL' && menu !== 'THREAT',
+      hide: menu !== 'THREAT',
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -537,7 +537,7 @@ export const colDefs = (
     },
     {
       field: 'threatid', // THREAT
-      hide: menu !== 'ALL' && menu !== 'THREAT',
+      hide: menu !== 'THREAT',
       minWidth: 50,
       width: 90,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -555,7 +555,7 @@ export const colDefs = (
     },
     {
       field: 'thrCategory', // THREAT
-      hide: menu !== 'ALL' && menu !== 'THREAT',
+      hide: menu !== 'THREAT',
       minWidth: 50,
       width: 120,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -573,7 +573,7 @@ export const colDefs = (
     },
     {
       field: 'severity', // THREAT URL
-      hide: menu !== 'ALL' && menu !== 'THREAT' && menu !== 'SYSLOG',
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -591,7 +591,7 @@ export const colDefs = (
     },
     {
       field: 'direction', // THREAT
-      hide: menu !== 'ALL' && menu !== 'THREAT',
+      hide: menu !== 'THREAT',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -609,7 +609,7 @@ export const colDefs = (
     },
     {
       field: 'bytes', //TRAFFIC
-      hide: menu !== 'ALL' && menu !== 'TRAFFIC',
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 70,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -627,7 +627,7 @@ export const colDefs = (
     },
     {
       field: 'bytesSent', //TRAFFIC
-      hide: menu !== 'ALL' && menu !== 'TRAFFIC',
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -645,7 +645,7 @@ export const colDefs = (
     },
     {
       field: 'bytesReceived', //TRAFFIC
-      hide: menu !== 'ALL' && menu !== 'TRAFFIC',
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -663,7 +663,7 @@ export const colDefs = (
     },
     {
       field: 'packets', //TRAFFIC
-      hide: menu !== 'ALL' && menu !== 'TRAFFIC',
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -681,7 +681,7 @@ export const colDefs = (
     },
     {
       field: 'pktsSent', //TRAFFIC
-      hide: menu !== 'ALL' && menu !== 'TRAFFIC',
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -699,7 +699,7 @@ export const colDefs = (
     },
     {
       field: 'pktsReceived', //TRAFFIC
-      hide: menu !== 'ALL' && menu !== 'TRAFFIC',
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 120,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -734,7 +734,7 @@ export const colDefs = (
     },
     {
       field: 'eventid', //SYSTEM
-      hide: menu !== 'ALL' && menu !== 'SYSLOG',
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -752,7 +752,7 @@ export const colDefs = (
     },
     {
       field: 'object', //SYSTEM
-      hide: menu !== 'ALL' && menu !== 'SYSLOG',
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -770,7 +770,7 @@ export const colDefs = (
     },
     {
       field: 'module', //SYSTEM
-      hide: menu !== 'ALL' && menu !== 'SYSLOG',
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -788,7 +788,7 @@ export const colDefs = (
     },
     {
       field: 'opaque', //SYSTEM
-      hide: menu !== 'ALL' && menu !== 'SYSLOG',
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -858,7 +858,7 @@ export const colDefs = (
     },
     {
       field: 'category', //URL
-      hide: menu !== 'ALL' && menu !== 'SYSLOG',
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -876,7 +876,7 @@ export const colDefs = (
     },
     {
       field: 'urlCategoryList', //URL
-      hide: menu !== 'ALL' && menu !== 'SYSLOG',
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 145,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -912,7 +912,7 @@ export const colDefs = (
     },
     {
       field: 'reason', //THREAT URL
-      hide: menu !== 'ALL' && menu !== 'THREAT' && menu !== 'SYSLOG',
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -930,7 +930,7 @@ export const colDefs = (
     },
     {
       field: 'justification', //THREAT URL
-      hide: menu !== 'ALL' && menu !== 'THREAT' && menu !== 'SYSLOG',
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 80,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -948,7 +948,7 @@ export const colDefs = (
     },
     {
       field: 'subcategoryOfApp', //THREAT URL
-      hide: menu !== 'ALL' && menu !== 'THREAT' && menu !== 'SYSLOG',
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -966,7 +966,7 @@ export const colDefs = (
     },
     {
       field: 'categoryOfApp', //THREAT URL
-      hide: menu !== 'ALL' && menu !== 'THREAT' && menu !== 'SYSLOG',
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -984,7 +984,7 @@ export const colDefs = (
     },
     {
       field: 'technologyOfApp', //THREAT URL
-      hide: menu !== 'ALL' && menu !== 'THREAT' && menu !== 'SYSLOG',
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -1002,7 +1002,7 @@ export const colDefs = (
     },
     {
       field: 'riskOfApp', //THREAT URL
-      hide: menu !== 'ALL' && menu !== 'THREAT' && menu !== 'SYSLOG',
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),

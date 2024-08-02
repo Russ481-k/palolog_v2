@@ -1,1 +1,1 @@
-export type MenuType = 'TRAFFIC' | 'THREAT' | 'SYSLOG' | 'ALL';
+export type MenuType = 'TRAFFIC' | 'THREAT' | 'SYSLOG';

@@ -120,9 +120,6 @@ export const projectsRouter = createTRPCRouter({
       let columnString = '';
 
       switch (input.menu) {
-        case 'ALL':
-          columnString = '*';
-          break;
         case 'TRAFFIC':
           columnString = trefficColumns.join(', ');
           searchTerm = searchTerm + " AND TYPE = 'TRAFFIC'";
