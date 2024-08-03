@@ -1,56 +1,90 @@
 import { exec } from 'child_process';
+import dayjs from 'dayjs';
 import { NextResponse } from 'next/server';
 import os from 'os';
 import { z } from 'zod';
 
+import { env } from '@/env.mjs';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
-// 데이터 버퍼를 저장할 객체
-const cpuUsageBuffer: { core: number; usage: string }[][] = [];
+const cpuUsageBuffer: {
+  time: string;
+  total_usage: number;
+  core_1: number;
+  core_2: number;
+  core_3: number;
+  core_4: number;
+  core_5: number;
+  core_6: number;
+}[] = [];
 const memoryUsageBuffer: {
+  time: string;
   total: number;
   used: number;
   free: number;
-  usagePercentage: string;
+  usagePercentage: number;
 }[] = [];
 const diskUsageBuffer: {
+  time: string;
   total: number;
   used: number;
   free: number;
-  usagePercentage: string;
+  usagePercentage: number;
 }[] = [];
 
-// CPU 사용량을 기록하는 함수
 function recordCpuUsage() {
+  const time = dayjs().format('HH:mm:ss');
+
   const cpuUsages = os.cpus().map((cpu, index) => {
     const total = Object.values(cpu.times).reduce((acc, time) => acc + time, 0);
     const idle = cpu.times.idle;
     const usage = 100 - (idle / total) * 100;
     return {
-      core: index,
-      usage: usage.toFixed(2),
+      [`core_${index + 1}`]: Number(usage.toFixed(2)),
     };
   });
 
-  cpuUsageBuffer.push(cpuUsages);
+  const totalUsage = cpuUsages.reduce((acc, usage) => {
+    const usageValue = Object.values(usage)[0];
+    return usageValue !== undefined ? acc + usageValue : acc;
+  }, 0);
+
+  const cpuUsageEntry = {
+    time,
+    ...Object.assign({}, ...cpuUsages),
+    total_usage: Number((totalUsage / cpuUsages.length).toFixed(2)),
+  };
+
+  cpuUsageBuffer.push(cpuUsageEntry);
+
+  if (cpuUsageBuffer.length > 600) {
+    cpuUsageBuffer.shift();
+  }
 }
 
-// 메모리 사용량을 기록하는 함수
 function recordMemoryUsage() {
+  const time = dayjs().format('HH:mm:ss');
+
   const totalMemory = os.totalmem();
   const freeMemory = os.freemem();
   const usedMemory = totalMemory - freeMemory;
   const usagePercentage = ((usedMemory / totalMemory) * 100).toFixed(2);
 
-  memoryUsageBuffer.push({
+  const memoryUsageEntry = {
+    time,
     total: totalMemory,
     used: usedMemory,
     free: freeMemory,
-    usagePercentage,
-  });
+    usagePercentage: Number(usagePercentage),
+  };
+
+  memoryUsageBuffer.push(memoryUsageEntry);
+
+  if (memoryUsageBuffer.length > 600) {
+    memoryUsageBuffer.shift();
+  }
 }
 
-// 디스크 사용량을 기록하는 함수
 function recordDiskUsage() {
   return new Promise<void>((resolve, reject) => {
     exec(
@@ -71,16 +105,27 @@ function recordDiskUsage() {
           return;
         }
 
-        const data = lines[1]?.trim().split(' ').map(Number);
+        const data = lines[1]
+          ?.trim()
+          .split(' ')
+          .map((num) => Number(num))
+          .filter((n) => !isNaN(n));
         if (!data || data.length < 3) {
           reject('디스크 사용량 데이터가 유효하지 않습니다.');
           return;
         }
 
-        const [total, used, available] = data;
-        const usagePercentage = (((used ?? 0) / (total ?? 1)) * 100).toFixed(2);
+        const time = dayjs().format('HH:mm:ss');
+        const total = data[0];
+        const used = data[5];
+        const available = data[5];
+
+        const usagePercentage = Number(
+          (((used ?? 0) / (total ?? 1)) * 100).toFixed(2)
+        );
 
         diskUsageBuffer.push({
+          time,
           total: total ?? 0,
           used: used ?? 0,
           free: available ?? 0,
@@ -93,12 +138,45 @@ function recordDiskUsage() {
   });
 }
 
-// 주기적으로 데이터 기록
-setInterval(async () => {
-  recordCpuUsage();
-  recordMemoryUsage();
-  await recordDiskUsage();
-}, 1000); // 1초마다 기록
+function recordCollectionsCount() {
+  return new Promise<void>(async (resolve, reject) => {
+    const queryTotalCnt = `SELECT COUNT(TIME) TOTAL FROM PANETLOG`;
+    let totalCnt = 0;
+    try {
+      await fetch(
+        `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+          encodeURIComponent(queryTotalCnt)
+      )
+        .then((res) => {
+          return res.json();
+        })
+        .then((data) => {
+          totalCnt = data.data.rows[0][0];
+
+          console.log('totalCnt : ' + totalCnt);
+        });
+    } catch {
+      console.log('error');
+    }
+    resolve();
+  });
+}
+
+let intervalId: NodeJS.Timeout;
+
+function startRecording() {
+  if (intervalId) {
+    clearInterval(intervalId);
+  }
+
+  intervalId = setInterval(async () => {
+    await recordCpuUsage();
+    await recordMemoryUsage();
+    await recordDiskUsage();
+  }, 1000);
+}
+
+startRecording();
 
 export const dashboardRouter = createTRPCRouter({
   getCpuUsage: protectedProcedure()
@@ -110,10 +188,37 @@ export const dashboardRouter = createTRPCRouter({
         tags: ['dashboard'],
       },
     })
-    .output(z.array(z.object({ core: z.number(), usage: z.string() })))
+    .input(z.object({}))
+    .output(
+      z.array(
+        z.object({
+          time: z.string(),
+          core_1: z.number(),
+          core_2: z.number(),
+          core_3: z.number(),
+          core_4: z.number(),
+          core_5: z.number(),
+          core_6: z.number(),
+          total_usage: z.number(),
+        })
+      )
+    )
     .query(async ({ ctx }) => {
       ctx.logger.info('Getting CPU usage');
-      return cpuUsageBuffer.slice(-1)[0] || [];
+      return (
+        cpuUsageBuffer ?? [
+          {
+            time: dayjs().format('HH:mm:ss'),
+            core_1: 0,
+            core_2: 0,
+            core_3: 0,
+            core_4: 0,
+            core_5: 0,
+            core_6: 0,
+            total_usage: 0,
+          },
+        ]
+      );
     }),
 
   getMemoryUsage: protectedProcedure()
@@ -125,23 +230,30 @@ export const dashboardRouter = createTRPCRouter({
         tags: ['dashboard'],
       },
     })
+    .input(z.object({}))
     .output(
-      z.object({
-        total: z.number(),
-        used: z.number(),
-        free: z.number(),
-        usagePercentage: z.string(),
-      })
+      z.array(
+        z.object({
+          time: z.string(),
+          total: z.number(),
+          used: z.number(),
+          free: z.number(),
+          usagePercentage: z.number(),
+        })
+      )
     )
     .query(async ({ ctx }) => {
       ctx.logger.info('Getting memory usage');
       return (
-        memoryUsageBuffer.slice(-1)[0] || {
-          total: 0,
-          used: 0,
-          free: 0,
-          usagePercentage: '0.00',
-        }
+        memoryUsageBuffer ?? [
+          {
+            time: '',
+            total: 0,
+            used: 0,
+            free: 0,
+            usagePercentage: 0,
+          },
+        ]
       );
     }),
 
@@ -154,28 +266,34 @@ export const dashboardRouter = createTRPCRouter({
         tags: ['dashboard'],
       },
     })
+    .input(z.object({}))
     .output(
-      z.object({
-        total: z.number(),
-        used: z.number(),
-        free: z.number(),
-        usagePercentage: z.string(),
-      })
+      z.array(
+        z.object({
+          time: z.string(),
+          total: z.number(),
+          used: z.number(),
+          free: z.number(),
+          usagePercentage: z.number(),
+        })
+      )
     )
     .query(async ({ ctx }) => {
       ctx.logger.info('Getting disk usage');
       return (
-        diskUsageBuffer.slice(-1)[0] || {
-          total: 0,
-          used: 0,
-          free: 0,
-          usagePercentage: '0.00',
-        }
+        diskUsageBuffer || [
+          {
+            time: '',
+            total: 0,
+            used: 0,
+            free: 0,
+            usagePercentage: 0,
+          },
+        ]
       );
     }),
 });
 
-// Next.js API Route 추가
 export async function GET() {
   const totalMemory = os.totalmem();
   const freeMemory = os.freemem();
