@@ -1,6 +1,17 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 
-import { Grid, GridItem, Text, useColorMode } from '@chakra-ui/react';
+import {
+  Flex,
+  Grid,
+  GridItem,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+  Text,
+  useColorMode,
+} from '@chakra-ui/react';
 import {
   AgChartOptions,
   AgDonutSeriesOptions,
@@ -21,8 +32,22 @@ export const DashboardStatics = () => {
   const getCpuUsageData = trpc.dashboard.getCpuUsage.useInfiniteQuery({});
   const getDiskUsageData = trpc.dashboard.getDiskUsage.useInfiniteQuery({});
   const getMemoryUsageData = trpc.dashboard.getMemoryUsage.useInfiniteQuery({});
+  const getCollectionsCounts =
+    trpc.dashboard.getCollectionsCounts.useInfiniteQuery({});
+  const getThreatLogData = trpc.dashboard.getThreatLogData.useInfiniteQuery({});
 
-  console.log('getDiskUsageData : ', getDiskUsageData.data?.pages[0]);
+  const { colorMode } = useColorMode();
+
+  const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
+
+  const AgChartsThemeChanged = ({ options }: { options: AgChartOptions }) => {
+    if (colorMode === 'light') {
+      options.theme = 'ag-polychroma';
+    } else if (colorMode === 'dark') {
+      options.theme = 'ag-polychroma-dark';
+    }
+    return <AgCharts options={options} />;
+  };
 
   const cpuUsageData = useMemo<AgChartOptions>(
     () => ({
@@ -60,11 +85,11 @@ export const DashboardStatics = () => {
         {
           type: 'line',
           xKey: 'time',
-          yKey: 'core_2',
-          yName: 'core_2',
           interpolation: {
             type: 'smooth',
           },
+          yKey: 'core_2',
+          yName: 'core_2',
           marker: {
             enabled: false,
           },
@@ -176,92 +201,62 @@ export const DashboardStatics = () => {
     [getMemoryUsageData]
   );
 
-  const [collectionsCounts] = useState<AgChartOptions>({
-    theme: 'ag-polychroma',
-    title: {
-      text: 'Collections Counts',
-    },
-    subtitle: {
-      text: String(dayjs().format('YYYY-MM-DD HH:mm:ss')),
-    },
-    // Data: Data to be displayed in the chart
-    data: [
-      {
-        quarter: 'Q1',
-        petrol: 200,
-        diesel: 100,
+  const collectionsCounts = useMemo<AgChartOptions>(
+    () => ({
+      theme: 'ag-polychroma',
+      title: {
+        text: 'Collections Counts',
       },
-      {
-        quarter: 'Q2',
-        petrol: 300,
-        diesel: 130,
+      interpolation: {
+        type: 'smooth',
       },
-      {
-        quarter: 'Q3',
-        petrol: 350,
-        diesel: 160,
-      },
-      {
-        quarter: 'Q4',
-        petrol: 400,
-        diesel: 200,
-      },
-    ],
-    // Series: Defines which chart type and data to use
-    series: [
-      {
-        type: 'line',
-        xKey: 'quarter',
-        yKey: 'petrol',
-        yName: 'Petrol',
-      } as AgLineSeriesOptions,
-      {
-        type: 'line',
-        xKey: 'quarter',
-        yKey: 'diesel',
-        yName: 'Diesel',
-      } as AgLineSeriesOptions,
-    ],
-    height: 400,
-  });
-  const [threatLogData] = useState<AgChartOptions>({
-    theme: 'ag-polychroma',
-    title: {
-      text: 'Threat LogData',
-    },
-    subtitle: {
-      text: 'Top Categories',
-    },
-    // Data: Data to be displayed in the chart
-    data: [
-      { asset: 'Critical', amount: 60000 },
-      { asset: 'High', amount: 40000 },
-      { asset: 'Medium', amount: 7000 },
-      { asset: 'Low', amount: 5000 },
-      { asset: 'Informational', amount: 3000 },
-    ],
-    // Series: Defines which chart type and data to use
-    series: [
-      {
-        type: 'donut',
-        calloutLabelKey: 'asset',
-        angleKey: 'amount',
-        innerRadiusRatio: 0.7,
-      } as AgDonutSeriesOptions,
-    ],
-  });
-  const { colorMode } = useColorMode();
+      data: getCollectionsCounts.data?.pages[0],
+      series: [
+        {
+          type: 'line',
+          xKey: 'quarter',
+          yKey: 'petrol',
+          yName: 'Petrol',
+        } as AgLineSeriesOptions,
+        {
+          type: 'line',
+          xKey: 'quarter',
+          yKey: 'diesel',
+          yName: 'Diesel',
+        } as AgLineSeriesOptions,
+      ],
+      height: 400,
+    }),
+    [getCollectionsCounts]
+  );
 
-  const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
-
-  const AgChartsThemeChanged = ({ options }: { options: AgChartOptions }) => {
-    if (colorMode === 'light') {
-      options.theme = 'ag-polychroma';
-    } else if (colorMode === 'dark') {
-      options.theme = 'ag-polychroma-dark';
-    }
-    return <AgCharts options={options} />;
-  };
+  const threatLogData = useMemo<AgChartOptions>(
+    () => ({
+      theme: 'ag-polychroma',
+      title: {
+        text: 'Threat LogData',
+      },
+      interpolation: {
+        type: 'smooth',
+      },
+      subtitle: {
+        text: 'Top Categories',
+      },
+      // Data: Data to be displayed in the chart
+      data: getThreatLogData.data?.pages[0],
+      // Series: Defines which chart type and data to use
+      series: [
+        {
+          type: 'donut',
+          calloutLabelKey: 'asset',
+          angleKey: 'amount',
+          innerRadiusRatio: 0.7,
+        } as AgDonutSeriesOptions,
+      ],
+      height: 400,
+    }),
+    [getThreatLogData]
+  );
 
   return (
     <Grid
@@ -276,8 +271,10 @@ export const DashboardStatics = () => {
       }}
     >
       <GridItem
-        borderRadius="md"
+        borderRadius="lg"
         bg="blackAlpha.200"
+        borderWidth={1}
+        borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
         colSpan={1}
         overflow="hidden"
         height={{
@@ -291,8 +288,10 @@ export const DashboardStatics = () => {
         <AgChartsThemeChanged options={cpuUsageData} />
       </GridItem>
       <GridItem
-        borderRadius="md"
+        borderRadius="lg"
         bg="blackAlpha.200"
+        borderWidth={1}
+        borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
         colSpan={1}
         overflow="hidden"
         height={{
@@ -306,8 +305,10 @@ export const DashboardStatics = () => {
         <AgChartsThemeChanged options={diskUsageData} />
       </GridItem>
       <GridItem
-        borderRadius="md"
+        borderRadius="lg"
         bg="blackAlpha.200"
+        borderWidth={1}
+        borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
         colSpan={1}
         overflow="hidden"
         height={{
@@ -321,8 +322,10 @@ export const DashboardStatics = () => {
         <AgChartsThemeChanged options={memoryUsageData} />
       </GridItem>
       <GridItem
-        borderRadius="md"
+        borderRadius="lg"
         bg="blackAlpha.200"
+        borderWidth={1}
+        borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
         colSpan={1}
         overflow="hidden"
         height={{
@@ -336,8 +339,10 @@ export const DashboardStatics = () => {
         <AgChartsThemeChanged options={collectionsCounts} />
       </GridItem>
       <GridItem
-        borderRadius="md"
+        borderRadius="lg"
         bg="blackAlpha.200"
+        borderWidth={1}
+        borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
         colSpan={{
           base: 1,
           sm: 1,
@@ -346,45 +351,144 @@ export const DashboardStatics = () => {
           xl: 3,
         }}
         overflow="hidden"
+        height={{
+          base: '400px',
+          sm: '400px',
+          md: '400px',
+          lg: '400px',
+          xl: '400px',
+        }}
       >
-        <div
-          className={
-            colorMode === 'light' ? 'ag-theme-quartz' : 'ag-theme-quartz-dark'
-          }
-          style={{ width: '100%', height: '300px', zIndex: 0 }}
-        >
-          {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
-          <AgGridReact
-            ref={gridRef}
-            rowData={[]}
-            columnDefs={[
-              {
-                headerName: 'No',
-                field: 'no',
-                width: 60,
-              },
-              {
-                headerName: 'Message',
-                field: 'message',
-                sortable: true,
-                filter: true,
-                flex: 1,
-              },
-              {
-                headerName: 'Time',
-                field: 'time',
-                sortable: true,
-                filter: true,
-                width: 250,
-                valueFormatter: (params: ValueFormatterParams) =>
-                  dayjs(params.value).format('YYYY-MM-DD HH:mm:ss'),
-              },
-            ]}
-          />
-        </div>
+        <Flex flexDir="column">
+          <Tabs
+            size="md"
+            colorScheme="facebook"
+            bgColor={colorMode === 'light' ? 'white' : ''}
+          >
+            <TabList>
+              <Tab>Rescent 20 Rows</Tab>
+              <Tab>Critical Rescent 7 Days</Tab>
+            </TabList>
+            <TabPanels>
+              <TabPanel px={0} pt={1}>
+                <div
+                  className={
+                    colorMode === 'light'
+                      ? 'ag-theme-quartz'
+                      : 'ag-theme-quartz-dark'
+                  }
+                  style={{
+                    width: '100%',
+                    height: '352px',
+                    zIndex: 0,
+                  }}
+                >
+                  {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
+                  <AgGridReact
+                    ref={gridRef}
+                    rowData={[]}
+                    columnDefs={[
+                      {
+                        headerName: 'No',
+                        field: 'no',
+                        width: 80,
+                      },
+                      {
+                        headerName: 'Receive Time',
+                        field: 'time',
+                        sortable: true,
+                        filter: true,
+                        width: 170,
+                        valueFormatter: (params: ValueFormatterParams) =>
+                          dayjs(params.value).format('YYYY-MM-DD HH:mm:ss'),
+                      },
+                      {
+                        headerName: 'Device Name',
+                        field: 'DEVICE_NAME',
+                        sortable: true,
+                        filter: true,
+                        width: 160,
+                      },
+                      {
+                        headerName: 'Message',
+                        field: 'message',
+                        filter: true,
+                        flex: 1,
+                      },
+                    ]}
+                  />
+                </div>
+              </TabPanel>
+              <TabPanel p={0}>
+                <div
+                  className={
+                    colorMode === 'light'
+                      ? 'ag-theme-quartz'
+                      : 'ag-theme-quartz-dark'
+                  }
+                  style={{
+                    width: '100%',
+                    height: '352px',
+                    zIndex: 0,
+                    borderRadius: 0,
+                    borderWidth: 0,
+                  }}
+                >
+                  {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
+                  <AgGridReact
+                    ref={gridRef}
+                    rowData={[]}
+                    columnDefs={[
+                      {
+                        headerName: 'No',
+                        field: 'no',
+                        width: 80,
+                      },
+                      {
+                        headerName: 'Receive Time',
+                        field: 'time',
+                        sortable: true,
+                        filter: true,
+                        width: 170,
+                        valueFormatter: (params: ValueFormatterParams) =>
+                          dayjs(params.value).format('YYYY-MM-DD HH:mm:ss'),
+                      },
+                      {
+                        headerName: 'Device Name',
+                        field: 'DEVICE_NAME',
+                        sortable: true,
+                        filter: true,
+                        width: 160,
+                      },
+                      {
+                        headerName: 'Message',
+                        field: 'message',
+                        filter: true,
+                        flex: 1,
+                      },
+                    ]}
+                    style={{ borderRadius: 0, borderWidth: 0 }}
+                  />
+                </div>
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
+        </Flex>
       </GridItem>
-
-      <GridItem borderRadius="md" bg="blackAlpha.200" overflow="hidden">
+      <GridItem
+        borderRadius="lg"
+        bg="blackAlpha.200"
+        borderWidth={1}
+        borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
+        overflow="hidden"
+        height={{
+          base: '400px',
+          sm: '400px',
+          md: '400px',
+          lg: '400px',
+          xl: '400px',
+        }}
+      >
         <AgChartsThemeChanged options={threatLogData} />
       </GridItem>
       <Text
