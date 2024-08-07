@@ -188,9 +188,9 @@ export const DashboardStatics = () => {
           xKey: 'time',
           yKey: 'usagePercentage',
           yName: 'used',
-          interpolation: {
-            type: 'smooth',
-          },
+          // interpolation: {
+          //   type: 'smooth',
+          // },
           marker: {
             enabled: false,
           },
@@ -214,15 +214,9 @@ export const DashboardStatics = () => {
       series: [
         {
           type: 'line',
-          xKey: 'quarter',
-          yKey: 'petrol',
-          yName: 'Petrol',
-        } as AgLineSeriesOptions,
-        {
-          type: 'line',
-          xKey: 'quarter',
-          yKey: 'diesel',
-          yName: 'Diesel',
+          xKey: 'time',
+          yKey: 'total',
+          yName: 'Total',
         } as AgLineSeriesOptions,
       ],
       height: 400,
@@ -419,7 +413,7 @@ export const DashboardStatics = () => {
                   />
                 </div>
               </TabPanel>
-              <TabPanel p={0}>
+              <TabPanel p={0} pt={1}>
                 <div
                   className={
                     colorMode === 'light'

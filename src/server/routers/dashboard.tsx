@@ -47,7 +47,7 @@ const threatLogBuffer: {
 }[] = [];
 
 function recordCpuUsage() {
-  const time = dayjs().format('HH:mm');
+  const time = dayjs().format('HH:mm:ss');
 
   const cpuUsages = os.cpus().map((cpu, index) => {
     const total = Object.values(cpu.times).reduce((acc, time) => acc + time, 0);
@@ -77,7 +77,7 @@ function recordCpuUsage() {
 }
 
 function recordMemoryUsage() {
-  const time = dayjs().format('HH:mm');
+  const time = dayjs().format('HH:mm:ss');
 
   const totalMemory = os.totalmem();
   const freeMemory = os.freemem();
@@ -129,7 +129,7 @@ function recordDiskUsage() {
           return;
         }
 
-        const time = dayjs().format('HH:mm');
+        const time = dayjs().format('HH:mm:ss');
         const total = data[0];
         const used = data[5];
         const available = data[5];
@@ -155,63 +155,58 @@ function recordDiskUsage() {
 }
 
 function recordCollectionsCount() {
-  return new Promise<void>(async (resolve, reject) => {
-    const queryTotalCnt = `SELECT COUNT(TIME) TOTAL FROM PANETLOG`;
-    let totalCnt = 0;
-    try {
-      await fetch(
-        `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-          encodeURIComponent(queryTotalCnt)
-      )
-        .then((res) => {
-          return res.json();
-        })
-        .then((data) => {
-          totalCnt = data.data.rows[0][0];
-          collectionsCountBuffer.push({
-            time: dayjs().format('HH:mm'),
-            total: totalCnt,
-          });
-          if (collectionsCountBuffer.length > 600) {
-            collectionsCountBuffer.shift();
-          }
+  const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG`;
+  let totalCnt = 0;
+  try {
+    fetch(
+      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+        encodeURIComponent(queryTotalCnt)
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        totalCnt = data.data.rows[0][0];
+        collectionsCountBuffer.push({
+          time: dayjs().format('HH:mm:ss'),
+          total: totalCnt,
         });
-    } catch {
-      reject('Record Collections Count error');
-    }
-    resolve();
-  });
+        if (collectionsCountBuffer.length > 600) {
+          collectionsCountBuffer.shift();
+        }
+      });
+  } catch {
+    console.log('Record Collections Count error');
+  }
 }
 
 function recordThreatCount() {
-  return new Promise<void>(async (resolve, reject) => {
-    const queryThreatCnt = `SELECT DEVICE, THR_CATEGORY, COUNT(THR_CATEGORY) AMOUNT AMOUNT FROM PANETLOG WHERE TYPE = 'THREAT'`;
-    try {
-      await fetch(
-        `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-          encodeURIComponent(queryThreatCnt)
-      )
-        .then((res) => {
-          return res.json();
-        })
-        .then((data) => {
-          const logs = data.data;
-          for (let i = 0; i < logs.rows.length; i++) {
-            threatCountBuffer.push({
-              device: logs.rows[i][0] as string,
-              category: logs.rows[i][1] as string,
-              amount: logs.rows[i][2] as number,
-            });
-          }
-          if (threatCountBuffer.length > 600) {
-            threatCountBuffer.shift();
-          }
-        });
-    } catch {
-      reject('Record Threat Count error');
-    }
-    resolve();
-  });
+  const queryThreatCnt = `SELECT DEVICE_NAME, SEVERITY, COUNT(*) AS AMOUNT FROM PANETLOG WHERE TYPE='THREAT' GROUP BY DEVICE_NAME, THR_CATEGORY ORDER BY AMOUNT DESC`;
+  try {
+    fetch(
+      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+        encodeURIComponent(queryThreatCnt)
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        const logs = data.data;
+        console.log(data);
+        for (let i = 0; i < logs.rows.length; i++) {
+          threatCountBuffer.push({
+            device: logs.rows[i][0] as string,
+            category: logs.rows[i][1] as string,
+            amount: logs.rows[i][2] as number,
+          });
+        }
+        if (threatCountBuffer.length > 600) {
+          threatCountBuffer.shift();
+        }
+      });
+  } catch {
+    console.log('Record Collections Count error');
+  }
 }
 
 let intervalId: NodeJS.Timeout;
@@ -225,8 +220,8 @@ function startRecording() {
     await recordCpuUsage();
     await recordMemoryUsage();
     await recordDiskUsage();
-    await recordCollectionsCount();
-    await recordThreatCount();
+    // await recordCollectionsCount();
+    // await recordThreatCount();
   }, 1000);
 }
 
@@ -262,7 +257,7 @@ export const dashboardRouter = createTRPCRouter({
       return (
         cpuUsageBuffer ?? [
           {
-            time: dayjs().format('HH:mm'),
+            time: dayjs().format('HH:mm:ss'),
             core_1: 0,
             core_2: 0,
             core_3: 0,
@@ -366,6 +361,7 @@ export const dashboardRouter = createTRPCRouter({
     )
     .query(async ({ ctx }) => {
       ctx.logger.info('Getting disk usage');
+      ctx.logger.info('collectionsCountBuffer : ', collectionsCountBuffer);
       return (
         collectionsCountBuffer || [
           {
@@ -427,6 +423,41 @@ export const dashboardRouter = createTRPCRouter({
     )
     .query(async ({ ctx }) => {
       ctx.logger.info('Getting system log');
+
+      const queryDashboardLogs = `SELECT RECEIVE_TIME, DEVICE_NAME, REASON FROM PANETLOG WHERE 1=1 LIMIT 20 ORDER BY RECEIVE_TIME DESC`;
+      const queryDashboardCritical = `SELECT RECEIVE_TIME, DEVICE_NAME, REASON FROM PANETLOG WHERE 1=1 AND CATEGORY = 'CRITICAL' DURATION FROM TO_DATE('${dayjs().subtract(7, 'day').format('YYYY-MM-DD')}') TO TO_DATE('${dayjs().format('YYYY-MM-DD')}') ORDER BY RECEIVE_TIME DESC`;
+      // let rescent20Rows = [];
+      // let critical7Days = [];
+
+      console.log('queryLogs', queryDashboardLogs);
+      try {
+        await fetch(
+          `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+            encodeURIComponent(queryDashboardLogs)
+        )
+          .then((res) => {
+            return res.json();
+          })
+          .then((data) => {
+            console.log('rescent20Rows : ' + data);
+          });
+        await fetch(
+          `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+            encodeURIComponent(queryDashboardCritical)
+        )
+          .then((res) => {
+            return res.json();
+          })
+          .then((data) => {
+            console.log('critical7Days : ' + data);
+          })
+          .catch((e) => {
+            console.log('error : ' + e);
+          });
+      } catch {
+        console.log('error');
+      }
+
       return (
         threatLogBuffer || [
           {

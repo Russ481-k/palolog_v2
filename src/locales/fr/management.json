@@ -2,6 +2,7 @@
   "nav": {
     "title": "Gestion",
     "users": "Utilisateurs",
-    "menus": "Menus"
+    "menus": "Menus",
+    "database": "Base de données"
   }
 }

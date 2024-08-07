@@ -137,7 +137,7 @@ export const projectsRouter = createTRPCRouter({
 
       const queryLogs = `SELECT ${columnString} FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dataFrom}, ${dataTo} ${timeRange}`;
 
-      const queryTotalCnt = `SELECT COUNT(TIME) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
+      const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
       let totalCnt = 0;
       let pageLength = 1;
       console.log('dataFrom', dataFrom);
