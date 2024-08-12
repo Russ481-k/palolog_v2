@@ -32,10 +32,11 @@ export const DashboardStatics = () => {
   const getCpuUsageData = trpc.dashboard.getCpuUsage.useInfiniteQuery({});
   const getDiskUsageData = trpc.dashboard.getDiskUsage.useInfiniteQuery({});
   const getMemoryUsageData = trpc.dashboard.getMemoryUsage.useInfiniteQuery({});
-  const getCollectionsCounts =
-    trpc.dashboard.getCollectionsCounts.useInfiniteQuery({});
+  const getCountsPerSec = trpc.dashboard.getCountsPerSec.useInfiniteQuery({});
   const getThreatLogData = trpc.dashboard.getThreatLogData.useInfiniteQuery({});
+  const getSystemLog = trpc.dashboard.getSystemLog.useInfiniteQuery({});
 
+  console.log('getSystemLog : ', getSystemLog.data?.pages[0]);
   const { colorMode } = useColorMode();
 
   const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
@@ -143,6 +144,22 @@ export const DashboardStatics = () => {
           },
         } as AgLineSeriesOptions,
       ],
+      axes: [
+        {
+          type: 'category',
+          position: 'bottom',
+        },
+        {
+          type: 'number',
+          position: 'left',
+          label: {
+            format: '#{.1f}%',
+          },
+          title: {
+            text: 'Usage Percentage',
+          },
+        },
+      ],
       height: 400,
     }),
     [getCpuUsageData]
@@ -161,7 +178,7 @@ export const DashboardStatics = () => {
           type: 'line',
           xKey: 'time',
           yKey: 'usagePercentage',
-          yName: 'used',
+          yName: 'usagePercentage',
           marker: {
             enabled: false,
           },
@@ -169,6 +186,22 @@ export const DashboardStatics = () => {
             type: 'smooth',
           },
         } as AgLineSeriesOptions,
+      ],
+      axes: [
+        {
+          type: 'category',
+          position: 'bottom',
+        },
+        {
+          type: 'number',
+          position: 'left',
+          label: {
+            format: '#{.1f}%',
+          },
+          title: {
+            text: 'Usage Percentage',
+          },
+        },
       ],
       height: 400,
     }),
@@ -187,47 +220,88 @@ export const DashboardStatics = () => {
           type: 'line',
           xKey: 'time',
           yKey: 'usagePercentage',
-          yName: 'used',
-          interpolation: {
-            type: 'smooth',
-          },
+          yName: 'usagePercentage',
           marker: {
             enabled: false,
           },
         } as AgLineSeriesOptions,
       ],
+      axes: [
+        {
+          type: 'category',
+          position: 'bottom',
+        },
+        {
+          type: 'number',
+          position: 'left',
+          label: {
+            format: '#{.1f}%',
+          },
+          title: {
+            text: 'Usage Percentage',
+          },
+        },
+      ],
       height: 400,
     }),
     [getMemoryUsageData]
   );
-
-  const collectionsCounts = useMemo<AgChartOptions>(
+  console.log(getCountsPerSec.data?.pages[0]);
+  const countsPerSec = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
       title: {
         text: 'Collections Counts',
       },
-      interpolation: {
-        type: 'smooth',
-      },
-      data: getCollectionsCounts.data?.pages[0],
+      data: getCountsPerSec.data?.pages[0],
       series: [
         {
           type: 'line',
-          xKey: 'quarter',
-          yKey: 'petrol',
-          yName: 'Petrol',
+          xKey: 'time',
+          yKey: 'total',
+          yName: 'Total',
+          marker: {
+            enabled: false,
+          },
         } as AgLineSeriesOptions,
         {
           type: 'line',
-          xKey: 'quarter',
-          yKey: 'diesel',
-          yName: 'Diesel',
+          xKey: 'time',
+          yKey: 'countsPerSec',
+          yName: 'Counts Per Sec',
+          marker: {
+            enabled: false,
+          },
         } as AgLineSeriesOptions,
+      ],
+      axes: [
+        {
+          type: 'category',
+          position: 'bottom',
+        },
+        {
+          position: 'left',
+          type: 'number',
+          label: {
+            format: '#{.0f} M',
+          },
+          keys: ['total'],
+          title: {
+            text: 'Total',
+          },
+        },
+        {
+          position: 'right',
+          type: 'number',
+          keys: ['countsPerSec'],
+          title: {
+            text: 'Counts Per Second',
+          },
+        },
       ],
       height: 400,
     }),
-    [getCollectionsCounts]
+    [getCountsPerSec]
   );
 
   const threatLogData = useMemo<AgChartOptions>(
@@ -243,12 +317,12 @@ export const DashboardStatics = () => {
         text: 'Top Categories',
       },
       // Data: Data to be displayed in the chart
-      data: getThreatLogData.data?.pages[0],
+      data: getThreatLogData.data?.pages[0]?.pop(),
       // Series: Defines which chart type and data to use
       series: [
         {
           type: 'donut',
-          calloutLabelKey: 'asset',
+          calloutLabelKey: 'severity',
           angleKey: 'amount',
           innerRadiusRatio: 0.7,
         } as AgDonutSeriesOptions,
@@ -336,7 +410,7 @@ export const DashboardStatics = () => {
           xl: '400px',
         }}
       >
-        <AgChartsThemeChanged options={collectionsCounts} />
+        <AgChartsThemeChanged options={countsPerSec} />
       </GridItem>
       <GridItem
         borderRadius="lg"
@@ -383,35 +457,37 @@ export const DashboardStatics = () => {
                     zIndex: 0,
                   }}
                 >
-                  {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
                   <AgGridReact
                     ref={gridRef}
-                    rowData={[]}
+                    rowData={getSystemLog.data?.pages[0]?.recent20Rows ?? []}
                     columnDefs={[
                       {
-                        headerName: 'No',
-                        field: 'no',
-                        width: 80,
-                      },
-                      {
                         headerName: 'Receive Time',
-                        field: 'time',
+                        field: 'receiveTime',
                         sortable: true,
                         filter: true,
                         width: 170,
                         valueFormatter: (params: ValueFormatterParams) =>
-                          dayjs(params.value).format('YYYY-MM-DD HH:mm:ss'),
+                          dayjs(params.value / 1000000).format(
+                            'YYYY-MM-DD HH:mm:ss'
+                          ),
                       },
                       {
                         headerName: 'Device Name',
-                        field: 'DEVICE_NAME',
+                        field: 'deviceName',
                         sortable: true,
                         filter: true,
                         width: 160,
                       },
                       {
-                        headerName: 'Message',
-                        field: 'message',
+                        headerName: 'Serial Number',
+                        field: 'serial',
+                        filter: true,
+                        width: 160,
+                      },
+                      {
+                        headerName: 'Description',
+                        field: 'description',
                         filter: true,
                         flex: 1,
                       },
@@ -419,7 +495,7 @@ export const DashboardStatics = () => {
                   />
                 </div>
               </TabPanel>
-              <TabPanel p={0}>
+              <TabPanel p={0} pt={1}>
                 <div
                   className={
                     colorMode === 'light'
@@ -434,40 +510,41 @@ export const DashboardStatics = () => {
                     borderWidth: 0,
                   }}
                 >
-                  {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
                   <AgGridReact
                     ref={gridRef}
-                    rowData={[]}
+                    rowData={getSystemLog.data?.pages[0]?.critical7Days ?? []}
                     columnDefs={[
                       {
-                        headerName: 'No',
-                        field: 'no',
-                        width: 80,
-                      },
-                      {
                         headerName: 'Receive Time',
-                        field: 'time',
+                        field: 'receiveTime',
                         sortable: true,
                         filter: true,
                         width: 170,
                         valueFormatter: (params: ValueFormatterParams) =>
-                          dayjs(params.value).format('YYYY-MM-DD HH:mm:ss'),
+                          dayjs(params.value / 1000000).format(
+                            'YYYY-MM-DD HH:mm:ss'
+                          ),
                       },
                       {
                         headerName: 'Device Name',
-                        field: 'DEVICE_NAME',
+                        field: 'deviceName',
                         sortable: true,
                         filter: true,
                         width: 160,
                       },
                       {
-                        headerName: 'Message',
-                        field: 'message',
+                        headerName: 'Serial Number',
+                        field: 'serial',
+                        filter: true,
+                        flex: 1,
+                      },
+                      {
+                        headerName: 'Description',
+                        field: 'description',
                         filter: true,
                         flex: 1,
                       },
                     ]}
-                    style={{ borderRadius: 0, borderWidth: 0 }}
                   />
                 </div>
               </TabPanel>

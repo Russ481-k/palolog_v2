@@ -19,35 +19,40 @@ const cpuUsageBuffer: {
 }[] = [];
 const memoryUsageBuffer: {
   time: string;
-  total: number;
-  used: number;
-  free: number;
   usagePercentage: number;
 }[] = [];
 const diskUsageBuffer: {
   time: string;
-  total: number;
-  used: number;
-  free: number;
   usagePercentage: number;
 }[] = [];
 const collectionsCountBuffer: {
   time: string;
+  countsPerSec: number;
   total: number;
 }[] = [];
-const threatCountBuffer: {
-  device: string;
-  category: string;
-  amount: number;
-}[] = [];
-const threatLogBuffer: {
-  device: string;
-  category: string;
-  amount: number;
-}[] = [];
+const threatCountBuffer: Array<
+  {
+    severity: string;
+    amount: number;
+  }[]
+> = [];
+
+const recent20Rows: Array<{
+  receiveTime: number;
+  deviceName: string;
+  serial: string;
+  description: string;
+}> = [];
+const critical7Days: Array<{
+  receiveTime: number;
+  deviceName: string;
+  serial: string;
+  description: string;
+}> = [];
+let CollectionsCountsBuff: number = 0;
 
 function recordCpuUsage() {
-  const time = dayjs().format('HH:mm');
+  const time = dayjs().format('HH:mm:ss');
 
   const cpuUsages = os.cpus().map((cpu, index) => {
     const total = Object.values(cpu.times).reduce((acc, time) => acc + time, 0);
@@ -77,141 +82,175 @@ function recordCpuUsage() {
 }
 
 function recordMemoryUsage() {
-  const time = dayjs().format('HH:mm');
+  const queryMemoryUsage = `select%20/*%2B%20SCAN_BACKWARD(tag)%20*/%20value%20from%20TAG%20where%20name%20=%20%27monitor.mem.used_percent%27%20limit%201`;
 
-  const totalMemory = os.totalmem();
-  const freeMemory = os.freemem();
-  const usedMemory = totalMemory - freeMemory;
-  const usagePercentage = ((usedMemory / totalMemory) * 100).toFixed(3);
-
-  const memoryUsageEntry = {
-    time,
-    total: totalMemory,
-    used: usedMemory,
-    free: freeMemory,
-    usagePercentage: Number(usagePercentage),
-  };
-
-  memoryUsageBuffer.push(memoryUsageEntry);
-
-  if (memoryUsageBuffer.length > 600) {
-    memoryUsageBuffer.shift();
+  try {
+    fetch(
+      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` + queryMemoryUsage
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        const time = dayjs().format('HH:mm:ss');
+        const usagePercentage = data.data.rows[0][0];
+        memoryUsageBuffer.push({
+          time,
+          usagePercentage,
+        });
+        if (memoryUsageBuffer.length > 600) {
+          memoryUsageBuffer.shift();
+        }
+      });
+  } catch {
+    console.log('Record Memory Usage Error');
   }
 }
 
 function recordDiskUsage() {
-  return new Promise<void>((resolve, reject) => {
-    exec(
-      'df --block-size=1 --output=size,used,avail',
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(`오류 발생: ${error.message}`);
-          return;
-        }
-        if (stderr) {
-          reject(`표준 오류: ${stderr}`);
-          return;
-        }
+  const queryDiskUsage = `select%20/*%2B%20SCAN_BACKWARD(tag)%20*/%20value%20from%20TAG%20where%20name%20=%20%27monitor.disk./boot/database.used_percent%27%20limit%201`;
 
-        const lines = stdout.trim().split('\n');
-        if (lines.length < 2) {
-          reject('디스크 사용량 정보를 가져올 수 없습니다.');
-          return;
-        }
-
-        const data = lines[1]
-          ?.trim()
-          .split(' ')
-          .map((num) => Number(num))
-          .filter((n) => !isNaN(n));
-        if (!data || data.length < 3) {
-          reject('디스크 사용량 데이터가 유효하지 않습니다.');
-          return;
-        }
-
-        const time = dayjs().format('HH:mm');
-        const total = data[0];
-        const used = data[5];
-        const available = data[5];
-
-        const usagePercentage = Number(
-          (((used ?? 0) / (total ?? 1)) * 100).toFixed(3)
-        );
-
+  try {
+    fetch(
+      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` + queryDiskUsage
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        const time = dayjs().format('HH:mm:ss');
+        const usagePercentage = data.data.rows[0][0];
         diskUsageBuffer.push({
           time,
-          total: total ?? 0,
-          used: used ?? 0,
-          free: available ?? 0,
           usagePercentage,
         });
         if (diskUsageBuffer.length > 600) {
           diskUsageBuffer.shift();
         }
-        resolve();
-      }
-    );
-  });
+      });
+  } catch {
+    console.log('Record Disk Usage Error');
+  }
 }
 
 function recordCollectionsCount() {
-  return new Promise<void>(async (resolve, reject) => {
-    const queryTotalCnt = `SELECT COUNT(TIME) TOTAL FROM PANETLOG`;
-    let totalCnt = 0;
-    try {
-      await fetch(
-        `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-          encodeURIComponent(queryTotalCnt)
-      )
-        .then((res) => {
-          return res.json();
-        })
-        .then((data) => {
-          totalCnt = data.data.rows[0][0];
-          collectionsCountBuffer.push({
-            time: dayjs().format('HH:mm'),
-            total: totalCnt,
-          });
-          if (collectionsCountBuffer.length > 600) {
-            collectionsCountBuffer.shift();
-          }
+  const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG`;
+  let totalCnt = 0;
+  let countsPerSec = 0;
+  try {
+    fetch(
+      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+        encodeURIComponent(queryTotalCnt)
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        totalCnt = data.data.rows[0][0];
+        countsPerSec = totalCnt - CollectionsCountsBuff;
+        collectionsCountBuffer.push({
+          time: dayjs().format('HH:mm:ss'),
+          countsPerSec: countsPerSec,
+          total: totalCnt / 1000000,
         });
-    } catch {
-      reject('Record Collections Count error');
-    }
-    resolve();
-  });
+        CollectionsCountsBuff = totalCnt;
+        if (collectionsCountBuffer.length > 600) {
+          collectionsCountBuffer.shift();
+        }
+      });
+  } catch {
+    console.log('Record Collections Count Error');
+  }
 }
 
 function recordThreatCount() {
-  return new Promise<void>(async (resolve, reject) => {
-    const queryThreatCnt = `SELECT DEVICE, THR_CATEGORY, COUNT(THR_CATEGORY) AMOUNT AMOUNT FROM PANETLOG WHERE TYPE = 'THREAT'`;
-    try {
-      await fetch(
-        `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-          encodeURIComponent(queryThreatCnt)
-      )
-        .then((res) => {
-          return res.json();
-        })
-        .then((data) => {
-          const logs = data.data;
-          for (let i = 0; i < logs.rows.length; i++) {
-            threatCountBuffer.push({
-              device: logs.rows[i][0] as string,
-              category: logs.rows[i][1] as string,
-              amount: logs.rows[i][2] as number,
-            });
-          }
-          if (threatCountBuffer.length > 600) {
-            threatCountBuffer.shift();
-          }
-        });
-    } catch {
-      reject('Record Threat Count error');
-    }
-    resolve();
-  });
+  const queryThreatCnt = `SELECT SEVERITY, COUNT(*) AS AMOUNT FROM PANETLOG WHERE TYPE='THREAT' GROUP BY SEVERITY ORDER BY AMOUNT DESC`;
+  try {
+    fetch(
+      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+        encodeURIComponent(queryThreatCnt)
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        const logs = data.data;
+
+        let threatCount: Array<{ severity: string; amount: number }> = [];
+        for (let i = 0; i < logs.rows.length; i++) {
+          threatCount.push({
+            severity: logs.rows[i][0] as string,
+            amount: logs.rows[i][1] as number,
+          });
+        }
+        if (logs.rows.length === threatCount.length) {
+          threatCountBuffer.push(threatCount);
+          threatCount = [];
+        }
+        if (threatCountBuffer.length > 600) {
+          threatCountBuffer.shift();
+        }
+      });
+  } catch {
+    console.log('Record Collections Count Error');
+  }
+}
+function recordThreatLogCount() {
+  const queryDashboardLogs = `SELECT DEVICE_NAME, SERIAL, RECEIVE_TIME, SESSION_END_REASON FROM PANETLOG WHERE 1=1 AND TYPE = 'URL' LIMIT 20 `;
+  const queryDashboardCritical = `SELECT DEVICE_NAME, SERIAL, RECEIVE_TIME, SESSION_END_REASON FROM PANETLOG WHERE 1=1 AND TYPE = 'URL' AND SEVERITY = 'CRITICAL' DURATION FROM TO_DATE('${dayjs().subtract(7, 'day').format('YYYY-MM-DD')}') TO TO_DATE('${dayjs().format('YYYY-MM-DD')}')`;
+  try {
+    fetch(
+      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+        encodeURIComponent(queryDashboardLogs)
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        const logs = data.data;
+        for (let i = 0; i < logs.rows.length; i++) {
+          recent20Rows.push({
+            receiveTime: logs.rows[i][2] as number,
+            deviceName: logs.rows[i][0] as string,
+            serial: logs.rows[i][1] as string,
+            description: logs.rows[i][3] as string,
+          });
+        }
+        if (recent20Rows.length > 20) {
+          recent20Rows.shift();
+        }
+      })
+      .catch((e) => {
+        console.log('Error : ' + e);
+      });
+
+    fetch(
+      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+        encodeURIComponent(queryDashboardCritical)
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        const logs = data.data;
+        for (let i = 0; i < logs.rows.length; i++) {
+          critical7Days.push({
+            receiveTime: logs.rows[i][2] as number,
+            deviceName: logs.rows[i][0] as string,
+            serial: logs.rows[i][1] as string,
+            description: logs.rows[i][3] as string,
+          });
+        }
+        if (critical7Days.length > 20) {
+          critical7Days.shift();
+        }
+      })
+      .catch((e) => {
+        console.log('Error : ' + e);
+      });
+  } catch {
+    console.log('Error');
+  }
 }
 
 let intervalId: NodeJS.Timeout;
@@ -225,8 +264,9 @@ function startRecording() {
     await recordCpuUsage();
     await recordMemoryUsage();
     await recordDiskUsage();
-    await recordCollectionsCount();
     await recordThreatCount();
+    await recordThreatLogCount();
+    await recordCollectionsCount();
   }, 1000);
 }
 
@@ -262,7 +302,7 @@ export const dashboardRouter = createTRPCRouter({
       return (
         cpuUsageBuffer ?? [
           {
-            time: dayjs().format('HH:mm'),
+            time: dayjs().format('HH:mm:ss'),
             core_1: 0,
             core_2: 0,
             core_3: 0,
@@ -289,9 +329,6 @@ export const dashboardRouter = createTRPCRouter({
       z.array(
         z.object({
           time: z.string(),
-          total: z.number(),
-          used: z.number(),
-          free: z.number(),
           usagePercentage: z.number(),
         })
       )
@@ -302,9 +339,6 @@ export const dashboardRouter = createTRPCRouter({
         memoryUsageBuffer ?? [
           {
             time: '',
-            total: 0,
-            used: 0,
-            free: 0,
             usagePercentage: 0,
           },
         ]
@@ -325,9 +359,6 @@ export const dashboardRouter = createTRPCRouter({
       z.array(
         z.object({
           time: z.string(),
-          total: z.number(),
-          used: z.number(),
-          free: z.number(),
           usagePercentage: z.number(),
         })
       )
@@ -338,19 +369,16 @@ export const dashboardRouter = createTRPCRouter({
         diskUsageBuffer || [
           {
             time: '',
-            total: 0,
-            used: 0,
-            free: 0,
             usagePercentage: 0,
           },
         ]
       );
     }),
-  getCollectionsCounts: protectedProcedure()
+  getCountsPerSec: protectedProcedure()
     .meta({
       openapi: {
         method: 'GET',
-        path: '/dashboard/collections-counts',
+        path: '/dashboard/counts-per-sec',
         protect: true,
         tags: ['dashboard'],
       },
@@ -360,6 +388,7 @@ export const dashboardRouter = createTRPCRouter({
       z.array(
         z.object({
           time: z.string(),
+          countsPerSec: z.number(),
           total: z.number(),
         })
       )
@@ -370,6 +399,7 @@ export const dashboardRouter = createTRPCRouter({
         collectionsCountBuffer || [
           {
             time: '',
+            countsPerSec: 0,
             total: 0,
           },
         ]
@@ -387,25 +417,36 @@ export const dashboardRouter = createTRPCRouter({
     .input(z.object({}))
     .output(
       z.array(
-        z.object({
-          device: z.string(),
-          category: z.string(),
-          amount: z.number(),
-        })
+        z.array(
+          z.object({
+            severity: z.string(),
+            amount: z.number(),
+          })
+        )
       )
     )
     .query(async ({ ctx }) => {
       ctx.logger.info('Getting disk usage');
       return (
         threatCountBuffer || [
-          {
-            device: '',
-            category: '',
-            amount: 0,
-          },
+          [
+            {
+              severity: 'low',
+              amount: 0,
+            },
+            {
+              severity: 'informational',
+              amount: 0,
+            },
+            {
+              severity: 'critical',
+              amount: 0,
+            },
+          ],
         ]
       );
     }),
+
   getSystemLog: protectedProcedure()
     .meta({
       openapi: {
@@ -417,25 +458,31 @@ export const dashboardRouter = createTRPCRouter({
     })
     .input(z.object({}))
     .output(
-      z.array(
-        z.object({
-          device: z.string(),
-          category: z.string(),
-          amount: z.number(),
-        })
-      )
+      z.object({
+        recent20Rows: z.array(
+          z.object({
+            receiveTime: z.number(),
+            deviceName: z.string(),
+            serial: z.string(),
+            description: z.string(),
+          })
+        ),
+        critical7Days: z.array(
+          z.object({
+            receiveTime: z.number(),
+            deviceName: z.string(),
+            serial: z.string(),
+            description: z.string(),
+          })
+        ),
+      })
     )
     .query(async ({ ctx }) => {
       ctx.logger.info('Getting system log');
-      return (
-        threatLogBuffer || [
-          {
-            device: '',
-            category: '',
-            amount: 0,
-          },
-        ]
-      );
+      return {
+        recent20Rows,
+        critical7Days,
+      };
     }),
 });
 
