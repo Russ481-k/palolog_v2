@@ -9,11 +9,13 @@ export default function PageAdminLogin() {
   const { t } = useTranslation(['auth']);
 
   return (
-    <Card boxShadow="card">
-      <CardHeader pb={0}>
-        <Heading size="md">{t('auth:login.adminTitle')}</Heading>
+    <Card boxShadow="card" w={360}>
+      <CardHeader pt={4} pb={0} textAlign="center">
+        <Heading size="sm" fontWeight={400}>
+          {t('auth:login.adminTitle')}
+        </Heading>
       </CardHeader>
-      <CardBody>
+      <CardBody pt={3}>
         <LoginForm />
       </CardBody>
     </Card>

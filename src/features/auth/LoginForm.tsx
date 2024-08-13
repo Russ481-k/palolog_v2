@@ -78,14 +78,14 @@ export const LoginForm = ({
             type="text"
             control={form.control}
             name="id"
-            size="lg"
+            size="sm"
             placeholder={t('auth:data.id.label')}
           />
           <FormField
             type="password"
             control={form.control}
             name="password"
-            size="lg"
+            size="sm"
             placeholder={t('auth:data.password.label')}
           />
           <Flex>
@@ -93,7 +93,7 @@ export const LoginForm = ({
               isLoading={login.isLoading || login.isSuccess}
               type="submit"
               variant={buttonVariant}
-              size="lg"
+              size="sm"
               flex={1}
             >
               {t('auth:login.actions.login')}

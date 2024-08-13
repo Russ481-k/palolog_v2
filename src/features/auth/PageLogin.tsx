@@ -24,11 +24,9 @@ export default function PageLogin() {
           {t('auth:login.appSubTitle')}
         </Text>
       </Stack>
-
       <Button variant="@primary" size="lg" as={LinkApp} href="/register">
         {t('auth:login.actions.register')}
       </Button>
-
       <HStack>
         <Divider flex={1} />
         <Text
