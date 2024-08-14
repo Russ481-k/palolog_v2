@@ -1,10 +1,9 @@
 import { TRPCError } from '@trpc/server';
-import dayjs from 'dayjs';
 import { cookies } from 'next/headers';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
+import { VALIDATION_PASSWORD_MOCKED } from '@/features/auth/utils';
 import { zUser, zUserAuthorization } from '@/features/users/schemas';
 import {
   AUTH_COOKIE_NAME,
@@ -77,7 +76,6 @@ export const authRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       ctx.logger.info('Retrieving user info');
-
       ctx.logger.info('Creating token');
       const { verificationToken, userJwt } = await validate({
         ctx,
@@ -134,8 +132,8 @@ export const authRouter = createTRPCRouter({
     .input(
       zUser().required().pick({
         id: true,
-        password: true,
         name: true,
+        email: true,
         language: true,
       })
     )
@@ -145,22 +143,19 @@ export const authRouter = createTRPCRouter({
       const user = await ctx.db.user.findUnique({
         where: {
           id: input.id,
-          password: input.password,
         },
       });
 
       ctx.logger.info('Creating token');
       const token = randomUUID();
-
       let newUser;
-      // If the user doesn't exist, we create a new one.
       if (!user) {
         try {
           ctx.logger.info('Creating a new user');
           newUser = await ctx.db.user.create({
             data: {
               id: input.id,
-              password: input.password,
+              password: VALIDATION_PASSWORD_MOCKED,
               name: input.name,
               language: input.language,
             },
@@ -172,22 +167,6 @@ export const authRouter = createTRPCRouter({
           });
         }
       }
-      // If the user exists and email is not verified, it means the user (or
-      // someone else) did register using this email but did not complete the
-      // validation flow. So we update the data according to the new
-      // informations.
-      // else if (user && user.accountStatus === 'NOT_VERIFIED') {
-      newUser = await ctx.db.user.update({
-        where: {
-          id: input.id,
-          password: input.password,
-        },
-        data: {
-          language: input.language,
-          name: input.name,
-        },
-      });
-      // }
 
       if (!newUser) {
         ctx.logger.error(
@@ -197,20 +176,6 @@ export const authRouter = createTRPCRouter({
           token,
         };
       }
-
-      // If we got here, the user exists and email is verified, no need to
-      // register, send the email to login the user.
-
-      ctx.logger.info('Creating verification token in database');
-      await ctx.db.verificationToken.create({
-        data: {
-          userId: newUser.id,
-          token,
-          expires: dayjs()
-            .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
-            .toDate(),
-        },
-      });
 
       return {
         token,

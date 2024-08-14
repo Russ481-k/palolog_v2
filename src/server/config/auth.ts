@@ -1,5 +1,6 @@
 import { VerificationToken } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
+import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import dayjs from 'dayjs';
 import jwt from 'jsonwebtoken';
@@ -62,8 +63,8 @@ export const setAuthCookie = (token: string) => {
     name: AUTH_COOKIE_NAME,
     value: token,
     httpOnly: true,
-    secure: false,
-    expires: dayjs().add(1, 'year').toDate(),
+    secure: true,
+    expires: dayjs().add(1, 'day').toDate(),
   });
 };
 
@@ -96,13 +97,14 @@ export async function validate({
   await ctx.db.verificationToken.deleteMany({
     where: { expires: { lt: new Date() } },
   });
-
   ctx.logger.info('Checking password');
 
   ctx.logger.info('Checking if verification token exists');
   const user = await ctx.db.user.findUnique({
-    where: { id, password },
+    where: { id },
   });
+
+  const isCorrectPassword = bcrypt.compareSync(password, user?.password ?? '');
 
   if (!user) {
     ctx.logger.warn('User not found, silent error for security reasons');
@@ -113,6 +115,14 @@ export async function validate({
   }
 
   if (user.accountStatus !== 'ENABLED') {
+    ctx.logger.warn('Invalid user, silent error for security reasons');
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Failed to authenticate the user',
+    });
+  }
+
+  if (!isCorrectPassword) {
     ctx.logger.warn('Invalid user, silent error for security reasons');
     throw new TRPCError({
       code: 'UNAUTHORIZED',

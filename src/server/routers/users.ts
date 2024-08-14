@@ -126,6 +126,8 @@ export const usersRouter = createTRPCRouter({
         id: true,
         name: true,
         email: true,
+        language: true,
+        authorizations: true,
       })
     )
     .output(zUser())
