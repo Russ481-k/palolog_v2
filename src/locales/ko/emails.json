@@ -1,0 +1,37 @@
+{
+  "registerCode": {
+    "subject": "계정 확인",
+    "preview": "인증 코드",
+    "title": "계정 확인",
+    "hello": "{{name}}님, 환영합니다.",
+    "intro": "계정이 거의 완료되었습니다! 이것은 인증 코드입니다:",
+    "validityTime": "이 코드는 다음 {{expiration}}분 동안만 유효합니다.",
+    "ignoreHelper": "회원가입을 시도하지 않았다면, 이 이메일을 무시하셔도 됩니다."
+  },
+  "loginCode": {
+    "subject": "로그인 인증 코드",
+    "preview": "로그인을 위한 인증 코드",
+    "title": "로그인 인증 코드",
+    "hello": "{{name}}님, 다시 환영합니다.",
+    "intro": "이것은 인증 코드입니다:",
+    "validityTime": "이 코드는 다음 {{expiration}}분 동안만 유효합니다.",
+    "ignoreHelper": "로그인을 시도하지 않았다면, 이 이메일을 무시하셔도 됩니다."
+  },
+  "loginNotFound": {
+    "subject": "계정을 찾을 수 없음",
+    "preview": "올바른 이메일인가요?",
+    "title": "올바른 이메일인가요?",
+    "intro": "이 이메일 주소와 연결된 계정이 없는 것 같습니다.",
+    "button": "다른 이메일 시도",
+    "ignoreHelper": "로그인을 시도하지 않았다면, 이 이메일을 무시하셔도 됩니다."
+  },
+  "emailAddressChange": {
+    "subject": "인증 코드",
+    "preview": "이메일 변경",
+    "title": "인증 코드",
+    "hello": "{{name}}님, 안녕하세요.",
+    "intro": "이것은 이메일 변경을 위한 인증 코드입니다:",
+    "validityTime": "이 코드는 다음 {{expiration}}분 동안만 유효합니다.",
+    "ignoreHelper": "이메일 변경을 시도하지 않았다면, 이 이메일을 무시하셔도 됩니다."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "languages": {
+    "en": "영어",
+    "fr": "프랑스어",
+    "ko": "한국어",
+    "sw": "스와힐리어"
+  },
+  "actions": {
+    "back": "뒤로",
+    "activate": "활성화",
+    "cancel": "취소",
+    "deactivate": "비활성화",
+    "delete": "삭제",
+    "edit": "편집"
+  },
+  "or": "또는",
+  "confirmDiscardChanges": {
+    "title": "변경 사항을 취소하시겠습니까?",
+    "message": "수정한 모든 내용이 되돌아갑니다.",
+    "confirmText": "변경 사항 취소",
+    "cancelText": "변경 사항 유지"
+  }
+}

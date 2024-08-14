@@ -1,0 +1,103 @@
+{
+  "feedbacks": {
+    "activateMenuSuccess": {
+      "title": "메뉴 활성화",
+      "description": "메뉴 \"{{login}}\"가 성공적으로 활성화되었습니다"
+    },
+    "deactivateMenuSuccess": {
+      "title": "메뉴 비활성화",
+      "description": "메뉴 \"{{login}}\"가 성공적으로 비활성화되었습니다"
+    },
+    "activateMenuError": {
+      "title": "활성화 실패",
+      "description": "사용자 \"{{login}}\"의 활성화에 실패했습니다"
+    },
+    "deactivateMenuError": {
+      "title": "비활성화 실패",
+      "description": "사용자 \"{{login}}\"의 비활성화에 실패했습니다"
+    },
+    "deleteMenuError": {
+      "title": "삭제 실패",
+      "description": "사용자 \"{{login}}\"의 삭제에 실패했습니다"
+    },
+    "loadingMenuError": {
+      "title": "메뉴 로드 실패"
+    }
+  },
+  "list": {
+    "title": "메뉴 관리",
+    "actions": {
+      "createMenu": "메뉴 생성"
+    },
+    "loadMore": {
+      "button": "더 보기",
+      "display": "{{total}}개 중 {{loaded}}개 표시 중"
+    }
+  },
+  "data": {
+    "id": {
+      "label": "이메일",
+      "required": "이메일은 필수입니다",
+      "invalid": "유효하지 않은 이메일입니다",
+      "alreadyUsed": "이미 사용 중인 이메일입니다"
+    },
+    "status": {
+      "activated": "활성화됨",
+      "deactivated": "비활성화됨"
+    },
+    "description": {
+      "label": "설명",
+      "required": "설명은 필수입니다"
+    },
+    "name": {
+      "label": "이름",
+      "required": "이름은 필수입니다"
+    },
+    "language": {
+      "label": "언어"
+    },
+    "authorizations": {
+      "label": "권한",
+      "options": {
+        "ADMIN": "관리자",
+        "APP": "애플리케이션"
+      },
+      "required": "최소한 하나의 권한이 필요합니다"
+    },
+    "createdAt": {
+      "ago": "<dateAgo />에 생성됨"
+    }
+  },
+  "update": {
+    "action": {
+      "save": "저장"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "업데이트 실패"
+      },
+      "updateSuccess": {
+        "title": "업데이트 성공"
+      }
+    }
+  },
+  "create": {
+    "title": "새 메뉴",
+    "action": {
+      "save": "생성"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "생성 실패"
+      },
+      "updateSuccess": {
+        "title": "메뉴 생성 성공"
+      }
+    }
+  },
+  "deleteModal": {
+    "message": "\"{{name}}\"을(를) 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.",
+    "title": "메뉴 삭제 확인"
+  },
+  "you": "당신"
+}

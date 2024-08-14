@@ -20,4 +20,7 @@ export const AVAILABLE_LANGUAGES: Language[] = [
   {
     key: 'sw',
   },
+  {
+    key: 'ko',
+  },
 ];
