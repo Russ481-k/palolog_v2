@@ -17,7 +17,7 @@ export type FieldDateProps<
   type: 'date';
   label?: ReactNode;
   helper?: ReactNode;
-} & Pick<InputProps, 'placeholder' | 'size' | 'autoFocus'> &
+} & Pick<InputProps, 'placeholder' | 'size' | 'width' | 'autoFocus'> &
   FieldCommonProps<TFieldValues, TName>;
 
 export const FieldDate = <
@@ -32,7 +32,10 @@ export const FieldDate = <
       render={({ field: { ref: _ref, ...field } }) => (
         <FormFieldItem>
           {!!props.label && <FormFieldLabel>{props.label}</FormFieldLabel>}
-          <DayPicker {...field} />
+          <DayPicker
+            {...field}
+            inputProps={{ size: props.size, width: props.width }}
+          />
           {!!props.helper && <FormFieldHelper>{props.helper}</FormFieldHelper>}
           <FormFieldError />
         </FormFieldItem>

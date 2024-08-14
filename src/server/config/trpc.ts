@@ -207,11 +207,10 @@ export const protectedProcedure = (
   publicProcedure().use(
     t.middleware(({ ctx, next }) => {
       const user = ctx.user;
-
       if (!user || user.accountStatus !== 'ENABLED') {
         throw new TRPCError({
           code: 'UNAUTHORIZED',
-          message: user?.email,
+          message: user?.id,
         });
       }
 

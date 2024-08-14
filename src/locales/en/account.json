@@ -53,6 +53,12 @@
     }
   },
   "data": {
+    "id": {
+      "label": "ID"
+    },
+    "password": {
+      "label": "PW"
+    },
     "name": {
       "label": "Name"
     },

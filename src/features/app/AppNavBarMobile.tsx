@@ -3,7 +3,7 @@ import React, { ReactNode } from 'react';
 import { Box, BoxProps, Container, Flex } from '@chakra-ui/react';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { LuFolderGit2, LuHome, LuUser } from 'react-icons/lu';
+import { LuHome, LuUser } from 'react-icons/lu';
 
 import { Icon } from '@/components/Icons';
 import { LinkApp } from '@/features/app/LinkApp';
@@ -40,9 +40,6 @@ export const AppNavBarMobile = (props: BoxProps) => {
         <Container display="flex" flexDirection="row" w="full" flex={1}>
           <AppNavBarMobileMainMenuItem icon={LuHome} href="/">
             {t('app:layout.mainMenu.home')}
-          </AppNavBarMobileMainMenuItem>
-          <AppNavBarMobileMainMenuItem href="/repositories" icon={LuFolderGit2}>
-            {t('app:layout.mainMenu.repositories')}
           </AppNavBarMobileMainMenuItem>
           <AppNavBarMobileMainMenuItem icon={LuUser} href="/account">
             {t('app:layout.mainMenu.account')}

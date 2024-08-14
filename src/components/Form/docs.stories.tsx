@@ -24,7 +24,6 @@ const zFormSchema = () =>
       required_error: 'Name is required',
     }),
     email: zu.string.emailOptional(z.string(), {
-      required_error: 'Email is required',
       invalid_type_error: 'Email is invalid',
     }),
     color: z.enum(['red', 'green', 'blue']),

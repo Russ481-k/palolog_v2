@@ -1,0 +1,103 @@
+{
+  "feedbacks": {
+    "activateMenuSuccess": {
+      "title": "Menu Activated",
+      "description": "Menu \"{{login}}\" activated successfully"
+    },
+    "deactivateMenuSuccess": {
+      "title": "Menu Deactivated",
+      "description": "Menu \"{{login}}\" deactivated successfully"
+    },
+    "activateMenuError": {
+      "title": "Activation Failed",
+      "description": "Failed to activate user \"{{login}}\""
+    },
+    "deactivateMenuError": {
+      "title": "Deactivation Failed",
+      "description": "Failed to deactivate user \"{{login}}\""
+    },
+    "deleteMenuError": {
+      "title": "Deletion Failed",
+      "description": "Failed to delete user \"{{login}}\""
+    },
+    "loadingMenuError": {
+      "title": "Failed to load menu"
+    }
+  },
+  "list": {
+    "title": "Menu Management",
+    "actions": {
+      "createMenu": "Create Menu"
+    },
+    "loadMore": {
+      "button": "Load More",
+      "display": "Displaying {{loaded}} menu out of {{total}}"
+    }
+  },
+  "data": {
+    "id": {
+      "label": "Email",
+      "required": "Email is required",
+      "invalid": "Email is invalid",
+      "alreadyUsed": "Email is already used"
+    },
+    "status": {
+      "activated": "Activated",
+      "deactivated": "Not Activated"
+    },
+    "description": {
+      "label": "Description",
+      "required": "Description is required"
+    },
+    "name": {
+      "label": "Name",
+      "required": "Name is required"
+    },
+    "language": {
+      "label": "Language"
+    },
+    "authorizations": {
+      "label": "Authorizations",
+      "options": {
+        "ADMIN": "Administrator",
+        "APP": "Application"
+      },
+      "required": "At least one authorization is required"
+    },
+    "createdAt": {
+      "ago": "Created <dateAgo />"
+    }
+  },
+  "update": {
+    "action": {
+      "save": "Save"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Update Failed"
+      },
+      "updateSuccess": {
+        "title": "Updated Successfully"
+      }
+    }
+  },
+  "create": {
+    "title": "New Menu",
+    "action": {
+      "save": "Create"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Creation Failed"
+      },
+      "updateSuccess": {
+        "title": "Menu Created Successfully"
+      }
+    }
+  },
+  "deleteModal": {
+    "message": "Do you want to delete \"{{name}}\"?\nThe deletion will be permanent.",
+    "title": "Confirm Menu Deletion"
+  },
+  "you": "you"
+}

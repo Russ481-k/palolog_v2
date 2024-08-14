@@ -13,73 +13,92 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { Form, FormField } from '@/components/Form';
-import { useToastError } from '@/components/Toast';
 import { FormFieldsLogin, zFormFieldsLogin } from '@/features/auth/schemas';
 import { LoginHint } from '@/features/devtools/LoginHint';
 import { trpc } from '@/lib/trpc/client';
-import type { RouterInputs, RouterOutputs } from '@/lib/trpc/types';
+
+import { ADMIN_PATH } from '../admin/constants';
+import {
+  useOnVerificationError,
+  useOnVerificationSuccess,
+} from './VerificationForm';
 
 type LoginFormProps = BoxProps & {
-  onSuccess?: (
-    data: RouterOutputs['auth']['login'],
-    variables: RouterInputs['auth']['login']
-  ) => void;
   buttonVariant?: ButtonProps['variant'];
 };
 
 export const LoginForm = ({
-  onSuccess = () => undefined,
   buttonVariant = '@primary',
   ...rest
 }: LoginFormProps) => {
   const { t } = useTranslation(['auth']);
-  const toastError = useToastError();
 
-  const login = trpc.auth.login.useMutation({
-    onSuccess,
-    onError: () => {
-      toastError({
-        title: t('auth:login.feedbacks.loginError.title'),
+  const onVerificationSuccess = useOnVerificationSuccess({
+    defaultRedirect: ADMIN_PATH,
+  });
+  const onVerificationError = useOnVerificationError({
+    onError: (error) => {
+      return form.setError('password', {
+        message: error,
       });
     },
+  });
+
+  const login = trpc.auth.login.useMutation({
+    onSuccess: onVerificationSuccess,
+    onError: onVerificationError,
   });
 
   const form = useForm<FormFieldsLogin>({
     mode: 'onBlur',
     resolver: zodResolver(zFormFieldsLogin()),
     defaultValues: {
-      email: '',
+      id: '',
+      password: '',
     },
   });
+
+  const onSubmit = (id: string, password: string) => {
+    login.mutate({
+      id,
+      password,
+    });
+  };
 
   return (
     <Box {...rest}>
       <Form
         {...form}
         onSubmit={(values) => {
-          login.mutate(values);
+          onSubmit(values.id, values.password);
         }}
       >
         <Stack spacing={4}>
           <FormField
-            type="email"
+            type="text"
             control={form.control}
-            name="email"
-            size="lg"
-            placeholder={t('auth:data.email.label')}
+            name="id"
+            size="sm"
+            placeholder={t('auth:data.id.label')}
+          />
+          <FormField
+            type="password"
+            control={form.control}
+            name="password"
+            size="sm"
+            placeholder={t('auth:data.password.label')}
           />
           <Flex>
             <Button
               isLoading={login.isLoading || login.isSuccess}
               type="submit"
               variant={buttonVariant}
-              size="lg"
+              size="sm"
               flex={1}
             >
               {t('auth:login.actions.login')}
             </Button>
           </Flex>
-
           <LoginHint />
         </Stack>
       </Form>

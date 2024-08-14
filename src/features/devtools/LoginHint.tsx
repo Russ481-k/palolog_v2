@@ -9,9 +9,12 @@ import { useFormContext } from 'react-hook-form';
 
 import { env } from '@/env.mjs';
 
+import { VALIDATION_PASSWORD_MOCKED } from '../auth/utils';
+
 export const LoginHint = () => {
   const form = useFormContext();
-  const mockedEmail = 'admin@admin.com';
+  const mockedId = 'admin';
+  const mockedPw = VALIDATION_PASSWORD_MOCKED;
 
   if (env.NEXT_PUBLIC_NODE_ENV !== 'development' && !env.NEXT_PUBLIC_IS_DEMO)
     return null;
@@ -28,9 +31,12 @@ export const LoginHint = () => {
           as="button"
           type="button"
           fontWeight="bold"
-          onClick={() => form.setValue('email', mockedEmail)}
+          onClick={() => {
+            form.setValue('id', mockedId);
+            form.setValue('password', mockedPw);
+          }}
         >
-          {mockedEmail}
+          {mockedId}
         </ChakraLink>
       </AlertDescription>
     </Alert>

@@ -61,3 +61,17 @@ export const zPaloLogs = () =>
     technologyOfApp: z.string().nullish(),
     riskOfApp: z.string().nullish(),
   });
+
+export type FormFieldsPaloLogsParams = z.infer<
+  ReturnType<typeof zPaloLogsParams>
+>;
+export const zPaloLogsParams = () =>
+  z.object({
+    menu: z.string().default('TRAFFIC'),
+    timeFrom: z.string(),
+    timeTo: z.string(),
+    currentPage: z.number().min(1).default(1),
+    limit: z.number().min(1).max(500000).default(100),
+    cursor: z.string().cuid().optional(),
+    searchTerm: z.string().default(''),
+  });

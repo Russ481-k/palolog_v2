@@ -1,0 +1,22 @@
+{
+  "layout": {
+    "mainMenu": {
+      "dashboard": "대시보드",
+      "monitoring": "모니터링",
+      "management": "관리"
+    },
+    "accountMenu": {
+      "version": {
+        "copied": "버전 복사됨",
+        "copy": "버전 복사",
+        "label": "버전"
+      },
+      "apiDocs": "API 문서",
+      "openApp": "앱 열기",
+      "switchColorModeDark": "다크 모드로 전환",
+      "switchColorModeLight": "라이트 모드로 전환",
+      "myAccount": "내 계정",
+      "logout": "로그아웃"
+    }
+  }
+}

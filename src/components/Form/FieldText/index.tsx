@@ -24,7 +24,7 @@ export type FieldTextProps<
   helper?: ReactNode;
   startElement?: ReactNode;
   endElement?: ReactNode;
-} & Pick<InputProps, 'placeholder' | 'size' | 'autoFocus'> &
+} & Pick<InputProps, 'placeholder' | 'size' | 'width' | 'autoFocus'> &
   FieldCommonProps<TFieldValues, TName>;
 
 export const FieldText = <
@@ -44,6 +44,8 @@ export const FieldText = <
               type={props.type}
               placeholder={props.placeholder}
               autoFocus={props.autoFocus}
+              size={props.size}
+              width={props.width}
               {...field}
             />
             {!!props.startElement && (

@@ -23,7 +23,6 @@ import { LuArrowRight, LuLogOut, LuUser } from 'react-icons/lu';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { Icon } from '@/components/Icons';
-import { AccountEmailForm } from '@/features/account/AccountEmailForm';
 import { AccountProfileForm } from '@/features/account/AccountProfileForm';
 import { ADMIN_PATH } from '@/features/admin/constants';
 import { AppLayoutPage } from '@/features/app/AppLayoutPage';
@@ -72,9 +71,6 @@ export default function PageHome() {
           <Heading size="sm" flex={0.5}>
             {t('account:email.title')}
           </Heading>
-          <Box flex={1}>
-            <AccountEmailForm />
-          </Box>
         </Stack>
 
         <Stack direction={{ base: 'column', sm: 'row' }}>

@@ -2,7 +2,6 @@
   "layout": {
     "mainMenu": {
       "dashboard": "Dashibodi",
-      "repositories": "Hazina",
       "monitoring": "övervakning",
       "management": "Usimamizi"
     },

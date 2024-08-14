@@ -7,20 +7,21 @@ export const zu = {
       s: ZodString,
       options: {
         required_error?: string;
+        invalid_type_error?: string;
       } = {}
     ) {
       return s
         .trim()
         .min(
           1,
-          options.required_error ??
+          options.invalid_type_error ??
             t('zod:errors.invalid_type_received_undefined')
         );
     },
     nonEmptyOptional(
       s: ZodString,
       options: {
-        required_error?: string;
+        invalid_type_error?: string;
       } = {}
     ) {
       return z
@@ -31,7 +32,6 @@ export const zu = {
     email(
       s: ZodString,
       options: {
-        required_error?: string;
         invalid_type_error?: string;
       } = {}
     ) {
@@ -42,7 +42,6 @@ export const zu = {
     emailOptional(
       s: ZodString,
       options: {
-        required_error?: string;
         invalid_type_error?: string;
       } = {}
     ) {

@@ -6,9 +6,12 @@ import {
   ValueFormatterParams,
 } from 'ag-grid-community';
 
+import { MenuType } from '@/types/project';
+
 import { zLogs } from './schemas';
 
 export const colDefs = (
+  menu: MenuType,
   isLoading: boolean,
   onCellClickChanged: (
     event: CellClickedEvent<zLogs>,
@@ -18,7 +21,25 @@ export const colDefs = (
 ): ColDef<zLogs>[] => {
   return [
     {
-      field: 'time',
+      field: 'deviceName', //TRAFFIC THREAT URL
+      minWidth: 50,
+      width: 160,
+      onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
+      cellRenderer: (e: ILoadingCellRendererParams) => {
+        if (!isLoading) {
+          return (
+            <Flex py="14px">
+              <Skeleton h={3} w={90} borderRadius={2} />
+            </Flex>
+          );
+        } else {
+          return e.value;
+        }
+      },
+    },
+    {
+      field: 'time', //TRAFFIC THREAT URL
+      hide: true,
       minWidth: 50,
       width: 170,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'Y'),
@@ -26,7 +47,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={40} borderRadius={5} />
+              <Skeleton h={3} w={40} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -36,7 +57,7 @@ export const colDefs = (
       valueFormatter: timeFormatter,
     },
     {
-      field: 'receiveTime',
+      field: 'receiveTime', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 170,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'Y'),
@@ -44,7 +65,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={140} borderRadius={5} />
+              <Skeleton h={3} w={140} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -54,7 +75,7 @@ export const colDefs = (
       valueFormatter: timeFormatter,
     },
     {
-      field: 'serial',
+      field: 'serial', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -62,7 +83,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={140} borderRadius={5} />
+              <Skeleton h={3} w={140} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -72,6 +93,7 @@ export const colDefs = (
     },
     {
       field: 'hostid',
+      hide: true,
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -79,7 +101,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -88,7 +110,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'type',
+      field: 'type', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 90,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -96,7 +118,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={45} borderRadius={5} />
+              <Skeleton h={3} w={45} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -105,7 +127,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'subtype',
+      field: 'subtype', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 90,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -113,7 +135,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={60} borderRadius={5} />
+              <Skeleton h={3} w={60} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -122,7 +144,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'src',
+      field: 'src', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -130,7 +152,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={60} borderRadius={5} />
+              <Skeleton h={3} w={60} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -139,7 +161,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'dst',
+      field: 'dst', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -147,7 +169,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -156,7 +178,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'natsrc',
+      field: 'natsrc', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -164,7 +186,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -173,7 +195,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'natdst',
+      field: 'natdst', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -181,7 +203,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={45} borderRadius={5} />
+              <Skeleton h={3} w={45} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -190,7 +212,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'rule',
+      field: 'rule', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 165,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -198,7 +220,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={135} borderRadius={5} />
+              <Skeleton h={3} w={135} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -207,7 +229,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'ruleUuid',
+      field: 'ruleUuid', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -215,7 +237,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -232,7 +254,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -249,7 +271,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -258,7 +280,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'app',
+      field: 'app', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -266,7 +288,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -275,7 +297,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'zoneFrom',
+      field: 'zoneFrom', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -283,7 +305,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -292,7 +314,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'zoneTo',
+      field: 'zoneTo', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -300,7 +322,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -309,7 +331,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'inboundIf',
+      field: 'inboundIf', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -317,7 +339,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -326,7 +348,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'outboundIf',
+      field: 'outboundIf', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -334,7 +356,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -343,7 +365,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'sessionid',
+      field: 'sessionid', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -351,7 +373,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -360,7 +382,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'repeatcnt',
+      field: 'repeatcnt', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -368,7 +390,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -377,7 +399,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'sport',
+      field: 'sport', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -385,7 +407,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -394,7 +416,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'dport',
+      field: 'dport', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -402,7 +424,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -411,7 +433,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'natsport',
+      field: 'natsport', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -419,7 +441,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -428,7 +450,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'natdport',
+      field: 'natdport', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -436,7 +458,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -445,7 +467,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'flags',
+      field: 'flags', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -453,7 +475,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -462,7 +484,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'proto',
+      field: 'proto', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 70,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -470,7 +492,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={40} borderRadius={5} />
+              <Skeleton h={3} w={40} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -479,7 +501,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'action',
+      field: 'action', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -487,7 +509,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={45} borderRadius={5} />
+              <Skeleton h={3} w={45} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -496,7 +518,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'misc',
+      field: 'misc', // THREAT
+      hide: menu !== 'THREAT',
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -504,7 +527,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={45} borderRadius={5} />
+              <Skeleton h={3} w={45} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -513,7 +536,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'threatid',
+      field: 'threatid', // THREAT
+      hide: menu !== 'THREAT',
       minWidth: 50,
       width: 90,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -521,7 +545,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={60} borderRadius={5} />
+              <Skeleton h={3} w={60} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -530,7 +554,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'thrCategory',
+      field: 'thrCategory', // THREAT
+      hide: menu !== 'THREAT',
       minWidth: 50,
       width: 120,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -538,7 +563,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={90} borderRadius={5} />
+              <Skeleton h={3} w={90} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -547,7 +572,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'severity',
+      field: 'severity', // THREAT URL
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -555,7 +581,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -564,7 +590,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'direction',
+      field: 'direction', // THREAT
+      hide: menu !== 'THREAT',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -572,7 +599,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -581,7 +608,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'bytes',
+      field: 'bytes', //TRAFFIC
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 70,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -589,7 +617,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={40} borderRadius={5} />
+              <Skeleton h={3} w={40} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -598,7 +626,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'bytesSent',
+      field: 'bytesSent', //TRAFFIC
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -606,7 +635,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -615,7 +644,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'bytesReceived',
+      field: 'bytesReceived', //TRAFFIC
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -623,7 +653,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -632,7 +662,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'packets',
+      field: 'packets', //TRAFFIC
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -640,7 +671,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -649,7 +680,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'pktsSent',
+      field: 'pktsSent', //TRAFFIC
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -657,7 +689,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -666,7 +698,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'pktsReceived',
+      field: 'pktsReceived', //TRAFFIC
+      hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 120,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -674,7 +707,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={90} borderRadius={5} />
+              <Skeleton h={3} w={90} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -683,7 +716,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'sessionEndReason',
+      field: 'sessionEndReason', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 150,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -691,7 +724,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={120} borderRadius={5} />
+              <Skeleton h={3} w={120} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -700,24 +733,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'deviceName',
-      minWidth: 50,
-      width: 120,
-      onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
-      cellRenderer: (e: ILoadingCellRendererParams) => {
-        if (!isLoading) {
-          return (
-            <Flex py="14px">
-              <Skeleton h={3} w={90} borderRadius={5} />
-            </Flex>
-          );
-        } else {
-          return e.value;
-        }
-      },
-    },
-    {
-      field: 'eventid',
+      field: 'eventid', //SYSTEM
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -725,7 +742,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -734,7 +751,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'object',
+      field: 'object', //SYSTEM
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -742,7 +760,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -751,7 +769,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'module',
+      field: 'module', //SYSTEM
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -759,7 +778,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -768,7 +787,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'opaque',
+      field: 'opaque', //SYSTEM
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -776,7 +796,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -785,7 +805,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'srcloc',
+      field: 'srcloc', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 220,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -793,7 +813,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -802,7 +822,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'dstloc',
+      field: 'dstloc', //TRAFFIC THREAT URL
       minWidth: 50,
       width: 150,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -810,7 +830,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={120} borderRadius={5} />
+              <Skeleton h={3} w={120} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -820,6 +840,7 @@ export const colDefs = (
     },
     {
       field: 'urlIdx',
+      hide: true,
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -827,7 +848,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -836,7 +857,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'category',
+      field: 'category', //URL
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -844,7 +866,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -853,7 +875,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'urlCategoryList',
+      field: 'urlCategoryList', //URL
+      hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 145,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -861,7 +884,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={115} borderRadius={5} />
+              <Skeleton h={3} w={115} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -871,6 +894,7 @@ export const colDefs = (
     },
     {
       field: 'domainEdl',
+      hide: true,
       minWidth: 50,
       width: 110,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -878,7 +902,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={80} borderRadius={5} />
+              <Skeleton h={3} w={80} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -887,7 +911,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'reason',
+      field: 'reason', //THREAT URL
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -895,7 +920,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={70} borderRadius={5} />
+              <Skeleton h={3} w={70} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -904,7 +929,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'justification',
+      field: 'justification', //THREAT URL
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 80,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -912,7 +938,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={50} borderRadius={5} />
+              <Skeleton h={3} w={50} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -921,7 +947,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'subcategoryOfApp',
+      field: 'subcategoryOfApp', //THREAT URL
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -929,7 +956,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -938,7 +965,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'categoryOfApp',
+      field: 'categoryOfApp', //THREAT URL
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -946,7 +974,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -955,7 +983,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'technologyOfApp',
+      field: 'technologyOfApp', //THREAT URL
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -963,7 +992,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {
@@ -972,7 +1001,8 @@ export const colDefs = (
       },
     },
     {
-      field: 'riskOfApp',
+      field: 'riskOfApp', //THREAT URL
+      hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -980,7 +1010,7 @@ export const colDefs = (
         if (!isLoading) {
           return (
             <Flex py="14px">
-              <Skeleton h={3} w={105} borderRadius={5} />
+              <Skeleton h={3} w={105} borderRadius={2} />
             </Flex>
           );
         } else {

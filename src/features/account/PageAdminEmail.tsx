@@ -3,7 +3,6 @@ import React from 'react';
 import { Heading } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 
-import { AccountEmailForm } from '@/features/account/AccountEmailForm';
 import { AdminAccountNav } from '@/features/account/AdminAccountNav';
 import {
   AdminLayoutPage,
@@ -19,7 +18,6 @@ export default function PageAdminEmail() {
         <Heading size="md" mb="4">
           {t('account:email.title')}
         </Heading>
-        <AccountEmailForm />
       </AdminLayoutPageContent>
     </AdminLayoutPage>
   );

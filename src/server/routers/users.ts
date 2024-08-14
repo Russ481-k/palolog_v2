@@ -1,7 +1,9 @@
 import { Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
+import bcrypt from 'bcrypt';
 import { z } from 'zod';
 
+import { VALIDATION_PASSWORD_MOCKED } from '@/features/auth/utils';
 import { zUser } from '@/features/users/schemas';
 import { ExtendedTRPCError } from '@/server/config/errors';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
@@ -75,7 +77,7 @@ export const usersRouter = createTRPCRouter({
             },
           },
           {
-            email: {
+            id: {
               contains: input.searchTerm,
               mode: 'insensitive',
             },
@@ -122,8 +124,11 @@ export const usersRouter = createTRPCRouter({
     })
     .input(
       zUser().required().pick({
+        id: true,
         name: true,
         email: true,
+        language: true,
+        authorizations: true,
       })
     )
     .output(zUser())
@@ -131,7 +136,13 @@ export const usersRouter = createTRPCRouter({
       ctx.logger.info('Creating user');
       try {
         return await ctx.db.user.create({
-          data: input,
+          data: {
+            id: input.id,
+            password: bcrypt.hashSync(VALIDATION_PASSWORD_MOCKED, 8),
+            name: input.name,
+            language: input.language,
+            authorizations: input.authorizations,
+          },
         });
       } catch (e) {
         throw new ExtendedTRPCError({

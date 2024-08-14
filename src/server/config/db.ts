@@ -21,7 +21,8 @@ export const db =
     log: levels[env.LOGGER_LEVEL],
   });
 
-if (env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+// if (env.NODE_ENV !== 'production')
+globalForPrisma.prisma = db;
 // export const machbase =
 //   globalForPrisma.prisma ??
 //   new PrismaClient({

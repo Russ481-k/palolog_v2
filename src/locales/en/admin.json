@@ -2,7 +2,6 @@
   "layout": {
     "mainMenu": {
       "dashboard": "Dashboard",
-      "repositories": "Repositories",
       "monitoring": "Monitoring",
       "management": "Management"
     },

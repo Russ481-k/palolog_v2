@@ -3,16 +3,9 @@ import dayjs from 'dayjs';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-import EmailAddressChange from '@/emails/templates/email-address-change';
 import { zUserAccount } from '@/features/account/schemas';
 import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
-import i18n from '@/lib/i18n/server';
-import {
-  deleteUsedCode,
-  generateCode,
-  validateCode,
-} from '@/server/config/auth';
-import { sendEmail } from '@/server/config/email';
+import { deleteUsedCode, validate } from '@/server/config/auth';
 import { ExtendedTRPCError } from '@/server/config/errors';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
@@ -62,7 +55,11 @@ export const accountRouter = createTRPCRouter({
     })
     .input(
       zUserAccount().required().pick({
+        id: true,
+        password: true,
         name: true,
+        email: true,
+        authorizations: true,
         language: true,
       })
     )
@@ -82,80 +79,64 @@ export const accountRouter = createTRPCRouter({
       }
     }),
 
-  updateEmail: protectedProcedure()
+  updateId: protectedProcedure()
     .meta({
       openapi: {
         method: 'PUT',
-        path: '/accounts/update-email/',
+        path: '/accounts/update-id/',
         protect: true,
         tags: ['accounts'],
       },
     })
     .input(
       zUserAccount().pick({
+        id: true,
+        password: true,
+        name: true,
         email: true,
+        authorizations: true,
+        language: true,
       })
     )
     .output(z.object({ token: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      ctx.logger.info('Checking existing email');
-      if (ctx.user.email === input.email) {
-        ctx.logger.warn('Same email for current user and input');
+      ctx.logger.info('Checking existing id');
+      if (ctx.user.id === input.id) {
+        ctx.logger.warn('Same id for current user and input');
         throw new TRPCError({
           code: 'CONFLICT',
-          message: 'Same email for current user and input',
+          message: 'Same id for current user and input',
         });
       }
 
       const token = randomUUID();
 
-      ctx.logger.info('Checking if new email is already used');
-      const existingEmail = await ctx.db.user.findUnique({
+      ctx.logger.info('Checking if new id is already used');
+      const existingId = await ctx.db.user.findUnique({
         where: {
-          email: input.email,
+          id: input.id,
         },
       });
 
-      if (existingEmail) {
-        ctx.logger.warn(
-          'Email already used, silent error for security reasons'
-        );
+      if (existingId) {
+        ctx.logger.warn('Id already used, silent error for security reasons');
         return {
           token,
         };
       }
 
-      // If we got here, the user can update the email
-      // and we send the email to verify the new email.
-      ctx.logger.info('Creating code');
-      const code = await generateCode();
+      // If we got here, the user can update the id
+      // and we send the id to verify the new id.
 
       ctx.logger.info('Creating verification token in database');
       await ctx.db.verificationToken.create({
         data: {
           userId: ctx.user.id,
           token,
-          email: input.email,
           expires: dayjs()
             .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
             .toDate(),
-          code: code.hashed,
         },
-      });
-
-      ctx.logger.info('Sending email with verification code');
-      await sendEmail({
-        to: input.email,
-        subject: i18n.t('emails:emailAddressChange.subject', {
-          lng: ctx.user.language,
-        }),
-        template: (
-          <EmailAddressChange
-            language={ctx.user.language}
-            name={ctx.user.name ?? ''}
-            code={code.readable}
-          />
-        ),
       });
 
       return {
@@ -163,7 +144,7 @@ export const accountRouter = createTRPCRouter({
       };
     }),
 
-  updateEmailValidate: protectedProcedure()
+  updateValidate: protectedProcedure()
     .meta({
       openapi: {
         method: 'POST',
@@ -174,31 +155,32 @@ export const accountRouter = createTRPCRouter({
     })
     .input(
       z.object({
-        token: z.string().uuid(),
-        code: z.string().length(6),
+        id: z.string().uuid(),
+        password: z.string(),
       })
     )
     .output(zUserAccount())
     .mutation(async ({ ctx, input }) => {
-      const { verificationToken } = await validateCode({
+      const { verificationToken } = await validate({
         ctx,
-        ...input,
+        id: input.id,
+        password: input.password,
       });
 
-      if (!verificationToken.email) {
-        ctx.logger.error('verificationToken does not contain an email');
+      if (!verificationToken.userId) {
+        ctx.logger.error('verificationToken does not contain an userId');
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
         });
       }
 
-      ctx.logger.info('Update the user email');
+      ctx.logger.info('Update the user userId');
       const user = await ctx.db.user.update({
         where: {
           id: verificationToken.userId,
         },
         data: {
-          email: verificationToken.email,
+          id: verificationToken.userId,
         },
       });
 
