@@ -1,5 +1,7 @@
 import { emphasis, prisma } from 'prisma/seed/utils';
 
+import { VALIDATION_PASSWORD_MOCKED } from '@/features/auth/utils';
+
 export async function createUsers() {
   console.log(`⏳ Seeding users`);
 
@@ -11,7 +13,7 @@ export async function createUsers() {
       data: {
         name: 'Admin',
         id: 'admin',
-        password: '000000',
+        password: VALIDATION_PASSWORD_MOCKED,
         authorizations: ['APP', 'ADMIN'],
         accountStatus: 'ENABLED',
         email: 'admin@admin.co.kr',

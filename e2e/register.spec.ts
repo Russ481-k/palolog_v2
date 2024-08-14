@@ -3,7 +3,7 @@ import { pageUtils } from 'e2e/utils/pageUtils';
 import { USER_ID, getRandomId } from 'e2e/utils/users';
 
 import { APP_PATH } from '@/features/app/constants';
-import { VALIDATION_CODE_MOCKED } from '@/features/auth/utils';
+import { VALIDATION_PASSWORD_MOCKED } from '@/features/auth/utils';
 import locales from '@/locales';
 
 test.describe('Register flow', () => {
@@ -19,7 +19,7 @@ test.describe('Register flow', () => {
       .click();
 
     await page.waitForURL(`**${APP_PATH}/register/**`);
-    await page.fill('input', VALIDATION_CODE_MOCKED);
+    await page.fill('input', VALIDATION_PASSWORD_MOCKED);
 
     await expect(
       page.getByText(locales.en.auth.data.verificationCode.unknown)
@@ -37,7 +37,7 @@ test.describe('Register flow', () => {
       .click();
 
     await page.waitForURL(`**${APP_PATH}/register/**`);
-    await page.fill('input', VALIDATION_CODE_MOCKED);
+    await page.fill('input', VALIDATION_PASSWORD_MOCKED);
 
     await expect(
       page.getByText(locales.en.auth.data.verificationCode.unknown)

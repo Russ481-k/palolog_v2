@@ -2,7 +2,7 @@ import { Page } from '@playwright/test';
 
 import { ADMIN_PATH } from '@/features/admin/constants';
 import { APP_PATH } from '@/features/app/constants';
-import { VALIDATION_CODE_MOCKED } from '@/features/auth/utils';
+import { VALIDATION_PASSWORD_MOCKED } from '@/features/auth/utils';
 import type { RouterInputs } from '@/lib/trpc/types';
 import locales from '@/locales';
 
@@ -36,7 +36,7 @@ export const pageUtils = (page: Page) => {
         .click();
 
       await page.waitForURL(`**${APP_PATH}/login/**`);
-      await page.fill('input', input.code ?? VALIDATION_CODE_MOCKED);
+      await page.fill('input', input.code ?? VALIDATION_PASSWORD_MOCKED);
     },
 
     /**
@@ -52,7 +52,7 @@ export const pageUtils = (page: Page) => {
         .click();
 
       await page.waitForURL(`**${ADMIN_PATH}/login/**`);
-      await page.fill('input', input.code ?? VALIDATION_CODE_MOCKED);
+      await page.fill('input', input.code ?? VALIDATION_PASSWORD_MOCKED);
     },
   } as const;
 };
