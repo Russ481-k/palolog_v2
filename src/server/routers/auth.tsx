@@ -1,4 +1,5 @@
 import { TRPCError } from '@trpc/server';
+import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -155,7 +156,7 @@ export const authRouter = createTRPCRouter({
           newUser = await ctx.db.user.create({
             data: {
               id: input.id,
-              password: VALIDATION_PASSWORD_MOCKED,
+              password: bcrypt.hashSync(VALIDATION_PASSWORD_MOCKED, 8),
               name: input.name,
               language: input.language,
             },
