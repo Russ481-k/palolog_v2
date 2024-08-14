@@ -36,7 +36,6 @@ export const DashboardStatics = () => {
   const getThreatLogData = trpc.dashboard.getThreatLogData.useInfiniteQuery({});
   const getSystemLog = trpc.dashboard.getSystemLog.useInfiniteQuery({});
 
-  console.log('getSystemLog : ', getSystemLog.data?.pages[0]);
   const { colorMode } = useColorMode();
 
   const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
@@ -246,7 +245,7 @@ export const DashboardStatics = () => {
     }),
     [getMemoryUsageData]
   );
-  console.log(getCountsPerSec.data?.pages[0]);
+
   const countsPerSec = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
