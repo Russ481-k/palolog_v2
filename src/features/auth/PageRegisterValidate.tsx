@@ -13,10 +13,6 @@ import {
   useOnVerificationError,
   useOnVerificationSuccess,
 } from '@/features/auth/VerificationForm';
-import {
-  FormFieldsVerification,
-  zFormFieldsVerification,
-} from '@/features/auth/schemas';
 import { useRtl } from '@/hooks/useRtl';
 import { trpc } from '@/lib/trpc/client';
 
@@ -25,26 +21,38 @@ export default function PageRegisterValidate() {
   const { rtlValue } = useRtl();
   const router = useRouter();
 
-  const form = useForm<FormFieldsVerification>({
+  const form = useForm<{
+    id: string;
+    name: string;
+    email: string;
+    language: string;
+  }>({
     mode: 'onBlur',
-    resolver: zodResolver(zFormFieldsVerification()),
     defaultValues: {
       id: '',
-      password: '',
       name: '',
+      email: '',
+      language: 'en',
     },
   });
 
-  const onSubmit: SubmitHandler<FormFieldsVerification> = ({
+  const onSubmit: SubmitHandler<{
+    id: string;
+    name: string;
+    email: string;
+    language: string;
+  }> = ({
     id,
-    password,
     name,
+    email,
+    language,
   }: {
     id: string;
-    password: string;
     name: string;
+    email: string;
+    language: string;
   }) => {
-    validate.mutate({ id, password, name });
+    validate.mutate({ id, name, email, language });
   };
 
   const onVerificationSuccess = useOnVerificationSuccess({
@@ -79,18 +87,25 @@ export default function PageRegisterValidate() {
           placeholder={t('auth:data.id.label')}
         />
         <FormField
-          type="password"
-          control={form.control}
-          name="password"
-          size="lg"
-          placeholder={t('auth:data.password.label')}
-        />
-        <FormField
           type="text"
           control={form.control}
           name="name"
           size="lg"
           placeholder={t('auth:data.name.label')}
+        />
+        <FormField
+          type="email"
+          control={form.control}
+          name="email"
+          size="lg"
+          placeholder={t('auth:data.email.label')}
+        />
+        <FormField
+          type="text"
+          control={form.control}
+          name="language"
+          size="lg"
+          placeholder={t('auth:data.language.label')}
         />
       </Form>
     </Stack>

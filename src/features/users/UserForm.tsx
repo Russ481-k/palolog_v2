@@ -17,6 +17,12 @@ export const UserForm = () => {
       <FormField
         control={form.control}
         type="text"
+        name="id"
+        label={t('users:data.id.label')}
+      />
+      <FormField
+        control={form.control}
+        type="text"
         name="name"
         label={t('users:data.name.label')}
       />

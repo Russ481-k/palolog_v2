@@ -51,20 +51,16 @@ export default function PageAdminUserCreate() {
   const form = useForm<FormFieldUser>({
     resolver: zodResolver(zFormFieldsUser()),
     defaultValues: {
-      name: '',
       id: '',
+      name: '',
+      email: '',
       language: DEFAULT_LANGUAGE_KEY,
       authorizations: ['APP'],
     },
   });
 
   return (
-    <Form
-      {...form}
-      onSubmit={(values) => {
-        createUser.mutate(values);
-      }}
-    >
+    <Form {...form}>
       <AdminLayoutPage containerMaxWidth="container.md" showNavBar={false}>
         <AdminLayoutPageTopBar
           leftActions={<AdminBackButton withConfirm={form.formState.isDirty} />}
@@ -72,9 +68,11 @@ export default function PageAdminUserCreate() {
             <>
               <AdminCancelButton withConfirm={form.formState.isDirty} />
               <Button
-                type="submit"
                 variant="@primary"
                 isLoading={createUser.isLoading || createUser.isSuccess}
+                onClick={() => {
+                  createUser.mutate(form.getValues());
+                }}
               >
                 {t('users:create.action.save')}
               </Button>

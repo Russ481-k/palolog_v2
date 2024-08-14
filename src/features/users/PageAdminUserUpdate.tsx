@@ -33,7 +33,6 @@ export default function PageAdminUserUpdate() {
   const user = trpc.users.getById.useQuery(
     {
       id: params?.id?.toString() ?? '',
-      password: params?.password?.toString() ?? '',
     },
     {
       staleTime: Infinity,
