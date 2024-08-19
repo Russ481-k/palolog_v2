@@ -1,4 +1,4 @@
-export const trefficColumns = [
+export const trafficColumns = [
   'RECEIVE_TIME',
   'SERIAL',
   'DEVICE_NAME',

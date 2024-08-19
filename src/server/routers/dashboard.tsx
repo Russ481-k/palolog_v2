@@ -1,4 +1,3 @@
-import { exec } from 'child_process';
 import dayjs from 'dayjs';
 import { NextResponse } from 'next/server';
 import os from 'os';
@@ -25,10 +24,14 @@ const diskUsageBuffer: {
   time: string;
   usagePercentage: number;
 }[] = [];
-const collectionsCountBuffer: {
+const collectionsCountPerSecBuffer: {
   time: string;
   countsPerSec: number;
   total: number;
+}[] = [];
+const collectionsCountPerDayBuffer: {
+  time: string;
+  countsPerDay: number;
 }[] = [];
 const threatCountBuffer: Array<
   {
@@ -49,7 +52,9 @@ const critical7Days: Array<{
   serial: string;
   description: string;
 }> = [];
-let CollectionsCountsBuff: number = 0;
+let CollectionsCountsPerSecBuff: number = 0;
+let CollectionsCountsPerDayBuff: number = 0;
+let lastPushDate: string = '';
 
 function recordCpuUsage() {
   const time = dayjs().format('HH:mm:ss');
@@ -147,15 +152,30 @@ function recordCollectionsCount() {
       })
       .then((data) => {
         totalCnt = data.data.rows[0][0];
-        countsPerSec = totalCnt - CollectionsCountsBuff;
-        collectionsCountBuffer.push({
+        countsPerSec = totalCnt - CollectionsCountsPerSecBuff;
+        collectionsCountPerSecBuffer.push({
           time: dayjs().format('HH:mm:ss'),
           countsPerSec: countsPerSec,
           total: totalCnt / 1000000,
         });
-        CollectionsCountsBuff = totalCnt;
-        if (collectionsCountBuffer.length > 600) {
-          collectionsCountBuffer.shift();
+
+        const currentDate = dayjs().format('YYYY-MM-DD');
+        if (lastPushDate !== currentDate) {
+          const countsPerDay = totalCnt - CollectionsCountsPerDayBuff;
+          collectionsCountPerDayBuffer.push({
+            time: currentDate,
+            countsPerDay,
+          });
+          lastPushDate = currentDate;
+        }
+
+        CollectionsCountsPerDayBuff = totalCnt;
+        CollectionsCountsPerSecBuff = totalCnt;
+        if (collectionsCountPerSecBuffer.length > 600) {
+          collectionsCountPerSecBuffer.shift();
+        }
+        if (collectionsCountPerDayBuffer.length > 30) {
+          collectionsCountPerDayBuffer.shift();
         }
       });
   } catch {
@@ -197,7 +217,7 @@ function recordThreatCount() {
 }
 function recordThreatLogCount() {
   const queryDashboardLogs = `SELECT DEVICE_NAME, SERIAL, RECEIVE_TIME, SESSION_END_REASON FROM PANETLOG WHERE 1=1 AND TYPE = 'URL' LIMIT 20 `;
-  const queryDashboardCritical = `SELECT DEVICE_NAME, SERIAL, RECEIVE_TIME, SESSION_END_REASON FROM PANETLOG WHERE 1=1 AND TYPE = 'URL' AND SEVERITY = 'CRITICAL' DURATION FROM TO_DATE('${dayjs().subtract(7, 'day').format('YYYY-MM-DD')}') TO TO_DATE('${dayjs().format('YYYY-MM-DD')}')`;
+  const queryDashboardCritical = `SELECT DEVICE_NAME, SERIAL, RECEIVE_TIME, SESSION_END_REASON FROM PANETLOG WHERE 1=1 AND TYPE = 'URL' AND SEVERITY = 'CRITICAL' DURATION FROM TO_DATE('${dayjs().subtract(7, 'day').format('YYYY-MM-DD')}', 'YYYY-MM-DD') TO TO_DATE('${dayjs().format('YYYY-MM-DD')}', 'YYYY-MM-DD')`;
   try {
     fetch(
       `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
@@ -394,9 +414,9 @@ export const dashboardRouter = createTRPCRouter({
       )
     )
     .query(async ({ ctx }) => {
-      ctx.logger.info('Getting disk usage');
+      ctx.logger.info('Getting counts per sec');
       return (
-        collectionsCountBuffer || [
+        collectionsCountPerSecBuffer || [
           {
             time: '',
             countsPerSec: 0,
@@ -405,6 +425,37 @@ export const dashboardRouter = createTRPCRouter({
         ]
       );
     }),
+
+  getCountsPerDay: protectedProcedure()
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/dashboard/counts-per-day',
+        protect: true,
+        tags: ['dashboard'],
+      },
+    })
+    .input(z.object({}))
+    .output(
+      z.array(
+        z.object({
+          time: z.string(),
+          countsPerDay: z.number(),
+        })
+      )
+    )
+    .query(async ({ ctx }) => {
+      ctx.logger.info('Getting counts per day');
+      return (
+        collectionsCountPerDayBuffer || [
+          {
+            time: '',
+            countsPerDay: 0,
+          },
+        ]
+      );
+    }),
+
   getThreatLogData: protectedProcedure()
     .meta({
       openapi: {

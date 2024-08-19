@@ -33,6 +33,7 @@ export const DashboardStatics = () => {
   const getDiskUsageData = trpc.dashboard.getDiskUsage.useInfiniteQuery({});
   const getMemoryUsageData = trpc.dashboard.getMemoryUsage.useInfiniteQuery({});
   const getCountsPerSec = trpc.dashboard.getCountsPerSec.useInfiniteQuery({});
+  const getCountsPerDay = trpc.dashboard.getCountsPerDay.useInfiniteQuery({});
   const getThreatLogData = trpc.dashboard.getThreatLogData.useInfiniteQuery({});
   const getSystemLog = trpc.dashboard.getSystemLog.useInfiniteQuery({});
 
@@ -48,7 +49,48 @@ export const DashboardStatics = () => {
     }
     return <AgCharts options={options} />;
   };
-
+  const cpuUsageDataDonut = useMemo<AgChartOptions>(
+    () => ({
+      data: [
+        {
+          asset: 'available',
+          amount:
+            100 - (getCpuUsageData.data?.pages?.[0]?.[0]?.total_usage ?? 0),
+        },
+        {
+          asset: 'used',
+          amount: getCpuUsageData.data?.pages?.[0]?.[0]?.total_usage,
+        },
+      ],
+      title: {
+        text: 'CPU Usage',
+      },
+      series: [
+        {
+          type: 'donut',
+          calloutLabelKey: 'asset',
+          angleKey: 'amount',
+          innerRadiusRatio: 0.85,
+          innerLabels: [
+            {
+              text: 'CPU used percentage',
+              fontWeight: 'bold',
+            },
+            {
+              text:
+                String(
+                  getCpuUsageData.data?.pages?.[0]?.[0]?.total_usage ?? 0
+                ) + '%',
+              spacing: 4,
+              fontSize: 42,
+            },
+          ],
+        },
+      ],
+      height: 400,
+    }),
+    [getCpuUsageData]
+  );
   const cpuUsageData = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
@@ -164,6 +206,50 @@ export const DashboardStatics = () => {
     [getCpuUsageData]
   );
 
+  const diskUsageDataDonut = useMemo<AgChartOptions>(
+    () => ({
+      theme: 'ag-polychroma',
+      title: {
+        text: 'Disk Usage',
+      },
+      data: [
+        {
+          asset: 'available',
+          amount:
+            100 -
+            (getDiskUsageData.data?.pages?.[0]?.[0]?.usagePercentage ?? 0),
+        },
+        {
+          asset: 'used',
+          amount: getDiskUsageData.data?.pages?.[0]?.[0]?.usagePercentage,
+        },
+      ],
+      series: [
+        {
+          type: 'donut',
+          calloutLabelKey: 'asset',
+          angleKey: 'amount',
+          innerRadiusRatio: 0.85,
+          innerLabels: [
+            {
+              text: 'Disk used percentage',
+              fontWeight: 'bold',
+            },
+            {
+              text:
+                String(
+                  getDiskUsageData.data?.pages?.[0]?.[0]?.usagePercentage ?? 0
+                ) + '%',
+              spacing: 4,
+              fontSize: 42,
+            },
+          ],
+        },
+      ],
+      height: 400,
+    }),
+    [getDiskUsageData]
+  );
   const diskUsageData = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
@@ -207,6 +293,50 @@ export const DashboardStatics = () => {
     [getDiskUsageData]
   );
 
+  const memoryUsageDataDonut = useMemo<AgChartOptions>(
+    () => ({
+      theme: 'ag-polychroma',
+      title: {
+        text: 'Memory Usage',
+      },
+      data: [
+        {
+          asset: 'available',
+          amount:
+            100 -
+            (getMemoryUsageData.data?.pages?.[0]?.[0]?.usagePercentage ?? 0),
+        },
+        {
+          asset: 'used',
+          amount: getMemoryUsageData.data?.pages?.[0]?.[0]?.usagePercentage,
+        },
+      ],
+      series: [
+        {
+          type: 'donut',
+          calloutLabelKey: 'asset',
+          angleKey: 'amount',
+          innerRadiusRatio: 0.85,
+          innerLabels: [
+            {
+              text: 'Memory used percentage',
+              fontWeight: 'bold',
+            },
+            {
+              text:
+                String(
+                  getMemoryUsageData.data?.pages?.[0]?.[0]?.usagePercentage ?? 0
+                ) + '%',
+              spacing: 4,
+              fontSize: 42,
+            },
+          ],
+        },
+      ],
+      height: 400,
+    }),
+    [getMemoryUsageData]
+  );
   const memoryUsageData = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
@@ -250,7 +380,7 @@ export const DashboardStatics = () => {
     () => ({
       theme: 'ag-polychroma',
       title: {
-        text: 'Collections Counts',
+        text: 'Collections Counts Per Second',
       },
       data: getCountsPerSec.data?.pages[0],
       series: [
@@ -303,9 +433,31 @@ export const DashboardStatics = () => {
     [getCountsPerSec]
   );
 
-  const threatLogData = useMemo<AgChartOptions>(
+  const countsPerDay = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
+      title: {
+        text: 'Collections Counts Per Day',
+      },
+      data: getCountsPerDay.data?.pages[0],
+      series: [
+        {
+          type: 'line',
+          xKey: 'time',
+          yKey: 'countsPerDay',
+          yName: 'Counts Per Day',
+          marker: {
+            enabled: false,
+          },
+        } as AgLineSeriesOptions,
+      ],
+      height: 400,
+    }),
+    [getCountsPerDay]
+  );
+
+  const threatLogData = useMemo<AgChartOptions>(
+    () => ({
       title: {
         text: 'Threat LogData',
       },
@@ -325,6 +477,17 @@ export const DashboardStatics = () => {
           angleKey: 'amount',
           innerRadiusRatio: 0.7,
         } as AgDonutSeriesOptions,
+      ],
+      innerLabels: [
+        {
+          text: 'Memory used percentage',
+          fontWeight: 'bold',
+        },
+        {
+          text: String(getThreatLogData.data?.pages[0]?.pop()),
+          spacing: 4,
+          fontSize: 42,
+        },
       ],
       height: 400,
     }),
@@ -351,13 +514,32 @@ export const DashboardStatics = () => {
         colSpan={1}
         overflow="hidden"
         height={{
-          base: '400px',
-          sm: '400px',
-          md: '400px',
-          lg: '400px',
-          xl: '400px',
+          base: '800px',
+          sm: '800px',
+          md: '800px',
+          lg: '800px',
+          xl: '800px',
         }}
       >
+        <AgChartsThemeChanged options={countsPerSec} />
+        <AgChartsThemeChanged options={countsPerDay} />
+      </GridItem>
+      <GridItem
+        borderRadius="lg"
+        bg="blackAlpha.200"
+        borderWidth={1}
+        borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
+        colSpan={1}
+        overflow="hidden"
+        height={{
+          base: '800px',
+          sm: '800px',
+          md: '800px',
+          lg: '800px',
+          xl: '800px',
+        }}
+      >
+        <AgChartsThemeChanged options={cpuUsageDataDonut} />
         <AgChartsThemeChanged options={cpuUsageData} />
       </GridItem>
       <GridItem
@@ -368,13 +550,14 @@ export const DashboardStatics = () => {
         colSpan={1}
         overflow="hidden"
         height={{
-          base: '400px',
-          sm: '400px',
-          md: '400px',
-          lg: '400px',
-          xl: '400px',
+          base: '800px',
+          sm: '800px',
+          md: '800px',
+          lg: '800px',
+          xl: '800px',
         }}
       >
+        <AgChartsThemeChanged options={diskUsageDataDonut} />
         <AgChartsThemeChanged options={diskUsageData} />
       </GridItem>
       <GridItem
@@ -385,31 +568,15 @@ export const DashboardStatics = () => {
         colSpan={1}
         overflow="hidden"
         height={{
-          base: '400px',
-          sm: '400px',
-          md: '400px',
-          lg: '400px',
-          xl: '400px',
+          base: '800px',
+          sm: '800px',
+          md: '800px',
+          lg: '800px',
+          xl: '800px',
         }}
       >
+        <AgChartsThemeChanged options={memoryUsageDataDonut} />
         <AgChartsThemeChanged options={memoryUsageData} />
-      </GridItem>
-      <GridItem
-        borderRadius="lg"
-        bg="blackAlpha.200"
-        borderWidth={1}
-        borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
-        colSpan={1}
-        overflow="hidden"
-        height={{
-          base: '400px',
-          sm: '400px',
-          md: '400px',
-          lg: '400px',
-          xl: '400px',
-        }}
-      >
-        <AgChartsThemeChanged options={countsPerSec} />
       </GridItem>
       <GridItem
         borderRadius="lg"

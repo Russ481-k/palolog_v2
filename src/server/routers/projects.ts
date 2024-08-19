@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { env } from '@/env.mjs';
 import {
   threatColumns,
-  trefficColumns,
+  trafficColumns,
   urlColumns,
 } from '@/features/monitoring/MenuColumns';
 import {
@@ -115,13 +115,13 @@ export const projectsRouter = createTRPCRouter({
       const logsArray: Array<zLogs> = [];
       const dataFrom = (input.currentPage - 1) * input.limit;
       const dataTo = input.limit;
-      const timeRange = `DURATION FROM TO_DATE('${input.timeFrom}') TO TO_DATE('${input.timeTo}')`;
+      const timeRange = `DURATION FROM TO_DATE('${input.timeFrom}', 'YYYY-MM-DD HH24:MI:SS') TO TO_DATE('${input.timeTo}', 'YYYY-MM-DD HH24:MI:SS')`;
       let searchTerm = input.searchTerm;
       let columnString = '';
 
       switch (input.menu) {
         case 'TRAFFIC':
-          columnString = trefficColumns.join(', ');
+          columnString = trafficColumns.join(', ');
           searchTerm = searchTerm + " AND TYPE = 'TRAFFIC'";
           break;
         case 'THREAT':
