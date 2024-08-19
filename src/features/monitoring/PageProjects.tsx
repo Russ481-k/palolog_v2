@@ -180,7 +180,6 @@ export default function PageProjects() {
     }
   }, [pageLength, nextCurrentPage, setPageLengthBuf, setNextCurrentPage]);
 
-  console.log(projects.isLoading);
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
@@ -253,7 +252,6 @@ export default function PageProjects() {
               }
               style={{ width: '100%', height: '79vh', zIndex: 0 }}
             >
-
               {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
               <AgGridReact
                 ref={gridRef}
