@@ -1,26 +1,7 @@
-import React, { useMemo, useRef } from 'react';
+import React from 'react';
 
-import {
-  Flex,
-  Grid,
-  GridItem,
-  Tab,
-  TabList,
-  TabPanel,
-  TabPanels,
-  Tabs,
-  Text,
-  useColorMode,
-} from '@chakra-ui/react';
-import { ColDef, ValueFormatterParams } from 'ag-grid-community';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-quartz.css';
-import { AgGridReact } from 'ag-grid-react';
-import dayjs from 'dayjs';
+import { Grid, Text } from '@chakra-ui/react';
 
-import { trpc } from '@/lib/trpc/client';
-
-import { zLogs } from '../monitoring/schemas';
 import { DashboardStaticsThreatLog } from './grid/ThreatLog';
 import { DashboardStaticsCpu } from './statics/CPU';
 import { DashboardStaticsCollectionsCount } from './statics/CollectionsCount';
