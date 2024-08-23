@@ -8,6 +8,7 @@ import appHome from './appHome.json';
 import auth from './auth.json';
 import common from './common.json';
 import components from './components.json';
+import database from './database.json';
 import emails from './emails.json';
 import management from './management.json';
 import menus from './menus.json';
@@ -20,6 +21,7 @@ export default {
   app,
   appHome,
   auth,
+  database,
   common,
   components,
   emails,
