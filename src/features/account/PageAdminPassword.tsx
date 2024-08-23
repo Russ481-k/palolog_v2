@@ -9,15 +9,18 @@ import {
   AdminLayoutPageContent,
 } from '@/features/admin/AdminLayoutPage';
 
-export default function PageAdminEmail() {
+import { AccountPasswordForm } from './AccountPasswordForm';
+
+export default function PageAdminPassword() {
   const { t } = useTranslation(['common', 'account']);
 
   return (
     <AdminLayoutPage containerMaxWidth="container.md" nav={<AdminAccountNav />}>
       <AdminLayoutPageContent>
         <Heading size="md" mb="4">
-          {t('account:email.title')}
+          {t('account:password.title')}
         </Heading>
+        <AccountPasswordForm />
       </AdminLayoutPageContent>
     </AdminLayoutPage>
   );

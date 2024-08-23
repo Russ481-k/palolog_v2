@@ -24,10 +24,27 @@ export const zFormFieldsAccountProfile = () =>
   zUserAccount()
     .pick({
       id: true,
-      password: true,
       email: true,
       name: true,
       language: true,
       authorizations: true,
+    })
+    .extend({
+      password: z.string(),
+    })
+    .required();
+
+export type FormFieldsAccountPassword = z.infer<
+  ReturnType<typeof zFormFieldsAccountPassword>
+>;
+export const zFormFieldsAccountPassword = () =>
+  zUserAccount()
+    .pick({
+      id: true,
+    })
+    .extend({
+      password: z.string(),
+      newPassword: z.string(),
+      passwordConfirm: z.string(),
     })
     .required();

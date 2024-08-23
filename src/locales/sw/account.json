@@ -1,8 +1,14 @@
 {
+  "title": "Akaunti",
   "nav": {
     "profile": "Wasifu",
-    "myAccount": "Akaunti yangu",
-    "email": "Barua pepe"
+    "email": "Barua pepe",
+    "password": "Nywila",
+    "myAccount": "Akaunti yangu"
+  },
+  "admin": {
+    "button": "Fungua Utawala",
+    "title": "Mtumiaji wa msimamizi"
   },
   "profile": {
     "feedbacks": {
@@ -18,17 +24,26 @@
     },
     "title": "Maelezo ya wasifu"
   },
-  "data": {
-    "name": {
-      "label": "Jina"
+  "password": {
+    "title": "Nywila",
+    "actions": {
+      "update": "Sasisha"
     },
-    "email": {
-      "label": "Barua pepe",
-      "current": "Hii ndiyo barua pepe yako ya sasa"
-    },
-    "language": {
-      "label": "Lugha"
+    "feedbacks": {
+      "updateError": {
+        "title": "Usasishaji haukufaulu"
+      },
+      "updateSuccess": {
+        "title": "Nywila imesasishwa"
+      }
     }
+  },
+  "preferences": {
+    "theme": {
+      "dark": "Hali ya giza",
+      "light": "Hali ya mwanga"
+    },
+    "title": "Mapendeleo"
   },
   "email": {
     "actions": {
@@ -52,16 +67,28 @@
       "title": "Kuondoka kwa akaunti"
     }
   },
-  "preferences": {
-    "theme": {
-      "dark": "Hali ya giza",
-      "light": "Hali ya mwanga"
+  "data": {
+    "id": {
+      "label": "Kitambulisho"
     },
-    "title": "Mapendeleo"
-  },
-  "title": "Akaunti",
-  "admin": {
-    "button": "Fungua Utawala",
-    "title": "Mtumiaji wa msimamizi"
+    "password": {
+      "label": "Nywila"
+    },
+    "newPassword": {
+      "label": "Nywila mpya"
+    },
+    "passwordConfirm": {
+      "label": "Thibitisha nywila"
+    },
+    "name": {
+      "label": "Jina"
+    },
+    "email": {
+      "label": "Barua pepe",
+      "current": "Hii ndiyo barua pepe yako ya sasa"
+    },
+    "language": {
+      "label": "Lugha"
+    }
   }
 }

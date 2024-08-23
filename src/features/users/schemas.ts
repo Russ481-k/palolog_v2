@@ -53,8 +53,8 @@ export type FormFieldUser = z.infer<ReturnType<typeof zFormFieldsUser>>;
 export const zFormFieldsUser = () =>
   zUser()
     .pick({
-      name: true,
       id: true,
+      name: true,
       language: true,
       email: true,
       authorizations: true,

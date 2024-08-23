@@ -3,6 +3,7 @@
   "nav": {
     "profile": "프로필",
     "email": "이메일",
+    "password": "비밀번호",
     "myAccount": "내 계정"
   },
   "admin": {
@@ -14,6 +15,20 @@
     "feedbacks": {
       "updateSuccess": {
         "title": "프로필 업데이트됨"
+      },
+      "updateError": {
+        "title": "업데이트 실패"
+      }
+    },
+    "actions": {
+      "update": "업데이트"
+    }
+  },
+  "password": {
+    "title": "비밀번호",
+    "feedbacks": {
+      "updateSuccess": {
+        "title": "비밀번호 업데이트됨"
       },
       "updateError": {
         "title": "업데이트 실패"
@@ -58,6 +73,12 @@
     },
     "password": {
       "label": "비밀번호"
+    },
+    "newPassword": {
+      "label": "새 비밀번호"
+    },
+    "passwordConfirm": {
+      "label": "비밀번호 확인"
     },
     "name": {
       "label": "이름"

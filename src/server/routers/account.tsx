@@ -1,4 +1,5 @@
 import { TRPCError } from '@trpc/server';
+import bcrypt from 'bcrypt';
 import dayjs from 'dayjs';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -6,7 +7,6 @@ import { z } from 'zod';
 import { zUserAccount } from '@/features/account/schemas';
 import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
 import { deleteUsedCode, validate } from '@/server/config/auth';
-import { ExtendedTRPCError } from '@/server/config/errors';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
 export const accountRouter = createTRPCRouter({
@@ -54,27 +54,49 @@ export const accountRouter = createTRPCRouter({
       },
     })
     .input(
-      zUserAccount().required().pick({
-        id: true,
-        password: true,
-        name: true,
-        email: true,
-        authorizations: true,
-        language: true,
-      })
+      zUserAccount()
+        .required()
+        .pick({
+          id: true,
+          email: true,
+          name: true,
+          language: true,
+          authorizations: true,
+        })
+        .extend({
+          password: z.string(),
+        })
     )
     .output(zUserAccount())
     .mutation(async ({ ctx, input }) => {
+      const { verificationToken } = await validate({
+        ctx,
+        id: input.id,
+        password: input.password,
+      });
+
+      if (!verificationToken.userId) {
+        ctx.logger.error('verificationToken does not contain an userId');
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+        });
+      }
+
       try {
         ctx.logger.info('Updating the user');
         return await ctx.db.user.update({
-          where: { id: ctx.user.id },
-          data: input,
+          where: { id: verificationToken.userId },
+          data: {
+            email: input.email,
+            name: input.name,
+            authorizations: input.authorizations,
+          },
         });
       } catch (e) {
         ctx.logger.warn('An error occured while updating the user');
-        throw new ExtendedTRPCError({
-          cause: e,
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Failed to authenticate the user',
         });
       }
     }),
@@ -144,23 +166,38 @@ export const accountRouter = createTRPCRouter({
       };
     }),
 
-  updateValidate: protectedProcedure()
+  updatePassword: protectedProcedure()
     .meta({
       openapi: {
-        method: 'POST',
-        path: '/accounts/update-email/',
+        method: 'PUT',
+        path: '/accounts/update-password/',
         protect: true,
         tags: ['accounts'],
       },
     })
     .input(
-      z.object({
-        id: z.string().uuid(),
-        password: z.string(),
-      })
+      zUserAccount()
+        .required()
+        .pick({
+          id: true,
+        })
+        .extend({
+          password: z.string(),
+          newPassword: z.string(),
+          passwordConfirm: z.string(),
+        })
     )
     .output(zUserAccount())
     .mutation(async ({ ctx, input }) => {
+      if (input.newPassword !== input.passwordConfirm) {
+        ctx.logger.error('Passwords do not match');
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Passwords do not match',
+        });
+      }
+      console.log(input);
+      ctx.logger.info(input);
       const { verificationToken } = await validate({
         ctx,
         id: input.id,
@@ -170,22 +207,24 @@ export const accountRouter = createTRPCRouter({
       if (!verificationToken.userId) {
         ctx.logger.error('verificationToken does not contain an userId');
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
+          code: 'UNAUTHORIZED',
         });
       }
 
-      ctx.logger.info('Update the user userId');
-      const user = await ctx.db.user.update({
-        where: {
-          id: verificationToken.userId,
-        },
-        data: {
-          id: verificationToken.userId,
-        },
-      });
-
-      await deleteUsedCode({ ctx, token: verificationToken.token });
-
-      return user;
+      try {
+        ctx.logger.info('Updating the user');
+        return await ctx.db.user.update({
+          where: { id: verificationToken.userId },
+          data: {
+            password: bcrypt.hashSync(input.newPassword, 8),
+          },
+        });
+      } catch (e) {
+        ctx.logger.warn('An error occured while updating the user');
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Failed to authenticate the user',
+        });
+      }
     }),
 });

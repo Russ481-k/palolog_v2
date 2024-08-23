@@ -10,6 +10,7 @@ import { DashboardStaticsMemory } from './statics/Memory';
 import { DashboardStaticsThreatLogData } from './statics/ThreatLogData';
 
 export const DashboardStatics = () => {
+  console.log('test');
   return (
     <Grid
       height="80vh"

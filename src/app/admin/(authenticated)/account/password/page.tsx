@@ -2,12 +2,12 @@
 
 import { Suspense } from 'react';
 
-import PageAdminEmail from '@/features/account/PageAdminEmail';
+import PageAdminPassword from '@/features/account/PageAdminPassword';
 
 export default function Page() {
   return (
     <Suspense>
-      <PageAdminEmail />
+      <PageAdminPassword />
     </Suspense>
   );
 }

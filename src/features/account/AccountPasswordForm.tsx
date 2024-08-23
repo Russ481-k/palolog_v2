@@ -10,16 +10,12 @@ import { Form, FormField } from '@/components/Form';
 import { LoaderFull } from '@/components/LoaderFull';
 import { useToastError, useToastSuccess } from '@/components/Toast';
 import {
-  FormFieldsAccountProfile,
-  zFormFieldsAccountProfile,
+  FormFieldsAccountPassword,
+  zFormFieldsAccountPassword,
 } from '@/features/account/schemas';
-import {
-  AVAILABLE_LANGUAGES,
-  DEFAULT_LANGUAGE_KEY,
-} from '@/lib/i18n/constants';
 import { trpc } from '@/lib/trpc/client';
 
-export const AccountProfileForm = () => {
+export const AccountPasswordForm = () => {
   const { t } = useTranslation(['common', 'account']);
   const trpcUtils = trpc.useUtils();
   const account = trpc.account.get.useQuery(undefined, {
@@ -29,35 +25,33 @@ export const AccountProfileForm = () => {
   const toastSuccess = useToastSuccess();
   const toastError = useToastError();
 
-  const updateAccount = trpc.account.update.useMutation({
+  const updateAccountPassword = trpc.account.updatePassword.useMutation({
     onSuccess: async () => {
       await trpcUtils.account.invalidate();
       toastSuccess({
-        title: t('account:profile.feedbacks.updateSuccess.title'),
+        title: t('account:password.feedbacks.updateSuccess.title'),
       });
     },
     onError: () => {
       toastError({
-        title: t('account:profile.feedbacks.updateError.title'),
+        title: t('account:password.feedbacks.updateError.title'),
       });
     },
   });
 
-  const form = useForm<FormFieldsAccountProfile>({
+  const form = useForm<FormFieldsAccountPassword>({
     mode: 'onBlur',
-    resolver: zodResolver(zFormFieldsAccountProfile()),
+    resolver: zodResolver(zFormFieldsAccountPassword()),
     values: {
       id: account.data?.id ?? '',
       password: '',
-      email: account.data?.email ?? '',
-      name: account.data?.name ?? '',
-      language: account.data?.language ?? DEFAULT_LANGUAGE_KEY,
-      authorizations: account.data?.authorizations ?? ['APP'],
+      newPassword: '',
+      passwordConfirm: '',
     },
   });
 
-  const onSubmit: SubmitHandler<FormFieldsAccountProfile> = (values) => {
-    updateAccount.mutate(values);
+  const onSubmit: SubmitHandler<FormFieldsAccountPassword> = (values) => {
+    updateAccountPassword.mutate(values);
   };
 
   return (
@@ -76,39 +70,29 @@ export const AccountProfileForm = () => {
               />
               <FormField
                 control={form.control}
-                name="email"
-                type="text"
-                label={t('account:data.email.label')}
-              />
-              <FormField
-                control={form.control}
-                name="name"
-                type="text"
-                label={t('account:data.name.label')}
-              />
-              <FormField
-                control={form.control}
-                name="language"
-                type="select"
-                options={AVAILABLE_LANGUAGES.map(({ key }) => ({
-                  label: t(`common:languages.${key}`),
-                  value: key,
-                }))}
-                label={t('account:data.language.label')}
-              />
-              <FormField
-                control={form.control}
                 name="password"
                 type="password"
                 label={t('account:data.password.label')}
+              />
+              <FormField
+                control={form.control}
+                name="newPassword"
+                type="password"
+                label={t('account:data.newPassword.label')}
+              />
+              <FormField
+                control={form.control}
+                name="passwordConfirm"
+                type="password"
+                label={t('account:data.passwordConfirm.label')}
               />
               <ButtonGroup spacing={3}>
                 <Button
                   type="submit"
                   variant="@primary"
-                  isLoading={updateAccount.isLoading}
+                  isLoading={updateAccountPassword.isLoading}
                 >
-                  {t('account:profile.actions.update')}
+                  {t('account:password.actions.update')}
                 </Button>
                 {form.formState.isDirty && (
                   <Button onClick={() => form.reset()}>
