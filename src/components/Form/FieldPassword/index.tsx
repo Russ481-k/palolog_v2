@@ -4,7 +4,6 @@ import {
   IconButton,
   Input,
   InputGroup,
-  InputLeftElement,
   InputProps,
   InputRightElement,
 } from '@chakra-ui/react';
@@ -52,7 +51,7 @@ export const FieldPassword = <
               autoFocus={props.autoFocus}
               {...field}
             />
-            <InputLeftElement>
+            <InputRightElement>
               <IconButton
                 isDisabled={isDisabled}
                 onClick={() => setShowPassword((x) => !x)}
@@ -63,7 +62,7 @@ export const FieldPassword = <
                 icon={showPassword ? <RiEyeLine /> : <RiEyeCloseLine />}
                 variant="unstyled"
               />
-            </InputLeftElement>
+            </InputRightElement>
             {!!props.endElement && (
               <InputRightElement>{props.endElement}</InputRightElement>
             )}

@@ -1,8 +1,14 @@
 {
+  "title": "Compte",
   "nav": {
     "profile": "Profil",
     "myAccount": "Mon compte",
+    "password": "Mot de passe",
     "email": "Email"
+  },
+  "admin": {
+    "button": "Ouvrir l'interface d'administration",
+    "title": "Utilisateur administrateur"
   },
   "profile": {
     "feedbacks": {
@@ -18,16 +24,18 @@
     },
     "title": "Informations du profil"
   },
-  "data": {
-    "name": {
-      "label": "Nom"
+  "password": {
+    "title": "Mot de passe",
+    "feedbacks": {
+      "updateSuccess": {
+        "title": "Mot de passe mis à jour"
+      },
+      "updateError": {
+        "title": "Échec de la mise à jour"
+      }
     },
-    "email": {
-      "label": "Email",
-      "current": "Ceci est votre email actuel"
-    },
-    "language": {
-      "label": "Langue"
+    "actions": {
+      "update": "Mettre à jour"
     }
   },
   "email": {
@@ -52,16 +60,35 @@
       "title": "Déconnexion du compte"
     }
   },
+  "data": {
+    "id": {
+      "label": "ID"
+    },
+    "password": {
+      "label": "Mot de passe"
+    },
+    "newPassword": {
+      "label": "Nouveau mot de passe"
+    },
+    "passwordConfirm": {
+      "label": "Confirmation du mot de passe"
+    },
+    "name": {
+      "label": "Nom"
+    },
+    "email": {
+      "label": "Email",
+      "current": "Ceci est votre email actuel"
+    },
+    "language": {
+      "label": "Langue"
+    }
+  },
   "preferences": {
     "theme": {
       "dark": "Mode sombre",
       "light": "Mode lumière"
     },
     "title": "Préférences"
-  },
-  "title": "Compte",
-  "admin": {
-    "button": "Ouvrir l'interface d'administration",
-    "title": "Utilisateur administrateur"
   }
 }

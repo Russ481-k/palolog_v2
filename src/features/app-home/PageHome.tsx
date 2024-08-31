@@ -26,7 +26,7 @@ import { ADMIN_PATH } from '@/features/admin/constants';
 import { AppLayoutPage } from '@/features/app/AppLayoutPage';
 import { trpc } from '@/lib/trpc/client';
 
-import { DashboardStatics } from '../demo-mode/DashboardStatics';
+import { DashboardStatics } from '../admin-dashboard/DashboardStatics';
 
 export default function PageHome() {
   const account = trpc.account.get.useQuery();

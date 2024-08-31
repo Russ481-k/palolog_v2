@@ -15,7 +15,12 @@ export const zUserAccountStatus = () =>
 export type User = z.infer<ReturnType<typeof zUser>>;
 export const zUser = () =>
   z.object({
-    id: z.string().cuid(),
+    id: zu.string.nonEmpty(
+      z.string({
+        required_error: t('users:data.id.required'),
+      })
+    ),
+    password: z.string(),
     createdAt: z.date(),
     updatedAt: z.date(),
     name: zu.string
@@ -23,16 +28,14 @@ export const zUser = () =>
         z.string({
           required_error: t('users:data.name.required'),
           invalid_type_error: t('users:data.name.invalid'),
-        }),
-        {
-          required_error: t('users:data.name.required'),
-        }
+        })
       )
       .nullish(),
-    email: zu.string.email(z.string(), {
-      required_error: t('users:data.email.required'),
-      invalid_type_error: t('users:data.email.invalid'),
-    }),
+    email: zu.string
+      .email(z.string(), {
+        invalid_type_error: t('users:data.email.invalid'),
+      })
+      .nullish(),
     authorizations: zu.array
       .nonEmpty(
         z.array(zUserAuthorization(), {
@@ -50,9 +53,10 @@ export type FormFieldUser = z.infer<ReturnType<typeof zFormFieldsUser>>;
 export const zFormFieldsUser = () =>
   zUser()
     .pick({
+      id: true,
       name: true,
-      email: true,
       language: true,
+      email: true,
       authorizations: true,
     })
     .required();

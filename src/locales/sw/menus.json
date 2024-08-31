@@ -1,0 +1,102 @@
+{
+  "feedbacks": {
+    "activateMenuSuccess": {
+      "title": "Mtumiaji Amewezeshwa",
+      "description": "Mtumiaji \"{{login}}\" amewezeshwa kwa mafanikio"
+    },
+    "deactivateMenuSuccess": {
+      "title": "Mtumiaji Amefungwa",
+      "description": "Mtumiaji \"{{login}}\" amefungwa kwa mafanikio"
+    },
+    "activateMenuError": {
+      "title": "Kushindwa kwa Uwezeshaji",
+      "description": "Kushindwa kwa uwezeshaji wa mtumiaji \"{{login}}\""
+    },
+    "deactivateMenuError": {
+      "title": "Kushindwa kwa Kufunga",
+      "description": "Kushindwa kwa kufunga mtumiaji \"{{login}}\""
+    },
+    "deleteMenuError": {
+      "title": "Kushindwa kwa Kufuta",
+      "description": "Kushindwa kwa kufuta mtumiaji \"{{login}}\""
+    },
+    "loadingMenuError": {
+      "title": "Kushindwa kwa Upakiaji wa Watumiaji"
+    }
+  },
+  "list": {
+    "title": "Usimamizi wa Watumiaji",
+    "actions": {
+      "createMenu": "Unda Mtumiaji"
+    },
+    "loadMore": {
+      "button": "Pakia Zaidi",
+      "display": "Kuonyesha {{loaded}} watumiaji kati ya {{total}}"
+    }
+  },
+  "data": {
+    "email": {
+      "label": "Barua pepe",
+      "required": "Barua pepe inahitajika",
+      "invalid": "Barua pepe sio halali",
+      "alreadyUsed": "Barua pepe tayari inatumika"
+    },
+    "status": {
+      "activated": "Imewezeshwa",
+      "deactivated": "Haijawezeshwa"
+    },
+    "description": {
+      "label": "Maelezo"
+    },
+    "name": {
+      "label": "Jina",
+      "required": "Jina linahitajika"
+    },
+    "language": {
+      "label": "Lugha"
+    },
+    "authorizations": {
+      "label": "Idhini",
+      "options": {
+        "ADMIN": "Msimamizi",
+        "APP": "Programu"
+      },
+      "required": "Angalau idhini moja inahitajika"
+    },
+    "createdAt": {
+      "ago": "Imeundwa <dateAgo />"
+    }
+  },
+  "update": {
+    "action": {
+      "save": "Hifadhi"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Kushindwa kwa Sasisho"
+      },
+      "updateSuccess": {
+        "title": "Imesasishwa kwa Mafanikio"
+      }
+    }
+  },
+  "create": {
+    "title": "Mtumiaji Mpya",
+    "action": {
+      "save": "Unda"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Kushindwa kwa Uundaji"
+      },
+      "updateSuccess": {
+        "title": "Mtumiaji Ameundwa kwa Mafanikio"
+      }
+    }
+  },
+  "deleteModal": {
+    "message": "Je, unataka kufuta \"{{name}}\"? \nFuta itakuwa ya kudumu.",
+    "title": "Thibitisha Kufuta kwa Mtumiaji"
+  },
+  "you": "wewe"
+}

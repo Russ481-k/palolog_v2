@@ -38,8 +38,8 @@ export default function PageAdminUserCreate() {
       router.back();
     },
     onError: (error) => {
-      if (isErrorDatabaseConflict(error, 'email')) {
-        form.setError('email', { message: t('users:data.email.alreadyUsed') });
+      if (isErrorDatabaseConflict(error, 'id')) {
+        form.setError('id', { message: t('users:data.id.alreadyUsed') });
         return;
       }
       toastError({
@@ -51,6 +51,7 @@ export default function PageAdminUserCreate() {
   const form = useForm<FormFieldUser>({
     resolver: zodResolver(zFormFieldsUser()),
     defaultValues: {
+      id: '',
       name: '',
       email: '',
       language: DEFAULT_LANGUAGE_KEY,
@@ -59,12 +60,7 @@ export default function PageAdminUserCreate() {
   });
 
   return (
-    <Form
-      {...form}
-      onSubmit={(values) => {
-        createUser.mutate(values);
-      }}
-    >
+    <Form {...form}>
       <AdminLayoutPage containerMaxWidth="container.md" showNavBar={false}>
         <AdminLayoutPageTopBar
           leftActions={<AdminBackButton withConfirm={form.formState.isDirty} />}
@@ -72,9 +68,11 @@ export default function PageAdminUserCreate() {
             <>
               <AdminCancelButton withConfirm={form.formState.isDirty} />
               <Button
-                type="submit"
                 variant="@primary"
                 isLoading={createUser.isLoading || createUser.isSuccess}
+                onClick={() => {
+                  createUser.mutate(form.getValues());
+                }}
               >
                 {t('users:create.action.save')}
               </Button>

@@ -12,13 +12,39 @@ export const zUserAccount = () =>
     language: true,
   });
 
-export type FormFieldsAccountEmail = z.infer<
-  ReturnType<typeof zFormFieldsAccountEmail>
+export type FormFieldsAccountId = z.infer<
+  ReturnType<typeof zFormFieldsAccountId>
 >;
-export const zFormFieldsAccountEmail = () => zUser().pick({ email: true });
+export const zFormFieldsAccountId = () => zUser().pick({ id: true });
 
 export type FormFieldsAccountProfile = z.infer<
   ReturnType<typeof zFormFieldsAccountProfile>
 >;
 export const zFormFieldsAccountProfile = () =>
-  zUserAccount().pick({ name: true, language: true }).required();
+  zUserAccount()
+    .pick({
+      id: true,
+      email: true,
+      name: true,
+      language: true,
+      authorizations: true,
+    })
+    .extend({
+      password: z.string(),
+    })
+    .required();
+
+export type FormFieldsAccountPassword = z.infer<
+  ReturnType<typeof zFormFieldsAccountPassword>
+>;
+export const zFormFieldsAccountPassword = () =>
+  zUserAccount()
+    .pick({
+      id: true,
+    })
+    .extend({
+      password: z.string(),
+      newPassword: z.string(),
+      passwordConfirm: z.string(),
+    })
+    .required();

@@ -9,9 +9,10 @@ import appHome from './appHome.json';
 import auth from './auth.json';
 import common from './common.json';
 import components from './components.json';
+import database from './database.json';
 import emails from './emails.json';
 import management from './management.json';
-import repositories from './repositories.json';
+import menus from './menus.json';
 import users from './users.json';
 
 export default {
@@ -21,11 +22,12 @@ export default {
   app,
   appHome,
   auth,
+  database,
   common,
   components,
   emails,
   management,
-  repositories,
+  menus,
   users,
   zod,
 } as const;

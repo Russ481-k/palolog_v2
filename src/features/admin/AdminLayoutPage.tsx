@@ -9,6 +9,7 @@ import {
   FlexProps,
   HStack,
   Stack,
+  useColorMode,
 } from '@chakra-ui/react';
 import Scrollbars from 'react-custom-scrollbars-2';
 
@@ -64,13 +65,13 @@ export const AdminLayoutPageTopBar = ({
   containerProps,
   ...rest
 }: AdminLayoutPageTopBarProps) => {
+  const { colorMode } = useColorMode();
   return (
     <Flex
       direction="column"
       boxShadow="layout"
-      bg="white"
       borderBottom="1px solid transparent"
-      borderBottomColor="gray.100"
+      borderBottomColor={colorMode === 'light' ? 'gray.100' : 'gray.800'}
       {...rest}
     >
       <PageContainer

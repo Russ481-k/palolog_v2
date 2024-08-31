@@ -15,6 +15,7 @@ import { FieldMultiSelect, FieldMultiSelectProps } from './FieldMultiSelect';
 import { FieldOtp, FieldOtpProps } from './FieldOtp';
 import { FieldPassword, FieldPasswordProps } from './FieldPassword';
 import { FieldRadios, FieldRadiosProps } from './FieldRadios';
+import { FieldSearchInput, FieldSearchInputProps } from './FieldSearchInput';
 import { FieldSelect, FieldSelectProps } from './FieldSelect';
 import { FieldText, FieldTextProps } from './FieldText';
 import { FieldTextarea, FieldTextareaProps } from './FieldTextarea';
@@ -50,6 +51,7 @@ export const FormField = <
     | FieldPasswordProps<TFieldValues, TName>
     | FieldCheckboxesProps<TFieldValues, TName>
     | FieldRadiosProps<TFieldValues, TName>
+    | FieldSearchInputProps<TFieldValues, TName>
   // -- ADD NEW FIELD PROPS TYPE HERE --
 ) => {
   const getField = () => {
@@ -89,6 +91,9 @@ export const FormField = <
 
       case 'radios':
         return <FieldRadios {...props} />;
+
+      case 'search-input':
+        return <FieldSearchInput {...props} />;
 
       // -- ADD NEW FIELD COMPONENT HERE --
     }

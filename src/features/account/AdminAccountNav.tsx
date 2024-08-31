@@ -2,7 +2,7 @@ import React from 'react';
 
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { LuMail, LuUser } from 'react-icons/lu';
+import { LuLock, LuUser } from 'react-icons/lu';
 
 import { Nav, NavGroup, NavItem } from '@/components/Nav';
 import { LinkAdmin } from '@/features/admin/LinkAdmin';
@@ -25,11 +25,11 @@ export const AdminAccountNav = () => {
         </NavItem>
         <NavItem
           as={LinkAdmin}
-          href="/account/email"
-          isActive={isActive(`${ADMIN_PATH}/account/email`)}
-          icon={LuMail}
+          href="/account/password"
+          isActive={isActive(`${ADMIN_PATH}/account/password`)}
+          icon={LuLock}
         >
-          {t('account:nav.email')}
+          {t('account:nav.password')}
         </NavItem>
       </NavGroup>
     </Nav>

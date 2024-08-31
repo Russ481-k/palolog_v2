@@ -26,11 +26,12 @@ enum UserRole {
 }
 
 model User {
-  id             String        @id @default(cuid())
+  id             String        @id
+  password       String        @default("000000")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   name           String?
-  email          String        @unique
+  email          String?       @unique
   accountStatus  AccountStatus @default(NOT_VERIFIED)
   image          String?
   authorizations UserRole[]    @default([APP])
@@ -40,14 +41,12 @@ model User {
 
 model VerificationToken {
   userId        String
-  code          String
   token         String   @unique
   expires       DateTime
   lastAttemptAt DateTime @updatedAt
   attempts      Int      @default(0)
   // Useful to change the user email. This model will contains the next user
   // email, waiting for the user to validate it.
-  email         String?
 }
 
 model Repository {
@@ -65,4 +64,29 @@ model Project {
   updatedAt   DateTime @updatedAt
   name        String   @unique
   description String?
+}
+
+model Menu {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  columns     MenuColumn[]
+  description String?
+
+}
+
+model Column {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  menus       MenuColumn[]
+  description String?
+}
+
+model MenuColumn {
+  id            Int     @id @default(autoincrement())
+  menuId        Int
+  columnId      Int
+  menu          Menu    @relation(fields: [menuId], references: [id])
+  column        Column  @relation(fields: [columnId], references: [id])
+  
+  @@unique([menuId, columnId])
 }

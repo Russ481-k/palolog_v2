@@ -62,6 +62,8 @@ export const DayPicker: FC<DayPickerProps> = ({
 
   // DayPicker focus management
   const [isCalendarFocused, setIsCalendarFocused] = useState<boolean>(false);
+  const [timeValue, setTimeValue] = useState<string>('00:00');
+
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Popper management
@@ -94,14 +96,32 @@ export const DayPicker: FC<DayPickerProps> = ({
       onChange: onChangeInput,
     });
 
+  const handleTimeSelect = (time: string) => {
+    setTimeValue(time);
+  };
   const handleDaySelect = (date?: Date | null) => {
     setMonth(date);
-    onChange(date ?? null);
-    if (date) {
-      closePopper();
-    } else {
-      setInputValue('');
+    if (!timeValue || !date) {
+      onChange(date ?? null);
+      if (date) {
+        closePopper();
+      } else {
+        setInputValue('');
+      }
+      return;
     }
+    const [hours, minutes] = timeValue
+      .split(':')
+      .map((str) => parseInt(str, 10));
+    const newDate = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      hours,
+      minutes
+    );
+    onChange(newDate);
+    setInputValue(String(newDate));
   };
 
   // Month change management
@@ -149,6 +169,7 @@ export const DayPicker: FC<DayPickerProps> = ({
       />
       <DayPickerContent
         value={value}
+        timeValue={timeValue}
         isCalendarFocused={isCalendarFocused}
         setIsCalendarFocused={setIsCalendarFocused}
         buttonRef={buttonRef}
@@ -157,6 +178,7 @@ export const DayPicker: FC<DayPickerProps> = ({
         handleChangeMonth={handleChangeMonth}
         handleOnTapEnter={() => handleInputBlur(inputValue)}
         handleDaySelect={handleDaySelect}
+        handleTimeSelect={handleTimeSelect}
         popperManagement={popperManagement}
         ref={setPopperElement}
         {...rest}

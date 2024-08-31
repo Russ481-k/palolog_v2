@@ -47,8 +47,12 @@ export const AccountProfileForm = () => {
     mode: 'onBlur',
     resolver: zodResolver(zFormFieldsAccountProfile()),
     values: {
+      id: account.data?.id ?? '',
+      password: '',
+      email: account.data?.email ?? '',
       name: account.data?.name ?? '',
       language: account.data?.language ?? DEFAULT_LANGUAGE_KEY,
+      authorizations: account.data?.authorizations ?? ['APP'],
     },
   });
 
@@ -66,6 +70,18 @@ export const AccountProfileForm = () => {
             <Stack spacing={4}>
               <FormField
                 control={form.control}
+                name="id"
+                type="text"
+                label={t('account:data.id.label')}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                type="text"
+                label={t('account:data.email.label')}
+              />
+              <FormField
+                control={form.control}
                 name="name"
                 type="text"
                 label={t('account:data.name.label')}
@@ -79,6 +95,12 @@ export const AccountProfileForm = () => {
                   value: key,
                 }))}
                 label={t('account:data.language.label')}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                type="password"
+                label={t('account:data.password.label')}
               />
               <ButtonGroup spacing={3}>
                 <Button

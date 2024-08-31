@@ -35,11 +35,11 @@ export const styles: Styles = {
       flex: 1,
     },
     '.rc-time-picker-input': {
-      height: '40px !important',
+      height: '32px !important',
       cursor: 'text',
       borderRadius: '0',
       boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-      fontSize: '16px !important',
+      fontSize: '14px !important',
       color: 'black',
       textAlign: 'center',
       alignItems: 'center',

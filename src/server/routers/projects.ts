@@ -1,8 +1,16 @@
-import moment from 'moment-timezone';
 import { z } from 'zod';
 
 import { env } from '@/env.mjs';
-import { zLogs, zPaloLogs } from '@/features/monitoring/schemas';
+import {
+  threatColumns,
+  trafficColumns,
+  urlColumns,
+} from '@/features/monitoring/MenuColumns';
+import {
+  zLogs,
+  zPaloLogs,
+  zPaloLogsParams,
+} from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
 export function createObject(
@@ -92,42 +100,69 @@ export const projectsRouter = createTRPCRouter({
         tags: ['projects'],
       },
     })
-    .input(
-      z
-        .object({
-          timeFrom: z.number().optional().default(new Date().getTime()),
-          timeTo: z.number().optional().default(new Date().getTime()),
-          limit: z.number().min(1).max(500000).default(1000),
-          cursor: z.string().cuid().optional(),
-          searchTerm: z.string().optional(),
-        })
-        .default({})
-    )
+    .input(zPaloLogsParams())
     .output(
       z.object({
         logs: z.array(zPaloLogs().nullish()),
+        pagination: z.object({
+          currentPage: z.number().min(1).default(1),
+          pageLength: z.number().min(0),
+          totalCnt: z.number().min(0).default(0),
+        }),
       })
     )
     .query(async ({ input }) => {
-      const result: Array<zLogs> = [];
-      console.log('timeFrom', input.timeFrom);
-      console.log('timeTo', input.timeTo);
-      console.log('limit', input.limit);
-      console.log('searchTerm', input.searchTerm);
+      const logsArray: Array<zLogs> = [];
+      const dataFrom = (input.currentPage - 1) * input.limit;
+      const dataTo = input.limit;
+      const timeRange = `DURATION FROM TO_DATE('${input.timeFrom}', 'YYYY-MM-DD HH24:MI:SS') TO TO_DATE('${input.timeTo}', 'YYYY-MM-DD HH24:MI:SS')`;
+      let searchTerm = input.searchTerm;
+      let columnString = '';
 
-      const timeRange = `AND TIME BETWEEN TO_DATE('${moment(input.timeFrom).format('YYYY-MM-DD HH:mm:SS')}') AND TO_DATE('${moment(input.timeTo).format('YYYY-MM-DD HH:mm:SS')}')`;
-      const searchTerm = input.searchTerm;
-      const query = `SELECT * FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange} LIMIT ${input.limit}`;
-      console.log(
-        'query',
-        `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-          encodeURIComponent(query)
-      );
+      switch (input.menu) {
+        case 'TRAFFIC':
+          columnString = trafficColumns.join(', ');
+          searchTerm = searchTerm + " AND TYPE = 'TRAFFIC'";
+          break;
+        case 'THREAT':
+          columnString = threatColumns.join(', ');
+          searchTerm = searchTerm + " AND TYPE = 'THREAT'";
+          break;
+        case 'SYSLOG':
+          columnString = urlColumns.join(', ');
+          searchTerm = searchTerm + " AND TYPE = 'URL'";
+          break;
+        default:
+      }
 
+      const queryLogs = `SELECT ${columnString} FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dataFrom}, ${dataTo} ${timeRange}`;
+
+      const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
+      let totalCnt = 0;
+      let pageLength = 1;
+      console.log('dataFrom', dataFrom);
+      console.log('dataTo', dataTo);
+      console.log('queryTotalCnt', queryTotalCnt);
+      console.log('queryLogs', queryLogs);
       try {
         await fetch(
           `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-            encodeURIComponent(query)
+            encodeURIComponent(queryTotalCnt)
+        )
+          .then((res) => {
+            return res.json();
+          })
+          .then((data) => {
+            totalCnt = data.data.rows[0][0];
+            pageLength = Math.ceil(totalCnt / input.limit);
+            pageLength = pageLength === 0 ? 1 : pageLength;
+            console.log('totalCnt : ' + totalCnt);
+            console.log('pageLength : ' + (pageLength === 0 ? 1 : pageLength));
+            console.log('currentPage : ' + input.currentPage);
+          });
+        await fetch(
+          `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
+            encodeURIComponent(queryLogs)
         )
           .then((res) => {
             return res.json();
@@ -153,7 +188,7 @@ export const projectsRouter = createTRPCRouter({
               if (columns.length !== logs.rows[i]?.length) {
                 throw new Error('Arrays must have the same length');
               }
-              result.push(createObject(columns, logs.rows[i]));
+              logsArray.push(createObject(columns, logs.rows[i]));
             }
           })
           .catch((e) => {
@@ -162,6 +197,13 @@ export const projectsRouter = createTRPCRouter({
       } catch {
         console.log('error');
       }
-      return { logs: result };
+      return {
+        logs: logsArray,
+        pagination: {
+          currentPage: input.currentPage,
+          pageLength,
+          totalCnt,
+        },
+      };
     }),
 });

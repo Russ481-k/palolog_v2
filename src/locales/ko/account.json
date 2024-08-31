@@ -1,0 +1,94 @@
+{
+  "title": "계정",
+  "nav": {
+    "profile": "프로필",
+    "email": "이메일",
+    "password": "비밀번호",
+    "myAccount": "내 계정"
+  },
+  "admin": {
+    "title": "관리자 사용자",
+    "button": "관리자 열기"
+  },
+  "profile": {
+    "title": "프로필 정보",
+    "feedbacks": {
+      "updateSuccess": {
+        "title": "프로필 업데이트됨"
+      },
+      "updateError": {
+        "title": "업데이트 실패"
+      }
+    },
+    "actions": {
+      "update": "업데이트"
+    }
+  },
+  "password": {
+    "title": "비밀번호",
+    "feedbacks": {
+      "updateSuccess": {
+        "title": "비밀번호 업데이트됨"
+      },
+      "updateError": {
+        "title": "업데이트 실패"
+      }
+    },
+    "actions": {
+      "update": "업데이트"
+    }
+  },
+  "email": {
+    "title": "이메일 업데이트",
+    "feedbacks": {
+      "updateSuccess": {
+        "title": "이메일 업데이트됨"
+      },
+      "updateError": {
+        "title": "업데이트 실패"
+      }
+    },
+    "actions": {
+      "update": "업데이트"
+    }
+  },
+  "preferences": {
+    "title": "환경 설정",
+    "theme": {
+      "dark": "다크 모드",
+      "light": "라이트 모드"
+    }
+  },
+  "logout": {
+    "button": "로그아웃",
+    "confirm": {
+      "title": "계정 로그아웃",
+      "message": "세션을 종료하려고 합니다",
+      "button": "로그아웃"
+    }
+  },
+  "data": {
+    "id": {
+      "label": "아이디"
+    },
+    "password": {
+      "label": "비밀번호"
+    },
+    "newPassword": {
+      "label": "새 비밀번호"
+    },
+    "passwordConfirm": {
+      "label": "비밀번호 확인"
+    },
+    "name": {
+      "label": "이름"
+    },
+    "email": {
+      "label": "이메일",
+      "current": "현재 이메일입니다"
+    },
+    "language": {
+      "label": "언어"
+    }
+  }
+}

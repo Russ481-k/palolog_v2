@@ -64,3 +64,6 @@ prisma/dev.db-journal
 **/public/worker-development.js*
 
 certificates
+
+log.txt
+ecosystem.config.js

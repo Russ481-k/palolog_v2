@@ -3,6 +3,7 @@
   "nav": {
     "profile": "Profile",
     "email": "Email",
+    "password": "Password",
     "myAccount": "My Account"
   },
   "admin": {
@@ -14,6 +15,20 @@
     "feedbacks": {
       "updateSuccess": {
         "title": "Profile updated"
+      },
+      "updateError": {
+        "title": "Update failed"
+      }
+    },
+    "actions": {
+      "update": "Update"
+    }
+  },
+  "password": {
+    "title": "Password",
+    "feedbacks": {
+      "updateSuccess": {
+        "title": "Password updated"
       },
       "updateError": {
         "title": "Update failed"
@@ -53,6 +68,18 @@
     }
   },
   "data": {
+    "id": {
+      "label": "ID"
+    },
+    "password": {
+      "label": "Password"
+    },
+    "newPassword": {
+      "label": "New Password"
+    },
+    "passwordConfirm": {
+      "label": "Password Confirmation"
+    },
     "name": {
       "label": "Name"
     },

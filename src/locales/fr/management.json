@@ -1,6 +1,8 @@
 {
   "nav": {
     "title": "Gestion",
-    "users": "Utilisateurs"
+    "users": "Utilisateurs",
+    "menus": "Menus",
+    "database": "Base de données"
   }
 }

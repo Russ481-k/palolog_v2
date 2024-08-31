@@ -2,7 +2,6 @@
   "layout": {
     "mainMenu": {
       "dashboard": "Tableau de bord",
-      "repositories": "Dépôts",
       "monitoring": "Surveillance",
       "management": "Gestion"
     },

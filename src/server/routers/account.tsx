@@ -1,19 +1,12 @@
 import { TRPCError } from '@trpc/server';
+import bcrypt from 'bcrypt';
 import dayjs from 'dayjs';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-import EmailAddressChange from '@/emails/templates/email-address-change';
 import { zUserAccount } from '@/features/account/schemas';
 import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
-import i18n from '@/lib/i18n/server';
-import {
-  deleteUsedCode,
-  generateCode,
-  validateCode,
-} from '@/server/config/auth';
-import { sendEmail } from '@/server/config/email';
-import { ExtendedTRPCError } from '@/server/config/errors';
+import { deleteUsedCode, validate } from '@/server/config/auth';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
 export const accountRouter = createTRPCRouter({
@@ -61,101 +54,111 @@ export const accountRouter = createTRPCRouter({
       },
     })
     .input(
-      zUserAccount().required().pick({
-        name: true,
-        language: true,
-      })
+      zUserAccount()
+        .required()
+        .pick({
+          id: true,
+          email: true,
+          name: true,
+          language: true,
+          authorizations: true,
+        })
+        .extend({
+          password: z.string(),
+        })
     )
     .output(zUserAccount())
     .mutation(async ({ ctx, input }) => {
+      const { verificationToken } = await validate({
+        ctx,
+        id: input.id,
+        password: input.password,
+      });
+
+      if (!verificationToken.userId) {
+        ctx.logger.error('verificationToken does not contain an userId');
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+        });
+      }
+
       try {
         ctx.logger.info('Updating the user');
         return await ctx.db.user.update({
-          where: { id: ctx.user.id },
-          data: input,
+          where: { id: verificationToken.userId },
+          data: {
+            email: input.email,
+            name: input.name,
+            authorizations: input.authorizations,
+          },
         });
       } catch (e) {
         ctx.logger.warn('An error occured while updating the user');
-        throw new ExtendedTRPCError({
-          cause: e,
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Failed to authenticate the user',
         });
       }
     }),
 
-  updateEmail: protectedProcedure()
+  updateId: protectedProcedure()
     .meta({
       openapi: {
         method: 'PUT',
-        path: '/accounts/update-email/',
+        path: '/accounts/update-id/',
         protect: true,
         tags: ['accounts'],
       },
     })
     .input(
       zUserAccount().pick({
+        id: true,
+        password: true,
+        name: true,
         email: true,
+        authorizations: true,
+        language: true,
       })
     )
     .output(z.object({ token: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      ctx.logger.info('Checking existing email');
-      if (ctx.user.email === input.email) {
-        ctx.logger.warn('Same email for current user and input');
+      ctx.logger.info('Checking existing id');
+      if (ctx.user.id === input.id) {
+        ctx.logger.warn('Same id for current user and input');
         throw new TRPCError({
           code: 'CONFLICT',
-          message: 'Same email for current user and input',
+          message: 'Same id for current user and input',
         });
       }
 
       const token = randomUUID();
 
-      ctx.logger.info('Checking if new email is already used');
-      const existingEmail = await ctx.db.user.findUnique({
+      ctx.logger.info('Checking if new id is already used');
+      const existingId = await ctx.db.user.findUnique({
         where: {
-          email: input.email,
+          id: input.id,
         },
       });
 
-      if (existingEmail) {
-        ctx.logger.warn(
-          'Email already used, silent error for security reasons'
-        );
+      if (existingId) {
+        ctx.logger.warn('Id already used, silent error for security reasons');
         return {
           token,
         };
       }
 
-      // If we got here, the user can update the email
-      // and we send the email to verify the new email.
-      ctx.logger.info('Creating code');
-      const code = await generateCode();
+      // If we got here, the user can update the id
+      // and we send the id to verify the new id.
 
       ctx.logger.info('Creating verification token in database');
       await ctx.db.verificationToken.create({
         data: {
           userId: ctx.user.id,
           token,
-          email: input.email,
           expires: dayjs()
             .add(VALIDATION_TOKEN_EXPIRATION_IN_MINUTES, 'minutes')
             .toDate(),
-          code: code.hashed,
         },
-      });
-
-      ctx.logger.info('Sending email with verification code');
-      await sendEmail({
-        to: input.email,
-        subject: i18n.t('emails:emailAddressChange.subject', {
-          lng: ctx.user.language,
-        }),
-        template: (
-          <EmailAddressChange
-            language={ctx.user.language}
-            name={ctx.user.name ?? ''}
-            code={code.readable}
-          />
-        ),
       });
 
       return {
@@ -163,47 +166,65 @@ export const accountRouter = createTRPCRouter({
       };
     }),
 
-  updateEmailValidate: protectedProcedure()
+  updatePassword: protectedProcedure()
     .meta({
       openapi: {
-        method: 'POST',
-        path: '/accounts/update-email/',
+        method: 'PUT',
+        path: '/accounts/update-password/',
         protect: true,
         tags: ['accounts'],
       },
     })
     .input(
-      z.object({
-        token: z.string().uuid(),
-        code: z.string().length(6),
-      })
+      zUserAccount()
+        .required()
+        .pick({
+          id: true,
+        })
+        .extend({
+          password: z.string(),
+          newPassword: z.string(),
+          passwordConfirm: z.string(),
+        })
     )
     .output(zUserAccount())
     .mutation(async ({ ctx, input }) => {
-      const { verificationToken } = await validateCode({
+      if (input.newPassword !== input.passwordConfirm) {
+        ctx.logger.error('Passwords do not match');
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Passwords do not match',
+        });
+      }
+      console.log(input);
+      ctx.logger.info(input);
+      const { verificationToken } = await validate({
         ctx,
-        ...input,
+        id: input.id,
+        password: input.password,
       });
 
-      if (!verificationToken.email) {
-        ctx.logger.error('verificationToken does not contain an email');
+      if (!verificationToken.userId) {
+        ctx.logger.error('verificationToken does not contain an userId');
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
+          code: 'UNAUTHORIZED',
         });
       }
 
-      ctx.logger.info('Update the user email');
-      const user = await ctx.db.user.update({
-        where: {
-          id: verificationToken.userId,
-        },
-        data: {
-          email: verificationToken.email,
-        },
-      });
-
-      await deleteUsedCode({ ctx, token: verificationToken.token });
-
-      return user;
+      try {
+        ctx.logger.info('Updating the user');
+        return await ctx.db.user.update({
+          where: { id: verificationToken.userId },
+          data: {
+            password: bcrypt.hashSync(input.newPassword, 8),
+          },
+        });
+      } catch (e) {
+        ctx.logger.warn('An error occured while updating the user');
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Failed to authenticate the user',
+        });
+      }
     }),
 });
