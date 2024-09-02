@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { zUserAccount } from '@/features/account/schemas';
 import { VALIDATION_TOKEN_EXPIRATION_IN_MINUTES } from '@/features/auth/utils';
-import { deleteUsedCode, validate } from '@/server/config/auth';
+import { validate } from '@/server/config/auth';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
 export const accountRouter = createTRPCRouter({

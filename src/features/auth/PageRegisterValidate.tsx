@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { Button, Stack } from '@chakra-ui/react';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { SubmitHandler, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';

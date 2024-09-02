@@ -1,30 +1,11 @@
 import React from 'react';
 
-import {
-  Avatar,
-  Button,
-  Flex,
-  HStack,
-  Heading,
-  LinkBox,
-  LinkOverlay,
-  Stack,
-  Tag,
-  Text,
-} from '@chakra-ui/react';
+import { Flex, HStack, Heading, Stack } from '@chakra-ui/react';
 import { useQueryState } from 'nuqs';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { LuPlus } from 'react-icons/lu';
 
-import {
-  DataList,
-  DataListCell,
-  DataListEmptyState,
-  DataListErrorState,
-  DataListLoadingState,
-  DataListRow,
-  DataListText,
-} from '@/components/DataList';
+import { DataList } from '@/components/DataList';
 import { ResponsiveIconButton } from '@/components/ResponsiveIconButton';
 import { SearchInput } from '@/components/SearchInput';
 import {
@@ -33,13 +14,10 @@ import {
 } from '@/features/admin/AdminLayoutPage';
 import { LinkAdmin } from '@/features/admin/LinkAdmin';
 import { AdminNav } from '@/features/management/ManagementNav';
-import { trpc } from '@/lib/trpc/client';
 
 export default function PageAdminMenus() {
   const { t } = useTranslation(['menus']);
   const [searchTerm, setSearchTerm] = useQueryState('s', { defaultValue: '' });
-
-  const account = trpc.account.get.useQuery();
 
   // const menus = trpc.menus.getAll.useInfiniteQuery(
   //   { searchTerm },

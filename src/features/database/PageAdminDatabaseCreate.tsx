@@ -2,12 +2,10 @@ import React from 'react';
 
 import { Button, Heading } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { Form } from '@/components/Form';
-import { useToastError, useToastSuccess } from '@/components/Toast';
 import { AdminBackButton } from '@/features/admin/AdminBackButton';
 import { AdminCancelButton } from '@/features/admin/AdminCancelButton';
 import {
@@ -20,16 +18,9 @@ import {
   FormFieldDatabase,
   zFormFieldsDatabase,
 } from '@/features/database/schemas';
-import { trpc } from '@/lib/trpc/client';
-import { isErrorDatabaseConflict } from '@/lib/trpc/errors';
 
 export default function PageAdminDatabaseCreate() {
   const { t } = useTranslation(['common', 'database']);
-  const router = useRouter();
-  const trpcUtils = trpc.useUtils();
-
-  const toastError = useToastError();
-  const toastSuccess = useToastSuccess();
 
   // const createDatabase = trpc.database.create.useMutation({
   //   onSuccess: async () => {
