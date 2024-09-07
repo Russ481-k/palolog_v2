@@ -140,6 +140,7 @@ export const usersRouter = createTRPCRouter({
             id: input.id,
             password: bcrypt.hashSync(VALIDATION_PASSWORD_MOCKED, 8),
             name: input.name,
+            email: input.email,
             language: input.language,
             authorizations: input.authorizations,
           },
