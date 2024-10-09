@@ -1,68 +1,76 @@
-<h1 align="center"><img src=".github/assets/thumbnail.png" alt="Start UI Web" /></h1>
-
-[![Discord](https://img.shields.io/discord/452798408491663361)](https://go.bearstudio.fr/discord)
-
-🚀 Start UI <small>[web]</small> is an opinionated frontend starter repository created & maintained by the [BearStudio Team](https://www.bearstudio.fr/team) and other contributors.
-It represents our team's up-to-date stack that we use when creating web apps for our clients.
-
-## Documentation
-
-For detailed information on how to use this project, please refer to the [documentation](https://docs.web.start-ui.com). The documentation contains all the necessary information on installation, usage, and some guides.
-
-## Demo
-
-A live read-only demonstration of what you will have when starting a project with 🚀 Start UI <small>[web]</small> is available on [demo.start-ui.com](https://demo.start-ui.com).
-
-## Technologies
-
-<div align="center" style="margin: 0 0 16px 0"><img src=".github/assets/tech-logos.png" alt="Technologies logos of the starter" /></div>
-
-[🟦 TypeScript](https://www.typescriptlang.org/), [⚛️ React](https://react.dev/), [⚫️ NextJS](https://nextjs.org/), [⚡️ Chakra UI](https://chakra-ui.com/),  [🟦 tRPC](https://trpc.io/), [▲ Prisma](https://www.prisma.io/), [🏖️ TanStack Query](https://react-query.tanstack.com/), [📕 Storybook](https://storybook.js.org/), [🎭 Playwright](https://playwright.dev/), [📋 React Hook Form](https://react-hook-form.com/)
-, [🌍 React i18next](https://react.i18next.com/)
-
-
-## Requirements
-
-- [NodeJS](https://nodejs.org/) >=20
-- [Pnpm](https://pnpm.io/)
-- [Docker](https://www.docker.com/) (or a [PostgreSQL](https://www.postgresql.org/) database)
-
-## Getting Started
-
 ```bash
-pnpm create start-ui --web myApp
+sudo apt-get install git
 ```
 
-That will scaffold a new folder with the latest version of 🚀 Start UI <small>[web]</small> 🎉
-
-## Installation
-
-1. Duplicate the `.env.example` file to a new `.env` file, and update the environment variables
-
 ```bash
-cp .env.example .env
+git clone https://github.com/Russ481-k/palolog_v2.git
 ```
 
-> [!NOTE]
-> **Quick advices for local development**
-> - **DON'T update** the **EMAIL_SERVER** variable, because the default value will be used to catch the emails during the development.
+```bash
+curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+```
 
+```bash
+source ~/.bashrc
+```
 
-2. Install dependencies
+```bash
+nvm install v20.15.
+```
+
+```bash
+npm install -g npm@10.8.2
+
+```
+
+```bash
+npm install -g @pnpm/ex
+```
+
+```bash
+#도커 설치
+실행환경
+Ubuntu 22.04
+Docker 설치방법
+
+1. 우분투 시스템 패키지 업데이트
+sudo apt-get update
+2. 필요한 패키지 설치
+sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+
+3. Docker의 공식 GPG키를 추가
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+4. Docker의 공식 apt 저장소를 추가
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+5. 시스템 패키지 업데이트
+sudo apt-get update
+6. Docker 설치
+sudo apt-get install docker-ce docker-ce-cli containerd.io
+
+7. Docker가 설치 확인
+7-1 도커 실행상태 확인
+sudo systemctl status docker
+7-2 도커 실행
+sudo docker run hello-world
+
+8. 사용자 Docker 그룹 추가
+newgrp docker
+sudo usermod -aG docker $USER
+```
+
 ```bash
 pnpm install
 ```
 
-3. Setup and start the db with docker
 ```bash
+# dk:init
 pnpm dk:init
-```
-> [!NOTE]
-> **Don't want to use docker?**
->
-> Setup a PostgreSQL database (locally or online) and replace the **DATABASE_URL** environment variable. Then you can run `pnpm db:push` to update your database schema and then run `pnpm db:seed` to seed your database.
 
-## Development
+# 윈도우에서의 dk:init
+docker compose up -d; Start-Sleep -Seconds 10; pnpm db:init
+```
 
 ```bash
 # Run the database in Docker (if not already started)
@@ -71,126 +79,83 @@ pnpm dk:start
 pnpm dev
 ```
 
-### Emails in development
+```bash
+docker build -t palolog .
+docker run -p 8080:8080 palolog 
+```
 
-#### Maildev to catch emails
+### 초기 Dockerfile 문제
 
-In development, the emails will not be sent and will be catched by [maildev](https://github.com/maildev/maildev).
+처음 작성된 Dockerfile은 `nextjs` 사용자가 `/app/package.json` 파일에 접근할 수 없는 권한 문제를 일으켰습니다. 이는 Docker 컨테이너에서 애플리케이션을 비특권 사용자(`nextjs`)로 실행할 때 발생하는 일반적인 권한 문제입니다.
 
-The maildev UI is available at [0.0.0.0:1080](http://0.0.0.0:1080).
+### 수정된 사항
 
-#### Preview emails
-
-Emails templates are built with `react-email` components in the `src/emails` folder.
-
-You can preview an email template at `http://localhost:3000/devtools/email/{template}` where `{template}` is the name of the template file in the `src/emails/templates` folder.
-
-Example: [Login Code](http://localhost:3000/devtools/email/login-code)
-
-##### Email translation preview
-
-Add the language in the preview url like `http://localhost:3000/devtools/email/{template}/{language}` where `{language}` is the language key (`en`, `fr`, ...)
-
-#### Email props preview
-
-You can add search params to the preview url to pass as props to the template.
-`http://localhost:3000/devtools/email/{template}/?{propsName}={propsValue}`
-
-### Storybook
+1. **`chown` 명령어 추가:**
+    
+    ```
+    dockerfile코드 복사
+    RUN chown -R nextjs:nodejs /app /pnpm
+    ```
+    
+    **이유:**`nextjs` 사용자가 `/app` 디렉토리 내의 파일에 접근할 수 있도록 소유권을 변경했습니다. 이 명령어는 `nextjs` 사용자가 파일을 읽고 쓸 수 있도록 보장합니다.
+    
+2. **`/pnpm` 디렉토리 생성:**
+    
+    ```
+    dockerfile코드 복사
+    RUN mkdir -p /pnpm
+    ```
+    
+    **이유:**
+    초기 시도에서는 `/pnpm` 디렉토리가 존재하지 않아 `chown` 명령어가 실패했습니다. 이를 해결하기 위해 `/pnpm` 디렉토리를 명시적으로 생성했습니다.
+    
 
 ```bash
-pnpm storybook
+# DATABASE
+DATABASE_URL="postgres://${DOCKER_DATABASE_USERNAME}:${DOCKER_DATABASE_PASSWORD}@palolog_v2-postgres-1:${DOCKER_DATABASE_PORT}/${DOCKER_DATABASE_NAME}"
 ```
 
-### Update theme typing
 
-When adding or updating theme components, component variations, sizes, colors and other theme foundations, you can extend the internal theme typings to provide nice autocomplete.
+![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/9be4b44e-4747-4d9b-8ffe-d28153db2406/b2043fb7-e865-46c0-b77d-0692f0691750/2ec047c3-9a4a-4062-9b60-630ad32088a8.png)
 
-Just run the following command after updating the theme:
+```jsx
+실행 : pm2 start pnpm --name 'palolog' -- start
 
-```bash
-pnpm theme:generate-typing
+리스트 확인 : pm2 list
+
+중지 : pm2 stop 'palolog'
+
+재시작 : pm2 restart 'palolog'
+
+삭제 : pm2 delete 'palolog'
 ```
 
-### Generate custom icons components from svg files
+```jsx
+pm2 실행 옵션 (클러스터)
 
-Put the custom svg files into the `src/components/Icons/svg-sources` folder and then run the following command:
+--watch : PM2가 실행된 프로젝트의 변경사항을 감지하여 서버를 자동 재시작(reload)
 
-```bash
-pnpm theme:generate-icons
+nodemon과 유사하다, 주로 개발단계에서 즉시 반영되므로 매우 편리하게 사용 할 수 있다.
+만일 watch옵션시에 특정 폴더 경로는 무시해야할 때 --watch --ignore-watch="[dir]/*"
+
+-i max(코어개수) : Node.js의 싱글 스레드를 보완하기 위한 클러스터(Cluster) 모드
+
+-i 뒤에 코어의 개수를 입력하거나 max를 쓰면 최대 코어 개수로 클러스터링(Clustering) 된다.
+
+--name  : 앱 이름 지정
+--max-memory-restart <200MB> : 앱이 리로드 될때 최대의 메모리 지정
+--log <log_path> : 로그 파일 경로 지정
+-- arg1 arg2 arg3 : 스크립트에 추가 인수 전달
+--restart-delay <delay in ms> : 재시작할때의 딜레이 지정
+--time : 로그 남길때 프리픽스로 시간 지정
+--no-autorestart : 재시작 불가하도록 설정
+--cron <cron_pattern> : 주기적으로 강제 재시작이 필요할때 설정 (cron)
+출처: https://inpa.tistory.com/entry/node-📚-PM2-모듈-사용법-클러스터-무중단-서비스 [Inpa Dev 👨‍💻:티스토리]
 ```
 
-> [!WARNING]
-> All svg icons should be svg files prefixed by `icon-` (example: `icon-externel-link`) with **24x24px** size, only **one shape** and **filled with `#000` color** (will be replaced by `currentColor`).
+pnpm build; pm2 start pnpm --name 'palolog' -- start --log '/home/vtek/palolog_v2’
 
+pm2 stop 'palolog'; pnpm dk:init; pnpm dk:start; pnpm build; pm2 restart 'palolog’
 
-### Update color mode storage key
-
-You can update the storage key used to detect the color mode by updating this constant in the `src/theme/config.ts` file:
-
-```tsx
-export const COLOR_MODE_STORAGE_KEY = 'start-ui-color-mode'; // Update the key according to your needs
-```
-
-### E2E Tests
-
-E2E tests are setup with Playwright.
-
-```sh
-pnpm e2e     # Run tests in headless mode, this is the command executed in CI
-pnpm e2e:ui  # Open a UI which allow you to run specific tests and see test execution
-```
-
-Tests are written in the `e2e` folder; there is also a `e2e/utils` folder which contains some utils to help writing tests.
-
-## Show hint on development environments
-
-Setup the `NEXT_PUBLIC_ENV_NAME` env variable with the name of the environment.
-
-```
-NEXT_PUBLIC_ENV_NAME="staging"
-NEXT_PUBLIC_ENV_EMOJI="🔬"
-NEXT_PUBLIC_ENV_COLOR_SCHEME="teal"
-```
-
-## Translations
-
-### Setup the i18n Ally extension
-
-We recommended using the [i18n Ally](https://marketplace.visualstudio.com/items?itemName=lokalise.i18n-ally) plugin for VS Code for translations management.
-
-Create or edit the `.vscode/settings.json` file with the following settings:
-
-```json
-{
-  "i18n-ally.localesPaths": ["src/locales"],
-  "i18n-ally.keystyle": "nested",
-  "i18n-ally.enabledFrameworks": ["general", "react", "i18next"],
-  "i18n-ally.namespace": true,
-  "i18n-ally.defaultNamespace": "common",
-  "i18n-ally.extract.autoDetect": true,
-  "i18n-ally.keysInUse": ["common.languages.*"]
-}
-```
-
-## Production
-
-```bash
-pnpm install
-pnpm storybook:build # Optional: Will expose the Storybook at `/storybook`
-pnpm build
-pnpm start
-```
-
-### Deploy with Docker
-
-1. Build the Docker image (replace `start-ui-web` with your project name)
-```
-docker build -t start-ui-web .
-```
-
-2. Run the Docker image (replace `start-ui-web` with your project name)
-```
-docker run -p 80:3000 start-ui-web
-```
-Application will be exposed on port 80 ([http://localhost](http://localhost))
+pnpm build; pm2 start pnpm --name 'palolog' --log '/home/vtek/palolog_v2/log.txt' -- start
+docker-compose >> palolog_v2
