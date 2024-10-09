@@ -1,3 +1,5 @@
+## INSTALL
+
 ```bash
 sudo apt-get install git
 ```
@@ -116,7 +118,8 @@ DATABASE_URL="postgres://${DOCKER_DATABASE_USERNAME}:${DOCKER_DATABASE_PASSWORD}
 ```
 
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/9be4b44e-4747-4d9b-8ffe-d28153db2406/b2043fb7-e865-46c0-b77d-0692f0691750/2ec047c3-9a4a-4062-9b60-630ad32088a8.png)
+
+### PM2
 
 ```jsx
 실행 : pm2 start pnpm --name 'palolog' -- start
