@@ -10,7 +10,7 @@
 
 ```bash
 sudo apt-get install git
-git clone <https://github.com/Russ481-k/palolog_v2.git>
+git clone "https://github.com/Russ481-k/palolog_v2.git"
 
 ```
 
@@ -19,7 +19,7 @@ git clone <https://github.com/Russ481-k/palolog_v2.git>
 NVM(Node Version Manager)을 사용하여 Node.js 버전을 관리할 수 있습니다. NVM을 설치한 후 필요한 Node.js 버전을 설치합니다.
 
 ```bash
-curl <https://raw.githubusercontent.com/creationix/nvm/master/install.sh> | bash
+curl "https://raw.githubusercontent.com/creationix/nvm/master/install.sh" | bash
 source ~/.bashrc
 nvm install v20.15.0
 
@@ -64,7 +64,7 @@ sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent softwa
 Docker의 공식 GPG 키를 추가합니다.
 
 ```bash
-curl -fsSL <https://download.docker.com/linux/ubuntu/gpg> | sudo apt-key add -
+curl -fsSL "https://download.docker.com/linux/ubuntu/gpg" | sudo apt-key add -
 
 ```
 
@@ -73,7 +73,7 @@ curl -fsSL <https://download.docker.com/linux/ubuntu/gpg> | sudo apt-key add -
 Docker의 공식 apt 저장소를 시스템에 추가합니다.
 
 ```bash
-sudo add-apt-repository "deb [arch=amd64] <https://download.docker.com/linux/ubuntu> $(lsb_release -cs) stable"
+sudo add-apt-repository "deb [arch=amd64] "https://download.docker.com/linux/ubuntu" $(lsb_release -cs) stable"
 
 ```
 
