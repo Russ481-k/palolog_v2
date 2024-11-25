@@ -21,7 +21,7 @@ export const colDefs = (
 ): ColDef<zLogs>[] => {
   return [
     {
-      field: 'deviceName', //TRAFFIC THREAT URL
+      field: 'd000', //deviceName //TRAFFIC THREAT URL
       minWidth: 50,
       width: 160,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -38,7 +38,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'time', //TRAFFIC THREAT URL
+      field: 'd001', //time //TRAFFIC THREAT URL
       hide: true,
       minWidth: 50,
       width: 170,
@@ -57,7 +57,7 @@ export const colDefs = (
       valueFormatter: timeFormatter,
     },
     {
-      field: 'receiveTime', //TRAFFIC THREAT URL
+      field: 'd002', //receiveTime //TRAFFIC THREAT URL
       minWidth: 50,
       width: 170,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'Y'),
@@ -75,7 +75,7 @@ export const colDefs = (
       valueFormatter: timeFormatter,
     },
     {
-      field: 'serial', //TRAFFIC THREAT URL
+      field: 'd003', //serial //TRAFFIC THREAT URL
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -92,7 +92,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'hostid',
+      field: 'd004', //hostid
       hide: true,
       minWidth: 50,
       width: 75,
@@ -110,7 +110,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'type', //TRAFFIC THREAT URL
+      field: 'd005', //type //TRAFFIC THREAT URL
       minWidth: 50,
       width: 90,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -127,7 +127,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'subtype', //TRAFFIC THREAT URL
+      field: 'd006', //subtype //TRAFFIC THREAT URL
       minWidth: 50,
       width: 90,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -144,7 +144,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'src', //TRAFFIC THREAT URL
+      field: 'd007', //src //TRAFFIC THREAT URL
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -161,7 +161,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'dst', //TRAFFIC THREAT URL
+      field: 'd008', //dst //TRAFFIC THREAT URL
       minWidth: 50,
       width: 135,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -178,7 +178,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'natsrc', //TRAFFIC THREAT URL
+      field: 'd009', //natsrc //TRAFFIC THREAT URL
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -195,7 +195,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'natdst', //TRAFFIC THREAT URL
+      field: 'd010', //natdst //TRAFFIC THREAT URL
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -212,7 +212,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'rule', //TRAFFIC THREAT URL
+      field: 'd011', //rule //TRAFFIC THREAT URL
       minWidth: 50,
       width: 165,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -229,7 +229,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'ruleUuid', //TRAFFIC THREAT URL
+      field: 'd012', //ruleUuid //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -246,7 +246,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'srcuser',
+      field: 'd013', //srcuser
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -263,7 +263,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'dstuser',
+      field: 'd014', //dstuser
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -280,7 +280,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'app', //TRAFFIC THREAT URL
+      field: 'd015', //app //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -297,7 +297,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'zoneFrom', //TRAFFIC THREAT URL
+      field: 'd016', //zoneFrom //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -314,7 +314,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'zoneTo', //TRAFFIC THREAT URL
+      field: 'd017', //zoneTo //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -331,7 +331,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'inboundIf', //TRAFFIC THREAT URL
+      field: 'd018', //inboundIf //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -348,7 +348,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'outboundIf', //TRAFFIC THREAT URL
+      field: 'd019', //outboundIf //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -365,7 +365,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'sessionid', //TRAFFIC THREAT URL
+      field: 'd020', //sessionid //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -382,7 +382,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'repeatcnt', //TRAFFIC THREAT URL
+      field: 'd021', //repeatcnt //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -399,7 +399,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'sport', //TRAFFIC THREAT URL
+      field: 'd022', //sport //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -416,7 +416,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'dport', //TRAFFIC THREAT URL
+      field: 'd023', //dport //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -433,7 +433,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'natsport', //TRAFFIC THREAT URL
+      field: 'd024', //natsport //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -450,7 +450,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'natdport', //TRAFFIC THREAT URL
+      field: 'd025', //natdport //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -467,7 +467,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'flags', //TRAFFIC THREAT URL
+      field: 'd026', //flags //TRAFFIC THREAT URL
       minWidth: 50,
       width: 100,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -484,7 +484,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'proto', //TRAFFIC THREAT URL
+      field: 'd027', //proto //TRAFFIC THREAT URL
       minWidth: 50,
       width: 70,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -501,7 +501,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'action', //TRAFFIC THREAT URL
+      field: 'd028', //action //TRAFFIC THREAT URL
       minWidth: 50,
       width: 75,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -518,7 +518,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'misc', // THREAT
+      field: 'd029', //misc // THREAT
       hide: menu !== 'THREAT',
       minWidth: 50,
       width: 75,
@@ -536,7 +536,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'threatid', // THREAT
+      field: 'd030', //threatid // THREAT
       hide: menu !== 'THREAT',
       minWidth: 50,
       width: 90,
@@ -554,7 +554,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'thrCategory', // THREAT
+      field: 'd031', //thrCategory // THREAT
       hide: menu !== 'THREAT',
       minWidth: 50,
       width: 120,
@@ -572,7 +572,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'severity', // THREAT URL
+      field: 'd032', //severity // THREAT URL
       hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
@@ -590,7 +590,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'direction', // THREAT
+      field: 'd033', //direction // THREAT
       hide: menu !== 'THREAT',
       minWidth: 50,
       width: 100,
@@ -608,7 +608,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'bytes', //TRAFFIC
+      field: 'd034', //bytes //TRAFFIC
       hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 70,
@@ -626,7 +626,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'bytesSent', //TRAFFIC
+      field: 'd035', //bytesSent //TRAFFIC
       hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
@@ -644,7 +644,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'bytesReceived', //TRAFFIC
+      field: 'd036', //bytesReceived //TRAFFIC
       hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
@@ -662,7 +662,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'packets', //TRAFFIC
+      field: 'd037', //packets //TRAFFIC
       hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
@@ -680,7 +680,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'pktsSent', //TRAFFIC
+      field: 'd038', //pktsSent //TRAFFIC
       hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 100,
@@ -698,7 +698,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'pktsReceived', //TRAFFIC
+      field: 'd039', //pktsReceived //TRAFFIC
       hide: menu !== 'TRAFFIC',
       minWidth: 50,
       width: 120,
@@ -716,7 +716,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'sessionEndReason', //TRAFFIC THREAT URL
+      field: 'd040', //sessionEndReason //TRAFFIC THREAT URL
       minWidth: 50,
       width: 150,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -733,7 +733,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'eventid', //SYSTEM
+      field: 'd041', //eventid //SYSTEM
       hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
@@ -751,7 +751,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'object', //SYSTEM
+      field: 'd042', //object //SYSTEM
       hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
@@ -769,7 +769,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'module', //SYSTEM
+      field: 'd043', //module //SYSTEM
       hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
@@ -787,7 +787,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'opaque', //SYSTEM
+      field: 'd044', //opaque //SYSTEM
       hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
@@ -805,7 +805,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'srcloc', //TRAFFIC THREAT URL
+      field: 'd045', //srcloc //TRAFFIC THREAT URL
       minWidth: 50,
       width: 220,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -822,7 +822,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'dstloc', //TRAFFIC THREAT URL
+      field: 'd046', //dstloc //TRAFFIC THREAT URL
       minWidth: 50,
       width: 150,
       onCellClicked: (e: CellClickedEvent) => onCellClickChanged(e, 'N'),
@@ -839,7 +839,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'urlIdx',
+      field: 'd047', //urlIdx
       hide: true,
       minWidth: 50,
       width: 100,
@@ -857,7 +857,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'category', //URL
+      field: 'd048', //category //URL
       hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
@@ -875,7 +875,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'urlCategoryList', //URL
+      field: 'd049', //urlCategoryList //URL
       hide: menu !== 'SYSLOG',
       minWidth: 50,
       width: 145,
@@ -893,7 +893,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'domainEdl',
+      field: 'd050', //domainEdl
       hide: true,
       minWidth: 50,
       width: 110,
@@ -911,7 +911,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'reason', //THREAT URL
+      field: 'd051', //reason //THREAT URL
       hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 100,
@@ -929,7 +929,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'justification', //THREAT URL
+      field: 'd052', //justification //THREAT URL
       hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 80,
@@ -947,7 +947,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'subcategoryOfApp', //THREAT URL
+      field: 'd053', //subcategoryOfApp //THREAT URL
       hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
@@ -965,7 +965,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'categoryOfApp', //THREAT URL
+      field: 'd054', //categoryOfApp //THREAT URL
       hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
@@ -983,7 +983,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'technologyOfApp', //THREAT URL
+      field: 'd055', //technologyOfApp //THREAT URL
       hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,
@@ -1001,7 +1001,7 @@ export const colDefs = (
       },
     },
     {
-      field: 'riskOfApp', //THREAT URL
+      field: 'd056', //riskOfApp //THREAT URL
       hide: menu !== 'THREAT' && menu !== 'SYSLOG',
       minWidth: 50,
       width: 135,

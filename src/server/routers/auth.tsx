@@ -78,6 +78,8 @@ export const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       ctx.logger.info('Retrieving user info');
       ctx.logger.info('Creating token');
+      ctx.logger.info(bcrypt.hashSync(VALIDATION_PASSWORD_MOCKED, 8));
+
       const { verificationToken, userJwt } = await validate({
         ctx,
         id: input.id,

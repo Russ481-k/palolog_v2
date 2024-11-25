@@ -49,6 +49,7 @@
     "@chakra-ui/styled-system": "2.9.2",
     "@chakra-ui/theme-tools": "2.1.2",
     "@ducanh2912/next-pwa": "10.2.5",
+    "@elastic/elasticsearch": "^8.16.2",
     "@emotion/react": "11.11.4",
     "@emotion/styled": "11.11.0",
     "@faker-js/faker": "8.4.1",
@@ -79,6 +80,7 @@
     "jsonwebtoken": "9.0.2",
     "lodash": "4.17.21",
     "next": "14.1.4",
+    "node-fetch": "^3.3.2",
     "nodemailer": "6.9.12",
     "nuqs": "1.17.1",
     "os": "^0.1.2",
@@ -101,6 +103,7 @@
     "sharp": "0.33.2",
     "superjson": "2.2.1",
     "trpc-openapi": "1.2.0",
+    "undici": "5.22.0",
     "zod": "3.22.4",
     "zod-i18n-map": "2.27.0",
     "zustand": "4.5.2"

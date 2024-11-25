@@ -5,7 +5,6 @@ await import('./src/env.mjs');
 const withPWA = withPWAInit({
   dest: 'public',
   cacheStartUrl: false,
-  // Disabled by default in dev so we do not have cache issues.
   disable: process.env.NODE_ENV === 'development',
 });
 
@@ -27,6 +26,21 @@ const config = withPWA({
         permanent: true,
       },
     ];
+  },
+  webpack: (config) => {
+    // `undici` 모듈을 Babel로 처리
+    config.module.rules.push({
+      test: /\.js$/,
+      include: /node_modules\/undici/,
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: ['@babel/preset-env'],
+        },
+      },
+    });
+
+    return config;
   },
 });
 

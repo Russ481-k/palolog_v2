@@ -1,11 +1,8 @@
+import * as fs from 'fs';
+import * as https from 'https';
 import { z } from 'zod';
 
 import { env } from '@/env.mjs';
-import {
-  threatColumns,
-  trafficColumns,
-  urlColumns,
-} from '@/features/monitoring/MenuColumns';
 import {
   zLogs,
   zPaloLogs,
@@ -13,82 +10,114 @@ import {
 } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
-export function createObject(
-  keys: Array<string>,
-  values: Array<string | number | null> | undefined
-) {
-  const obj: zLogs = {
-    time: null,
-    receiveTime: null,
-    serial: null,
-    hostid: null,
-    type: null,
-    subtype: null,
-    src: null,
-    dst: null,
-    natsrc: null,
-    natdst: null,
-    rule: null,
-    ruleUuid: null,
-    srcuser: null,
-    dstuser: null,
-    app: null,
-    zoneFrom: null,
-    zoneTo: null,
-    inboundIf: null,
-    outboundIf: null,
-    sessionid: null,
-    repeatcnt: null,
-    sport: null,
-    dport: null,
-    natsport: null,
-    natdport: null,
-    flags: null,
-    proto: null,
-    action: null,
-    misc: null,
-    threatid: null,
-    thrCategory: null,
-    severity: null,
-    direction: null,
-    bytes: null,
-    bytesSent: null,
-    bytesReceived: null,
-    packets: null,
-    pktsSent: null,
-    pktsReceived: null,
-    sessionEndReason: null,
-    deviceName: null,
-    eventid: null,
-    object: null,
-    module: null,
-    opaque: null,
-    srcloc: null,
-    dstloc: null,
-    urlIdx: null,
-    category: null,
-    urlCategoryList: null,
-    domainEdl: null,
-    reason: null,
-    justification: null,
-    subcategoryOfApp: null,
-    categoryOfApp: null,
-    technologyOfApp: null,
-    riskOfApp: null,
+// OpenSearchHit 타입에 인덱스 서명 추가
+type OpenSearchHit = {
+  _source: Record<string, string | number | null> | undefined;
+  [key: string]: Record<string, string | number | null> | undefined | unknown;
+};
+
+type OpenSearchResponse = {
+  hits: {
+    total: {
+      value: number;
+    };
+    hits: OpenSearchHit[];
   };
+};
 
-  if (keys.length !== values?.length) {
-    throw new Error('Keys and values arrays must have the same length');
-  }
+type SearchBody = {
+  from?: number;
+  size?: number;
+  query: {
+    bool: {
+      must: Array<Record<string, unknown>>;
+      filter: Array<Record<string, unknown>>;
+    };
+  };
+  sort?: Array<Record<string, unknown>>;
+};
 
-  for (let i = 0; i < keys.length; i++) {
-    const key = String(keys[i]);
-    //@ts-expect-error Note: 타입이 복잡해지지 않도록 ts-expect-error 를 사용한다.
-    obj[key] = values[i];
-  }
+// OpenSearch에 요청을 보내는 함수 생성
+async function searchOpenSearch(searchBody: SearchBody) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: env.OPENSEARCH_URL.replace('https://', ''),
+      port: env.OPENSEARCH_PORT,
+      path: '/logstash-logs-*/_search',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization:
+          'Basic ' +
+          Buffer.from(
+            `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
+          ).toString('base64'),
+      },
+      ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+      rejectUnauthorized: true,
+    };
 
-  return obj;
+    const req = https.request(options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        resolve(JSON.parse(data));
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.write(JSON.stringify(searchBody));
+    req.end();
+  });
 }
+
+// 연결 테스트 함수 수정
+async function testConnection() {
+  try {
+    const options = {
+      hostname: env.OPENSEARCH_URL.replace('https://', ''),
+      port: env.OPENSEARCH_PORT,
+      path: '/_cluster/health',
+      method: 'GET',
+      headers: {
+        Authorization:
+          'Basic ' +
+          Buffer.from(
+            `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
+          ).toString('base64'),
+      },
+      ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+      rejectUnauthorized: true,
+    };
+
+    const response: SearchBody = await new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          resolve(JSON.parse(data));
+        });
+      });
+      req.on('error', reject);
+      req.end();
+    });
+
+    console.log('OpenSearch 클러스터 상태:', response);
+  } catch (error) {
+    console.error('OpenSearch 연결 실패:', error);
+  }
+}
+
+testConnection();
 
 export const projectsRouter = createTRPCRouter({
   getAll: protectedProcedure({ authorizations: ['ADMIN'] })
@@ -100,7 +129,11 @@ export const projectsRouter = createTRPCRouter({
         tags: ['projects'],
       },
     })
-    .input(zPaloLogsParams())
+    .input(
+      zPaloLogsParams().extend({
+        menu: z.enum(['TRAFFIC', 'THREAT', 'SYSLOG']).optional(),
+      })
+    )
     .output(
       z.object({
         logs: z.array(zPaloLogs().nullish()),
@@ -113,90 +146,83 @@ export const projectsRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       const logsArray: Array<zLogs> = [];
-      const dataFrom = (input.currentPage - 1) * input.limit;
-      const dataTo = input.limit;
-      const timeRange = `DURATION FROM TO_DATE('${input.timeFrom}', 'YYYY-MM-DD HH24:MI:SS') TO TO_DATE('${input.timeTo}', 'YYYY-MM-DD HH24:MI:SS')`;
-      let searchTerm = input.searchTerm;
-      let columnString = '';
+      const from = (input.currentPage - 1) * input.limit;
+      const size = input.limit;
+      const fields = Array.from(
+        { length: 120 },
+        (_, i) => `d${i.toString().padStart(3, '0')}`
+      );
 
-      switch (input.menu) {
-        case 'TRAFFIC':
-          columnString = trafficColumns.join(', ');
-          searchTerm = searchTerm + " AND TYPE = 'TRAFFIC'";
-          break;
-        case 'THREAT':
-          columnString = threatColumns.join(', ');
-          searchTerm = searchTerm + " AND TYPE = 'THREAT'";
-          break;
-        case 'SYSLOG':
-          columnString = urlColumns.join(', ');
-          searchTerm = searchTerm + " AND TYPE = 'URL'";
-          break;
-        default:
-      }
+      const searchBody = {
+        from,
+        size,
+        query: {
+          bool: {
+            must: [
+              {
+                range: {
+                  '@timestamp': {
+                    gte: input.timeFrom,
+                    lte: input.timeTo,
+                    format: 'yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis',
+                    time_zone: '+09:00', // 한국 시간대 설정 (UTC+9)
+                  },
+                },
+              },
+              ...(input.searchTerm
+                ? fields.map((field) => ({
+                    match: { [field]: input.searchTerm },
+                  }))
+                : []),
+            ],
+            filter: input.searchTerm
+              ? [{ query_string: { query: input.searchTerm } }]
+              : [],
+          },
+        },
+        sort: [{ '@timestamp': { order: 'desc' } }],
+      };
 
-      const queryLogs = `SELECT ${columnString} FROM PANETLOG WHERE 1=1 ${searchTerm} LIMIT ${dataFrom}, ${dataTo} ${timeRange}`;
-
-      const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG WHERE 1=1 ${searchTerm} ${timeRange}`;
       let totalCnt = 0;
       let pageLength = 1;
-      console.log('dataFrom', dataFrom);
-      console.log('dataTo', dataTo);
-      console.log('queryTotalCnt', queryTotalCnt);
-      console.log('queryLogs', queryLogs);
-      try {
-        await fetch(
-          `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-            encodeURIComponent(queryTotalCnt)
-        )
-          .then((res) => {
-            return res.json();
-          })
-          .then((data) => {
-            totalCnt = data.data.rows[0][0];
-            pageLength = Math.ceil(totalCnt / input.limit);
-            pageLength = pageLength === 0 ? 1 : pageLength;
-            console.log('totalCnt : ' + totalCnt);
-            console.log('pageLength : ' + (pageLength === 0 ? 1 : pageLength));
-            console.log('currentPage : ' + input.currentPage);
-          });
-        await fetch(
-          `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-            encodeURIComponent(queryLogs)
-        )
-          .then((res) => {
-            return res.json();
-          })
-          .then((data) => {
-            let logs: {
-              columns: Array<string>;
-              rows: Array<Array<string | number>>;
-            } = {
-              columns: [],
-              rows: [],
-            };
-            logs = data.data;
-            const columns: Array<string> = [];
-            logs.columns.map((column) => {
-              const str = column
-                .toLowerCase()
-                .replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
 
-              columns.push(str);
-            });
-            for (let i = 0; i < logs.rows.length; i++) {
-              if (columns.length !== logs.rows[i]?.length) {
-                throw new Error('Arrays must have the same length');
-              }
-              logsArray.push(createObject(columns, logs.rows[i]));
+      try {
+        const response = (await searchOpenSearch(
+          searchBody
+        )) as OpenSearchResponse;
+
+        console.log('OpenSearch response:', JSON.stringify(response, null, 2));
+
+        // Check if response has the expected structure
+        if (!response?.hits?.total) {
+          console.error('Unexpected OpenSearch response structure:', response);
+          throw new Error('Invalid OpenSearch response structure');
+        }
+
+        // total 값 처리
+        totalCnt = response.hits.total.value ?? 0;
+        pageLength = Math.ceil(totalCnt / input.limit);
+
+        // 데이터 매핑
+        logsArray.push(
+          ...response.hits.hits.map((hit: OpenSearchHit) => {
+            const source = hit._source;
+            if (!source) {
+              return {};
             }
+            return Object.fromEntries(
+              Array.from({ length: 120 }, (_, i) => {
+                const key = `d${i.toString().padStart(3, '0')}`;
+                return [key, source[key]?.toString() ?? null];
+              })
+            );
           })
-          .catch((e) => {
-            console.log('error : ' + e);
-          });
-      } catch {
-        console.log('error');
+        );
+      } catch (error) {
+        console.error('OpenSearch query failed:', error);
+        throw new Error('Failed to fetch data from OpenSearch.');
       }
+
       return {
         logs: logsArray,
         pagination: {

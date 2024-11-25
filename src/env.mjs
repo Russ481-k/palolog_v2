@@ -13,8 +13,10 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
-    MACHBASE_URL: z.string().url(),
-    MACHBASE_PORT: z.string(),
+    OPENSEARCH_URL: z.string().url(),
+    OPENSEARCH_PORT: z.string(),
+    OPENSEARCH_USERNAME: z.string(),
+    OPENSEARCH_PASSWORD: z.string(),
     DATABASE_URL: z.string().url(),
     NODE_ENV: zNodeEnv,
 
@@ -75,8 +77,10 @@ export const env = createEnv({
    * middlewares) or client-side so we need to destruct manually.
    */
   runtimeEnv: {
-    MACHBASE_URL: process.env.MACHBASE_URL,
-    MACHBASE_PORT: process.env.MACHBASE_PORT,
+    OPENSEARCH_URL: process.env.OPENSEARCH_URL,
+    OPENSEARCH_PORT: process.env.OPENSEARCH_PORT,
+    OPENSEARCH_USERNAME: process.env.OPENSEARCH_USERNAME,
+    OPENSEARCH_PASSWORD: process.env.OPENSEARCH_PASSWORD,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     AUTH_SECRET: process.env.AUTH_SECRET,

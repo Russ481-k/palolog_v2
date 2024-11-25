@@ -27,7 +27,7 @@ enum UserRole {
 
 model User {
   id             String        @id
-  password       String        @default("000000")
+  password       String        @default("$2b$08$Y5DIAN4lvVIpjGjaFPd.nup8F/dQxbyOuWEprW9/p9LWmInveT6Fe")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   name           String?
@@ -67,26 +67,25 @@ model Project {
 }
 
 model Menu {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
   columns     MenuColumn[]
   description String?
-
 }
 
 model Column {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
   menus       MenuColumn[]
   description String?
 }
 
 model MenuColumn {
-  id            Int     @id @default(autoincrement())
-  menuId        Int
-  columnId      Int
-  menu          Menu    @relation(fields: [menuId], references: [id])
-  column        Column  @relation(fields: [columnId], references: [id])
-  
+  id       Int    @id @default(autoincrement())
+  menuId   Int
+  columnId Int
+  menu     Menu   @relation(fields: [menuId], references: [id])
+  column   Column @relation(fields: [columnId], references: [id])
+
   @@unique([menuId, columnId])
 }

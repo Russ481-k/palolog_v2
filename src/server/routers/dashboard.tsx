@@ -1,12 +1,15 @@
 import dayjs from 'dayjs';
+import fs from 'fs';
+import https from 'https';
 import { NextResponse } from 'next/server';
+import fetch from 'node-fetch';
 import os from 'os';
 import { z } from 'zod';
 
 import { env } from '@/env.mjs';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
-const cpuUsageBuffer: {
+const cpuUsageBuffer: Array<{
   time: string;
   total_usage: number;
   core_1: number;
@@ -15,31 +18,10 @@ const cpuUsageBuffer: {
   core_4: number;
   core_5: number;
   core_6: number;
-}[] = [];
-const memoryUsageBuffer: {
-  time: string;
-  usagePercentage: number;
-}[] = [];
-const diskUsageBuffer: {
-  time: string;
-  usagePercentage: number;
-}[] = [];
-const collectionsCountPerSecBuffer: {
-  time: string;
-  countsPerSec: number;
-  total: number;
-}[] = [];
-const collectionsCountPerDayBuffer: {
-  time: string;
-  countsPerDay: number;
-}[] = [];
-const threatCountBuffer: Array<
-  {
-    severity: string;
-    amount: number;
-  }[]
-> = [];
-
+}> = [];
+const memoryUsageBuffer: Array<{ time: string; usagePercentage: number }> = [];
+const diskUsageBuffer: Array<{ time: string; usagePercentage: number }> = [];
+const threatCountBuffer: Array<{ severity: string; amount: number }[]> = [];
 const recent20Rows: Array<{
   receiveTime: number;
   deviceName: string;
@@ -52,245 +34,33 @@ const critical7Days: Array<{
   serial: string;
   description: string;
 }> = [];
-let CollectionsCountsPerSecBuff: number = 0;
-let CollectionsCountsPerDayBuff: number = 0;
-let lastPushDate: string = '';
+const collectionsCountPerSecBuffer: Array<{
+  time: string;
+  countsPerSec: number;
+  total: number;
+}> = [];
+const collectionsCountPerDayBuffer: Array<{
+  time: string;
+  countsPerDay: number;
+}> = [];
 
-function recordCpuUsage() {
-  const time = dayjs().format('HH:mm:ss');
+// async function fetchOpenSearch(index: string, query: Record<string, unknown>) {
+//   const response = await fetch(`${env.OPENSEARCH_URL}/${index}/_search`, {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json',
+//     },
+//     body: JSON.stringify(query),
+//     agent: new https.Agent({
+//       rejectUnauthorized: false,
+//     }),
+//   });
 
-  const cpuUsages = os.cpus().map((cpu, index) => {
-    const total = Object.values(cpu.times).reduce((acc, time) => acc + time, 0);
-    const idle = cpu.times.idle;
-    const usage = 100 - (idle / total) * 100;
-    return {
-      [`core_${index + 1}`]: Number(usage.toFixed(3)),
-    };
-  });
-
-  const totalUsage = cpuUsages.reduce((acc, usage) => {
-    const usageValue = Object.values(usage)[0];
-    return usageValue !== undefined ? acc + usageValue : acc;
-  }, 0);
-
-  const cpuUsageEntry = {
-    time,
-    ...Object.assign({}, ...cpuUsages),
-    total_usage: Number((totalUsage / cpuUsages.length).toFixed(3)),
-  };
-
-  cpuUsageBuffer.push(cpuUsageEntry);
-
-  if (cpuUsageBuffer.length > 600) {
-    cpuUsageBuffer.shift();
-  }
-}
-
-function recordMemoryUsage() {
-  const queryMemoryUsage = `select%20/*%2B%20SCAN_BACKWARD(tag)%20*/%20value%20from%20TAG%20where%20name%20=%20%27monitor.mem.used_percent%27%20limit%201`;
-
-  try {
-    fetch(
-      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` + queryMemoryUsage
-    )
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        const time = dayjs().format('HH:mm:ss');
-        const usagePercentage = data.data.rows[0][0];
-        memoryUsageBuffer.push({
-          time,
-          usagePercentage,
-        });
-        if (memoryUsageBuffer.length > 600) {
-          memoryUsageBuffer.shift();
-        }
-      });
-  } catch {
-    console.log('Record Memory Usage Error');
-  }
-}
-
-function recordDiskUsage() {
-  const queryDiskUsage = `select%20/*%2B%20SCAN_BACKWARD(tag)%20*/%20value%20from%20TAG%20where%20name%20=%20%27monitor.disk./boot/database.used_percent%27%20limit%201`;
-
-  try {
-    fetch(
-      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` + queryDiskUsage
-    )
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        const time = dayjs().format('HH:mm:ss');
-        const usagePercentage = data.data.rows[0][0];
-        diskUsageBuffer.push({
-          time,
-          usagePercentage,
-        });
-        if (diskUsageBuffer.length > 600) {
-          diskUsageBuffer.shift();
-        }
-      });
-  } catch {
-    console.log('Record Disk Usage Error');
-  }
-}
-
-function recordCollectionsCount() {
-  const queryTotalCnt = `SELECT COUNT(*) TOTAL FROM PANETLOG`;
-  let totalCnt = 0;
-  let countsPerSec = 0;
-  try {
-    fetch(
-      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-        encodeURIComponent(queryTotalCnt)
-    )
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        totalCnt = data.data.rows[0][0];
-        countsPerSec = totalCnt - CollectionsCountsPerSecBuff;
-        collectionsCountPerSecBuffer.push({
-          time: dayjs().format('HH:mm:ss'),
-          countsPerSec: countsPerSec,
-          total: totalCnt / 1000000,
-        });
-
-        const currentDate = dayjs().format('YYYY-MM-DD');
-        if (lastPushDate !== currentDate) {
-          const countsPerDay = totalCnt - CollectionsCountsPerDayBuff;
-          collectionsCountPerDayBuffer.push({
-            time: currentDate,
-            countsPerDay,
-          });
-          lastPushDate = currentDate;
-        }
-
-        CollectionsCountsPerDayBuff = totalCnt;
-        CollectionsCountsPerSecBuff = totalCnt;
-        if (collectionsCountPerSecBuffer.length > 600) {
-          collectionsCountPerSecBuffer.shift();
-        }
-        if (collectionsCountPerDayBuffer.length > 30) {
-          collectionsCountPerDayBuffer.shift();
-        }
-      });
-  } catch {
-    console.log('Record Collections Count Error');
-  }
-}
-
-function recordThreatCount() {
-  const queryThreatCnt = `SELECT SEVERITY, COUNT(*) AS AMOUNT FROM PANETLOG WHERE TYPE='THREAT' GROUP BY SEVERITY ORDER BY AMOUNT DESC`;
-  try {
-    fetch(
-      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-        encodeURIComponent(queryThreatCnt)
-    )
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        const logs = data.data;
-
-        let threatCount: Array<{ severity: string; amount: number }> = [];
-        for (let i = 0; i < logs.rows.length; i++) {
-          threatCount.push({
-            severity: logs.rows[i][0] as string,
-            amount: logs.rows[i][1] as number,
-          });
-        }
-        if (logs.rows.length === threatCount.length) {
-          threatCountBuffer.push(threatCount);
-          threatCount = [];
-        }
-        if (threatCountBuffer.length > 600) {
-          threatCountBuffer.shift();
-        }
-      });
-  } catch {
-    console.log('Record Collections Count Error');
-  }
-}
-function recordThreatLogCount() {
-  const queryDashboardLogs = `SELECT DEVICE_NAME, SERIAL, RECEIVE_TIME, SESSION_END_REASON FROM PANETLOG WHERE 1=1 AND TYPE = 'URL' LIMIT 20 `;
-  const queryDashboardCritical = `SELECT DEVICE_NAME, SERIAL, RECEIVE_TIME, SESSION_END_REASON FROM PANETLOG WHERE 1=1 AND TYPE = 'URL' AND SEVERITY = 'CRITICAL' DURATION FROM TO_DATE('${dayjs().subtract(7, 'day').format('YYYY-MM-DD')}', 'YYYY-MM-DD') TO TO_DATE('${dayjs().format('YYYY-MM-DD')}', 'YYYY-MM-DD')`;
-  try {
-    fetch(
-      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-        encodeURIComponent(queryDashboardLogs)
-    )
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        const logs = data.data;
-        for (let i = 0; i < logs.rows.length; i++) {
-          recent20Rows.push({
-            receiveTime: logs.rows[i][2] as number,
-            deviceName: logs.rows[i][0] as string,
-            serial: logs.rows[i][1] as string,
-            description: logs.rows[i][3] as string,
-          });
-        }
-        if (recent20Rows.length > 20) {
-          recent20Rows.shift();
-        }
-      })
-      .catch((e) => {
-        console.log('Error : ' + e);
-      });
-
-    fetch(
-      `${env.MACHBASE_URL}:${env.MACHBASE_PORT}/db/query?q=` +
-        encodeURIComponent(queryDashboardCritical)
-    )
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        const logs = data.data;
-        for (let i = 0; i < logs.rows.length; i++) {
-          critical7Days.push({
-            receiveTime: logs.rows[i][2] as number,
-            deviceName: logs.rows[i][0] as string,
-            serial: logs.rows[i][1] as string,
-            description: logs.rows[i][3] as string,
-          });
-        }
-        if (critical7Days.length > 20) {
-          critical7Days.shift();
-        }
-      })
-      .catch((e) => {
-        console.log('Error : ' + e);
-      });
-  } catch {
-    console.log('Error');
-  }
-}
-
-let intervalId: NodeJS.Timeout;
-
-function startRecording() {
-  if (intervalId) {
-    clearInterval(intervalId);
-  }
-
-  intervalId = setInterval(async () => {
-    await recordCpuUsage();
-    await recordMemoryUsage();
-    await recordDiskUsage();
-    await recordThreatCount();
-    await recordThreatLogCount();
-    await recordCollectionsCount();
-  }, 1000);
-}
-
-startRecording();
+//   if (!response.ok) {
+//     throw new Error(`Failed to fetch data from OpenSearch: ${response.status}`);
+//   }
+//   return response.json();
+// }
 
 export const dashboardRouter = createTRPCRouter({
   getCpuUsage: protectedProcedure()

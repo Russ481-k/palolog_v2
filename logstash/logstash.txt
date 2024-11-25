@@ -1,45 +1,15 @@
-services:
-  postgres:
-    image: postgres:16.1
-    ports:
-      - '${DOCKER_DATABASE_PORT:-5432}:5432'
-    environment:
-      POSTGRES_DB: $DOCKER_DATABASE_NAME
-      POSTGRES_USER: $DOCKER_DATABASE_USERNAME
-      POSTGRES_PASSWORD: $DOCKER_DATABASE_PASSWORD
+docker pull docker.elastic.co/logstash/logstash:8.8.2
 
-  opensearch:
-    image: opensearchproject/opensearch:1.2.0
-    container_name: opensearch
-    networks:
-      - palolog
-    ports:
-      - "9200:9200"
-      - "9600:9600"
-    environment:
-      - discovery.type=single-node
-      - "OPENSEARCH_JAVA_OPTS=-Xms8g -Xmx8g" # JVM 메모리 설정
-      - TZ=Asia/Seoul
-    healthcheck:
-      test: ["CMD", "curl", "-s", "-k", "https://localhost:9200"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+docker network create palolog
 
-  logstash:
-    image: opensearchproject/logstash-oss-with-opensearch-output-plugin:7.16.2
-    container_name: logstash
-    networks:
-      - palolog
-    ports:
-      - "514:514/udp"  # 포트 515으로 수신
-    environment:
-      LS_JAVA_OPTS: "-Xms8g -Xmx8g"
-      pipeline.batch.size: "20000"
-      pipeline.workers: "8"
-      TZ: Asia/Seoul
-    command: >
-      logstash -e '
+docker run -p 9200:9200 -p 9600:9600 --name opensearch --net palolog -e "discovery.type=single-node" opensearchproject/opensearch:1.2.0
+
+docker run -it --rm --name logstash --net palolog -p 514:514/udp \
+  -e LS_JAVA_OPTS="-Xms4g -Xmx4g" \
+  -e "pipeline.batch.size=5000" \
+  -e "pipeline.workers=4" \
+  opensearchproject/logstash-oss-with-opensearch-output-plugin:7.16.2 \
+  -e '
       input {
         udp {
           port => 514
@@ -106,6 +76,29 @@ services:
       }
       '
 
-networks:
-  palolog:
-    driver: bridge
+
+# test
+
+# 현재 인덱스 목록
+curl -X GET "https://localhost:9200/_cat/indices?v&pretty" -u "admin:admin" --insecure
+
+# 최근 10개 데이터 출력
+
+curl -X GET "https://localhost:9200/logstash-logs-*/_search?pretty" \
+-H 'Content-Type: application/json' \
+-d '{
+  "size": 10,
+  "sort": [
+    {
+      "@timestamp": {
+        "order": "desc"
+      }
+    }
+  ]
+}' -u admin:admin -k
+
+# 테스트 실행 명령어
+docker remove -f logstash1; docker remove -f logstash2; docker remove -f logstash3; docker remove -f logstash4; docker remove -f logstash5; docker remove -f opensearch; pnpm dk:init;
+
+# 보안 인증서 복사
+docker cp opensearch:/usr/share/opensearch/config/root-ca.pem ./ca-cert.pem
