@@ -21,8 +21,10 @@ docker run -it --rm --name logstash --net palolog -p 514:514/udp \
       filter {
         csv {
           separator => ","
-          skip_empty_columns => true
+          skip_empty_columns => false
           columns => [
+            "domain", "receiveTime", "serial", "logType", 
+            "threatContentType", "configVersion", "generateTime", 
             "d000", "d001", "d002", "d003", "d004", "d005", "d006", "d007", 
             "d008", "d009", "d010", "d011", "d012", "d013", "d014", "d015", 
             "d016", "d017", "d018", "d019", "d020", "d021", "d022", "d023", 
@@ -37,8 +39,388 @@ docker run -it --rm --name logstash --net palolog -p 514:514/udp \
             "d088", "d089", "d090", "d091", "d092", "d093", "d094", "d095", 
             "d096", "d097", "d098", "d099", "d100", "d101", "d102", "d103", 
             "d104", "d105", "d106", "d107", "d108", "d109", "d110", "d111", 
-            "d112", "d113", "d114", "d115", "d116", "d117", "d118", "d119"
+            "d112"
           ]
+        }
+        mutate {
+          add_field => {
+            "d000" => ""
+            "d001" => ""
+            "d002" => ""
+            "d003" => ""
+            "d004" => ""
+            "d005" => ""
+            "d006" => ""
+            "d007" => ""
+            "d008" => ""
+            "d009" => ""
+            "d010" => ""
+            "d011" => ""
+            "d012" => ""
+            "d013" => ""
+            "d014" => ""
+            "d015" => ""
+            "d016" => ""
+            "d017" => ""
+            "d018" => ""
+            "d019" => ""
+            "d020" => ""
+            "d021" => ""
+            "d022" => ""
+            "d023" => ""
+            "d024" => ""
+            "d025" => ""
+            "d026" => ""
+            "d027" => ""
+            "d028" => ""
+            "d029" => ""
+            "d030" => ""
+            "d031" => ""
+            "d032" => ""
+            "d033" => ""
+            "d034" => ""
+            "d035" => ""
+            "d036" => ""
+            "d037" => ""
+            "d038" => ""
+            "d039" => ""
+            "d040" => ""
+            "d041" => ""
+            "d042" => ""
+            "d043" => ""
+            "d044" => ""
+            "d045" => ""
+            "d046" => ""
+            "d047" => ""
+            "d048" => ""
+            "d049" => ""
+            "d050" => ""
+            "d051" => ""
+            "d052" => ""
+            "d053" => ""
+            "d054" => ""
+            "d055" => ""
+            "d056" => ""
+            "d057" => ""
+            "d058" => ""
+            "d059" => ""
+            "d060" => ""
+            "d061" => ""
+            "d062" => ""
+            "d063" => ""
+            "d064" => ""
+            "d065" => ""
+            "d066" => ""
+            "d067" => ""
+            "d068" => ""
+            "d069" => ""
+            "d070" => ""
+            "d071" => ""
+            "d072" => ""
+            "d073" => ""
+            "d074" => ""
+            "d075" => ""
+            "d076" => ""
+            "d077" => ""
+            "d078" => ""
+            "d079" => ""
+            "d080" => ""
+            "d081" => ""
+            "d082" => ""
+            "d083" => ""
+            "d084" => ""
+            "d085" => ""
+            "d086" => ""
+            "d087" => ""
+            "d088" => ""
+            "d089" => ""
+            "d090" => ""
+            "d091" => ""
+            "d092" => ""
+            "d093" => ""
+            "d094" => ""
+            "d095" => ""
+            "d096" => ""
+            "d097" => ""
+            "d098" => ""
+            "d099" => ""
+            "d100" => ""
+            "d101" => ""
+            "d102" => ""
+            "d103" => ""
+            "d104" => ""
+            "d105" => ""
+            "d106" => ""
+            "d107" => ""
+            "d108" => ""
+            "d109" => ""
+            "d110" => ""
+            "d111" => ""
+            "d112" => ""
+          }
+        }
+        if [logType] == "TRAFFIC" {
+          mutate {
+            add_field => {
+              "sourceAddress" => "%{[d000]}"
+              "destinationAddress" => "%{[d001]}"
+              "natSourceIp" => "%{[d002]}"
+              "natDestinationIp" => "%{[d003]}"
+              "rule" => "%{[d004]}"
+              "sourceUser" => "%{[d005]}"
+              "destinationUser" => "%{[d006]}"
+              "application" => "%{[d007]}"
+              "virtualSystem" => "%{[d008]}"
+              "sourceZone" => "%{[d009]}"
+              "destinationZone" => "%{[d010]}"
+              "inboundInterface" => "%{[d011]}"
+              "outboundInterface" => "%{[d012]}"
+              "logAction" => "%{[d013]}"
+              "timeLogged" => "%{[d014]}"
+              "sessionId" => "%{[d015]}"
+              "repeatCount" => "%{[d016]}"
+              "sourcePort" => "%{[d017]}"
+              "destinationPort" => "%{[d018]}"
+              "natSourcePort" => "%{[d019]}"
+              "natDestinationPort" => "%{[d020]}"
+              "flags" => "%{[d021]}"
+              "ipProtocol" => "%{[d022]}"
+              "action" => "%{[d023]}"
+              "bytes" => "%{[d024]}"
+              "bytesSent" => "%{[d025]}"
+              "bytesReceived" => "%{[d026]}"
+              "packets" => "%{[d027]}"
+              "startTime" => "%{[d028]}"
+              "elapsedTimeSec" => "%{[d029]}"
+              "category" => "%{[d030]}"
+              "sequenceNumber" => "%{[d031]}"
+              "actionFlags" => "%{[d032]}"
+              "sourceCountry" => "%{[d033]}"
+              "destinationCountry" => "%{[d034]}"
+              "packetsSent" => "%{[d035]}"
+              "packetsReceived" => "%{[d036]}"
+              "sessionEndReason" => "%{[d037]}"
+              "dgHierarchyLevel1" => "%{[d038]}"
+              "dgHierarchyLevel2" => "%{[d039]}"
+              "dgHierarchyLevel3" => "%{[d040]}"
+              "dgHierarchyLevel4" => "%{[d041]}"
+              "virtualSystemName" => "%{[d042]}"
+              "deviceName" => "%{[d043]}"
+              "actionSource" => "%{[d044]}"
+              "sourceVmUuid" => "%{[d045]}"
+              "destinationVmUuid" => "%{[d046]}"
+              "tunnelIdImsi" => "%{[d047]}"
+              "monitorTagImei" => "%{[d048]}"
+              "parentSessionId" => "%{[d049]}"
+              "parentSessionStartTime" => "%{[d050]}"
+              "tunnel" => "%{[d051]}"
+              "sctpAssociationId" => "%{[d052]}"
+              "sctpChunks" => "%{[d053]}"
+              "sctpChunksSent" => "%{[d054]}"
+              "sctpChunksReceived" => "%{[d055]}"
+              "uuidForRule" => "%{[d056]}"
+              "http2Connection" => "%{[d057]}"
+              "linkChangeCount" => "%{[d058]}"
+              "policyId" => "%{[d059]}"
+              "linkSwitches" => "%{[d060]}"
+              "sdwanCluster" => "%{[d061]}"
+              "sdwanDeviceType" => "%{[d062]}"
+              "sdwanClusterType" => "%{[d063]}"
+              "sdwanSite" => "%{[d064]}"
+              "dynUserGroupName" => "%{[d065]}"
+              "xffAddress" => "%{[d066]}"
+              "sourceDeviceCategory" => "%{[d067]}"
+              "sourceDeviceProfile" => "%{[d068]}"
+              "sourceDeviceModel" => "%{[d069]}"
+              "sourceDeviceVendor" => "%{[d070]}"
+              "sourceDeviceOsFamily" => "%{[d071]}"
+              "sourceDeviceOsVersion" => "%{[d072]}"
+              "sourceHostName" => "%{[d073]}"
+              "sourceMacAddress" => "%{[d074]}"
+              "destinationDeviceCategory" => "%{[d075]}"
+              "destinationDeviceProfile" => "%{[d076]}"
+              "destinationDeviceModel" => "%{[d077]}"
+              "destinationDeviceVendor" => "%{[d078]}"
+              "destinationDeviceOsFamily" => "%{[d079]}"
+              "destinationDeviceOsVersion" => "%{[d080]}"
+              "destinationHostName" => "%{[d081]}"
+              "destinationMacAddress" => "%{[d082]}"
+              "containerId" => "%{[d083]}"
+              "podNamespace" => "%{[d084]}"
+              "podName" => "%{[d085]}"
+              "sourceExternalDynamicList" => "%{[d086]}"
+              "destinationExternalDynamicList" => "%{[d087]}"
+              "hostId" => "%{[d088]}"
+              "serialNumber" => "%{[d089]}"
+              "sourceDynamicAddressGroup" => "%{[d090]}"
+              "destinationDynamicAddressGroup" => "%{[d091]}"
+              "sessionOwner" => "%{[d092]}"
+              "highResTimestamp" => "%{[d093]}"
+              "nssaiSst" => "%{[d094]}"
+              "nssaiSd" => "%{[d095]}"
+              "subcategoryOfApp" => "%{[d096]}"
+              "technologyOfApp" => "%{[d098]}"
+              "riskOfApp" => "%{[d099]}"
+              "characteristicOfApp" => "%{[d100]}"
+              "containerOfApp" => "%{[d101]}"
+              "tunneledApp" => "%{[d102]}"
+              "saasOfApp" => "%{[d103]}"
+              "sanctionedStateOfApp" => "%{[d104]}"
+              "offloaded" => "%{[d105]}"
+              "flowType" => "%{[d106]}"
+              "clusterName" => "%{[d107]}"
+            }
+            remove_field => ["message", "d000", "d001", "d002", "d003", "d004", "d005", "d006", "d007", "d008", "d009", "d010", "d011", "d012", "d013", "d014", "d015", "d016", "d017", "d018", "d019", "d020", "d021", "d022", "d023", "d024", "d025", "d026", "d027", "d028", "d029", "d030", "d031", "d032", "d033", "d034", "d035", "d036", "d037", "d038", "d039", "d040", "d041", "d042", "d043", "d044", "d045", "d046", "d047", "d048", "d049", "d050", "d051", "d052", "d053", "d054", "d055", "d056", "d057", "d058", "d059", "d060", "d061", "d062", "d063", "d064", "d065", "d066", "d067", "d068", "d069", "d070", "d071", "d072", "d073", "d074", "d075", "d076", "d077", "d078", "d079", "d080", "d081", "d082", "d083", "d084", "d085", "d086", "d087", "d088", "d089", "d090", "d091", "d092", "d093", "d094", "d095", "d096", "d097", "d098", "d099", "d100", "d101", "d102", "d103", "d104", "d105", "d106", "d107", "d108", "d109", "d110", "d111", "d112"]
+          }
+        }
+
+        if [logType] == "THREAT" {
+          mutate {
+            add_field => {
+              "sourceAddress" => "%{[d000]}"
+              "destinationAddress" => "%{[d001]}"
+              "natSourceIp" => "%{[d002]}"
+              "natDestinationIp" => "%{[d003]}"
+              "rule" => "%{[d004]}"
+              "sourceUser" => "%{[d005]}"
+              "destinationUser" => "%{[d006]}"
+              "application" => "%{[d007]}"
+              "virtualSystem" => "%{[d008]}"
+              "sourceZone" => "%{[d009]}"
+              "destinationZone" => "%{[d010]}"
+              "inboundInterface" => "%{[d011]}"
+              "outboundInterface" => "%{[d012]}"
+              "logAction" => "%{[d013]}"
+              "timeLogged" => "%{[d014]}"
+              "sessionId" => "%{[d015]}"
+              "repeatCount" => "%{[d016]}"
+              "sourcePort" => "%{[d017]}"
+              "destinationPort" => "%{[d018]}"
+              "natSourcePort" => "%{[d019]}"
+              "natDestinationPort" => "%{[d020]}"
+              "flags" => "%{[d021]}"
+              "ipProtocol" => "%{[d022]}"
+              "action" => "%{[d023]}"
+              "urlFileName" => "%{[d024]}"
+              "threatContentName" => "%{[d025]}"
+              "category" => "%{[d026]}"
+              "severity" => "%{[d027]}"
+              "direction" => "%{[d028]}"
+              "sequenceNumber" => "%{[d029]}"
+              "actionFlags" => "%{[d030]}"
+              "sourceCountry" => "%{[d031]}"
+              "destinationCountry" => "%{[d032]}"
+              "contentType" => "%{[d033]}"
+              "pcapId" => "%{[d034]}"
+              "fileDigest" => "%{[d035]}"
+              "cloud" => "%{[d036]}"
+              "urlIdx" => "%{[d037]}"
+              "userAgent" => "%{[d038]}"
+              "fileType" => "%{[d039]}"
+              "xff" => "%{[d040]}"
+              "referer" => "%{[d041]}"
+              "sender" => "%{[d042]}"
+              "subject" => "%{[d043]}"
+              "recipient" => "%{[d044]}"
+              "reportId" => "%{[d045]}"
+              "dgHierarchyLevel1" => "%{[d046]}"
+              "dgHierarchyLevel2" => "%{[d047]}"
+              "dgHierarchyLevel3" => "%{[d048]}"
+              "dgHierarchyLevel4" => "%{[d049]}"
+              "virtualSystemName" => "%{[d050]}"
+              "deviceName" => "%{[d051]}"
+              "fileUrl" => "%{[d052]}"
+              "sourceVmUuid" => "%{[d053]}"
+              "destinationVmUuid" => "%{[d054]}"
+              "httpMethod" => "%{[d055]}"
+              "tunnelIdImsi" => "%{[d056]}"
+              "monitorTagImei" => "%{[d057]}"
+              "parentSessionId" => "%{[d058]}"
+              "parentSessionStartTime" => "%{[d059]}"
+              "tunnel" => "%{[d060]}"
+              "thrCategory" => "%{[d061]}"
+              "contentVer" => "%{[d062]}"
+              "sigFlags" => "%{[d063]}"
+              "sctpAssociationId" => "%{[d064]}"
+              "payloadProtocolId" => "%{[d065]}"
+              "httpHeaders" => "%{[d066]}"
+              "urlCategoryList" => "%{[d067]}"
+              "uuidForRule" => "%{[d068]}"
+              "http2Connection" => "%{[d069]}"
+              "dynUserGroupName" => "%{[d070]}"
+              "xffAddress" => "%{[d071]}"
+              "sourceDeviceCategory" => "%{[d072]}"
+              "sourceDeviceProfile" => "%{[d073]}"
+              "sourceDeviceModel" => "%{[d074]}"
+              "sourceDeviceVendor" => "%{[d075]}"
+              "sourceDeviceOsFamily" => "%{[d076]}"
+              "sourceDeviceOsVersion" => "%{[d077]}"
+              "sourceHostName" => "%{[d078]}"
+              "sourceMacAddress" => "%{[d079]}"
+              "destinationDeviceCategory" => "%{[d080]}"
+              "destinationDeviceProfile" => "%{[d081]}"
+              "destinationDeviceModel" => "%{[d082]}"
+              "destinationDeviceVendor" => "%{[d083]}"
+              "destinationDeviceOsFamily" => "%{[d084]}"
+              "destinationDeviceOsVersion" => "%{[d085]}"
+              "destinationHostName" => "%{[d086]}"
+              "destinationMacAddress" => "%{[d087]}"
+              "containerId" => "%{[d088]}"
+              "podNamespace" => "%{[d089]}"
+              "podName" => "%{[d090]}"
+              "sourceExternalDynamicList" => "%{[d091]}"
+              "destinationExternalDynamicList" => "%{[d092]}"
+              "hostId" => "%{[d093]}"
+              "serialNumber" => "%{[d094]}"
+              "domainEdl" => "%{[d095]}"
+              "sourceDynamicAddressGroup" => "%{[d096]}"
+              "destinationDynamicAddressGroup" => "%{[d097]}"
+              "partialHash" => "%{[d098]}"
+              "highResTimestamp" => "%{[d099]}"
+              "reason" => "%{[d100]}"
+              "justification" => "%{[d101]}"
+              "nssaiSst" => "%{[d102]}"
+              "subcategoryOfApp" => "%{[d103]}"
+              "categoryOfApp" => "%{[d104]}"
+              "technologyOfApp" => "%{[d105]}"
+              "riskOfApp" => "%{[d106]}"
+              "characteristicOfApp" => "%{[d107]}"
+              "containerOfApp" => "%{[d108]}"
+              "tunneledApp" => "%{[d109]}"
+              "saasOfApp" => "%{[d110]}"
+              "sanctionedStateOfApp" => "%{[d111]}"
+              "cloudReportId" => "%{[d112]}"
+              "clusterName" => "%{[d113]}"
+              "flowType" => "%{[d114]}"
+            }
+            remove_field => ["message", "d000", "d001", "d002", "d003", "d004", "d005", "d006", "d007", "d008", "d009", "d010", "d011", "d012", "d013", "d014", "d015", "d016", "d017", "d018", "d019", "d020", "d021", "d022", "d023", "d024", "d025", "d026", "d027", "d028", "d029", "d030", "d031", "d032", "d033", "d034", "d035", "d036", "d037", "d038", "d039", "d040", "d041", "d042", "d043", "d044", "d045", "d046", "d047", "d048", "d049", "d050", "d051", "d052", "d053", "d054", "d055", "d056", "d057", "d058", "d059", "d060", "d061", "d062", "d063", "d064", "d065", "d066", "d067", "d068", "d069", "d070", "d071", "d072", "d073", "d074", "d075", "d076", "d077", "d078", "d079", "d080", "d081", "d082", "d083", "d084", "d085", "d086", "d087", "d088", "d089", "d090", "d091", "d092", "d093", "d094", "d095", "d096", "d097", "d098", "d099", "d100", "d101", "d102", "d103", "d104", "d105", "d106", "d107", "d108", "d109", "d110", "d111", "d112"]
+          }
+        }
+
+        if [logType] == "SYSTEM" {
+          mutate {
+            add_field => {
+              "virtualSystem" => "%{[d000]}"
+              "eventId" => "%{[d001]}"
+              "objectFmt" => "%{[d002]}"
+              "id" => "%{[d003]}"
+              "module" => "%{[d004]}"
+              "severity" => "%{[d005]}"
+              "description" => "%{[d006]}"
+              "sequenceNumber" => "%{[d007]}"
+              "actionFlags" => "%{[d008]}"
+              "dgHierarchyLevel1" => "%{[d009]}"
+              "dgHierarchyLevel2" => "%{[d010]}"
+              "dgHierarchyLevel3" => "%{[d011]}"
+              "dgHierarchyLevel4" => "%{[d012]}"
+              "virtualSystemName" => "%{[d013]}"
+              "deviceName" => "%{[d014]}"
+              "dgId" => "%{[d015]}"
+              "tplId" => "%{[d016]}"
+              "highResTimestamp" => "%{[d017]}"
+            }
+            remove_field => ["message", "d000", "d001", "d002", "d003", "d004", "d005", "d006", "d007", "d008", "d009", "d010", "d011", "d012", "d013", "d014", "d015", "d016", "d017", "d018", "d019", "d020", "d021", "d022", "d023", "d024", "d025", "d026", "d027", "d028", "d029", "d030", "d031", "d032", "d033", "d034", "d035", "d036", "d037", "d038", "d039", "d040", "d041", "d042", "d043", "d044", "d045", "d046", "d047", "d048", "d049", "d050", "d051", "d052", "d053", "d054", "d055", "d056", "d057", "d058", "d059", "d060", "d061", "d062", "d063", "d064", "d065", "d066", "d067", "d068", "d069", "d070", "d071", "d072", "d073", "d074", "d075", "d076", "d077", "d078", "d079", "d080", "d081", "d082", "d083", "d084", "d085", "d086", "d087", "d088", "d089", "d090", "d091", "d092", "d093", "d094", "d095", "d096", "d097", "d098", "d099", "d100", "d101", "d102", "d103", "d104", "d105", "d106", "d107", "d108", "d109", "d110", "d111", "d112"]
+          }
         }
 
         # 타임스탬프 처리를 위한 필터 추가
@@ -47,14 +429,10 @@ docker run -it --rm --name logstash --net palolog -p 514:514/udp \
           target => "@timestamp"
           timezone => "Asia/Seoul"  # 입력 시간을 KST로 해석
         }
-
-        mutate{
-          remove_field => ["message"]
-        }
       }
 
       output {
-        if [d003] == "THREAT" {
+        if [Type] == "THREAT" {
           opensearch {
             hosts => ["https://opensearch:9200"]
             index => "threat-logs-%{+YYYY.MM.dd}"
@@ -102,3 +480,159 @@ docker remove -f logstash1; docker remove -f logstash2; docker remove -f logstas
 
 # 보안 인증서 복사
 docker cp opensearch:/usr/share/opensearch/config/root-ca.pem ./ca-cert.pem
+
+
+
+# 컬럼명 배열
+
+[
+              "sourceAddress",
+              "destinationAddress",
+              "natSourceIp",
+              "natDestinationIp",
+              "rule",
+              "sourceUser",
+              "destinationUser",
+              "application",
+              "virtualSystem",
+              "sourceZone",
+              "destinationZone",
+              "inboundInterface",
+              "outboundInterface",
+              "logAction",
+              "timeLogged",
+              "sessionId",
+              "repeatCount",
+              "sourcePort",
+              "destinationPort",
+              "natSourcePort",
+              "natDestinationPort",
+              "flags",
+              "ipProtocol",
+              "action",
+              "bytes",
+              "bytesSent",
+              "bytesReceived",
+              "packets",
+              "startTime",
+              "elapsedTimeSec",
+              "category",
+              "sequenceNumber",
+              "actionFlags",
+              "sourceCountry",
+              "destinationCountry",
+              "packetsSent",
+              "packetsReceived",
+              "sessionEndReason",
+              "dgHierarchyLevel1",
+              "dgHierarchyLevel2",
+              "dgHierarchyLevel3",
+              "dgHierarchyLevel4",
+              "virtualSystemName",
+              "deviceName",
+              "actionSource",
+              "sourceVmUuid",
+              "destinationVmUuid",
+              "tunnelIdImsi",
+              "monitorTagImei",
+              "parentSessionId",
+              "parentSessionStartTime",
+              "tunnel",
+              "sctpAssociationId",
+              "sctpChunks",
+              "sctpChunksSent",
+              "sctpChunksReceived",
+              "uuidForRule",
+              "http2Connection",
+              "linkChangeCount",
+              "policyId",
+              "linkSwitches",
+              "sdwanCluster",
+              "sdwanDeviceType",
+              "sdwanClusterType",
+              "sdwanSite",
+              "dynUserGroupName",
+              "xffAddress",
+              "sourceDeviceCategory",
+              "sourceDeviceProfile",
+              "sourceDeviceModel",
+              "sourceDeviceVendor",
+              "sourceDeviceOsFamily",
+              "sourceDeviceOsVersion",
+              "sourceHostName",
+              "sourceMacAddress",
+              "destinationDeviceCategory",
+              "destinationDeviceProfile",
+              "destinationDeviceModel",
+              "destinationDeviceVendor",
+              "destinationDeviceOsFamily",
+              "destinationDeviceOsVersion",
+              "destinationHostName",
+              "destinationMacAddress",
+              "containerId",
+              "podNamespace",
+              "podName",
+              "sourceExternalDynamicList",
+              "destinationExternalDynamicList",
+              "hostId",
+              "serialNumber",
+              "sourceDynamicAddressGroup",
+              "destinationDynamicAddressGroup",
+              "sessionOwner",
+              "highResTimestamp",
+              "nssaiSst",
+              "nssaiSd",
+              "subcategoryOfApp",
+              "categoryOfApp",
+              "technologyOfApp",
+              "riskOfApp",
+              "characteristicOfApp",
+              "containerOfApp",
+              "tunneledApp",
+              "saasOfApp",
+              "sanctionedStateOfApp",
+              "offloaded",
+              "flowType",
+              "clusterName",
+              "urlFileName",
+              "threatContentName",
+              "severity",
+              "direction",
+              "contentType",
+              "pcapId",
+              "fileDigest",
+              "cloud",
+              "urlIdx",
+              "userAgent",
+              "fileType",
+              "xff",
+              "referer",
+              "sender",
+              "subject",
+              "recipient",
+              "reportId",
+              "fileUrl",
+              "httpMethod",
+              "thrCategory",
+              "contentVer",
+              "sigFlags",
+              "payloadProtocolId",
+              "httpHeaders",
+              "urlCategoryList",
+              "domainEdl",
+              "partialHash",
+              "reason",
+              "justification",
+              "cloudReportId",
+              "eventId",
+              "objectFmt",
+              "id",
+              "module",
+              "description",
+              "dgId",
+              "tplId",
+]
+
+
+# logstash 설정파일 경로 수정 코드
+ sudo vi /usr/share/logstash/pipeline/logstash.conf
