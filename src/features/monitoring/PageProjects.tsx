@@ -118,30 +118,17 @@ export default function PageProjects() {
     setMenu(e);
   };
 
-  const onCellClickChanged = (
-    event: CellClickedEvent<zLogs>,
-    dateType: 'Y' | 'N'
-  ) => {
+  const onCellClickChanged = (event: CellClickedEvent<zLogs>) => {
     if (isLoading) return;
 
-    let eventValue = event.value;
-    const eventColDef = event.colDef.field
-      ?.replace(/[A-Z]/g, (letter) => `_${letter}`)
-      .toUpperCase();
+    const eventValue = event.value;
+    const eventColDef = event.colDef.field;
     let nextSearchTermChecker = '';
 
-    if (dateType === 'Y') {
-      eventValue = dayjs(new Date(event.value / 1000000)).format(
-        'YYYY-MM-DD HH:mm:ss'
-      );
-      const newDateTypeTerm =
-        ' AND ' + eventColDef + " = TO_DATE('" + eventValue + "')";
-      nextSearchTermChecker = newDateTypeTerm;
-    } else if (dateType === 'N') {
-      const newTerm = ' AND ' + eventColDef + " = '" + eventValue + "'";
+    const newTerm = ' AND ' + eventColDef + " = '" + eventValue + "'";
 
-      nextSearchTermChecker = newTerm;
-    }
+    nextSearchTermChecker = newTerm;
+
     if (nextSearchTermChecker === '') return;
 
     const searchTermChecker = form.getValues('searchTerm');
@@ -179,7 +166,7 @@ export default function PageProjects() {
       setNextCurrentPage(nextCurrentPage);
     }
   }, [pageLength, nextCurrentPage, setPageLengthBuf, setNextCurrentPage]);
-
+  console.log();
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>

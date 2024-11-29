@@ -1,13 +1,21 @@
 import { z } from 'zod';
 
+import { columnNames } from './colNameList';
+
+// Logs 스키마
 export type zLogs = z.infer<ReturnType<typeof zPaloLogs>>;
 export const zPaloLogs = () =>
-  z.object({
-    ...Array.from({ length: 120 }, (_, i) => ({
-      [`d${i.toString().padStart(3, '0')}`]: z.string().nullish(),
-    })).reduce((acc, obj) => ({ ...acc, ...obj }), {}),
-  });
+  z.object(
+    columnNames.reduce(
+      (acc, columnName: string) => {
+        acc[columnName] = z.string().nullable().optional();
+        return acc;
+      },
+      {} as Record<string, z.ZodTypeAny>
+    )
+  );
 
+// Params 스키마
 export type FormFieldsPaloLogsParams = z.infer<
   ReturnType<typeof zPaloLogsParams>
 >;
