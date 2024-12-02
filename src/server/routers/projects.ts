@@ -3,75 +3,79 @@ import * as https from 'https';
 import { z } from 'zod';
 
 import { env } from '@/env.mjs';
-import { zPaloLogs, zPaloLogsParams } from '@/features/monitoring/schemas';
+import { columnNames } from '@/features/monitoring/colNameList';
+import {
+  zLogs,
+  zPaloLogs,
+  zPaloLogsParams,
+} from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
-// OpenSearch의 응답 타입 정의
-interface SearchResultHit {
-  _source: Record<string, string>;
-}
+// OpenSearchHit 타입 정의
+type OpenSearchHit = {
+  _source: Record<string, string | number | null> | undefined;
+  sort: [string | number | null];
+};
 
-interface SearchResult {
-  took: number;
-  timed_out: boolean;
+type OpenSearchResponse = {
   hits: {
     total: {
       value: number;
-      relation: string;
     };
-    max_score: number;
-    hits: SearchResultHit[];
+    hits: OpenSearchHit[];
   };
-  scrollId?: string;
+};
+
+type QueryCondition =
+  | { match: Record<string, string | number> }
+  | {
+      range: Record<
+        string,
+        {
+          gte?: string | number;
+          lte?: string | number;
+          format: string;
+          time_zone: string;
+        }
+      >;
+    }
+  | { term: Record<string, string | number> }
+  | { exists: { field: string } }
+  | { bool: BoolQuery };
+
+type BoolQuery = {
+  must?: QueryCondition[]; // 반드시 만족해야 하는 조건들
+  should?: QueryCondition[]; // 하나 이상 만족하면 점수를 증가시키는 조건들
+  must_not?: QueryCondition[]; // 만족하지 않아야 하는 조건들
+  filter?: QueryCondition[]; // 점수에 영향을 미치지 않고 필터링하는 조건들
+};
+
+interface SearchBody {
+  size: number;
+  query: { bool: BoolQuery };
+  sort?: Record<string, { order: 'asc' | 'desc' }>[];
+  search_after?: [string | number | null];
 }
 
-interface CountResult {
-  took: number;
-  timed_out: boolean;
-  _shards: {
-    total: number;
-    successful: number;
-    skipped: number;
-    failed: number;
+async function searchOpenSearch(searchBody: SearchBody) {
+  const options = {
+    hostname: env.OPENSEARCH_URL.replace('https://', ''),
+    port: env.OPENSEARCH_PORT,
+    path: '/logstash-logs-*/_search',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization:
+        'Basic ' +
+        Buffer.from(
+          `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
+        ).toString('base64'),
+    },
+    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+    rejectUnauthorized: true,
   };
-  hits: {
-    total: {
-      value: number;
-      relation: string;
-    };
-    max_score: null | number;
-    hits: string[]; // 실제 데이터는 빈 배열로 반환되므로 이 부분은 any[]로 설정
-  };
-  aggregations: {
-    totalCount: {
-      value: number;
-    };
-  };
-}
 
-async function searchOpenSearchWithSQL(
-  sqlQuery: string,
-  responseFormat: string = 'json',
-  scroll: string = '1m' // 기본 scroll 시간을 1분으로 설정
-) {
   return new Promise((resolve, reject) => {
-    const options = {
-      hostname: env.OPENSEARCH_URL.replace('https://', ''),
-      port: env.OPENSEARCH_PORT,
-      path: `/_plugins/_sql?format=${responseFormat}`,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization:
-          'Basic ' +
-          Buffer.from(
-            `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
-          ).toString('base64'),
-      },
-      ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
-      rejectUnauthorized: true,
-    };
-
     const req = https.request(options, (res) => {
       let data = '';
 
@@ -81,110 +85,58 @@ async function searchOpenSearchWithSQL(
 
       res.on('end', () => {
         try {
-          const parsedData =
-            responseFormat === 'json' ? JSON.parse(data) : data;
-
-          // scroll_id와 데이터 반환
-          if (parsedData?.scroll_id) {
-            resolve({
-              scrollId: parsedData.scroll_id,
-              data: parsedData,
-            });
+          const parsedData = JSON.parse(data);
+          if (parsedData.error) {
+            console.error('OpenSearch Error:', parsedData.error);
+            reject(parsedData.error);
           } else {
-            resolve(parsedData); // 마지막 페이지면 데이터를 반환
+            resolve(parsedData);
           }
-        } catch (error: unknown) {
-          if (error instanceof Error) {
-            reject(new Error('Failed to parse the response: ' + error.message));
-          } else {
-            reject(new Error('An unknown error occurred'));
-          }
+        } catch (e) {
+          console.error('Invalid JSON response:', data);
+          reject(e);
         }
       });
     });
 
     req.on('error', (error) => {
+      console.error('HTTPS request error:', error);
       reject(error);
     });
 
-    const requestBody = {
-      query: sqlQuery,
-      scroll: scroll, // scroll 시간 설정
-    };
-
-    req.write(JSON.stringify(requestBody));
+    req.write(JSON.stringify(searchBody));
     req.end();
   });
 }
 
-async function getNextPageWithScroll(
-  scrollId: string,
-  scroll: string = '10m'
-): Promise<SearchResult> {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: env.OPENSEARCH_URL.replace('https://', ''),
-      port: env.OPENSEARCH_PORT,
-      path: '/_search/scroll=10m',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization:
-          'Basic ' +
-          Buffer.from(
-            `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
-          ).toString('base64'),
+function parseSearchTerm(searchTerm: string): QueryCondition[] {
+  const regex = /(\w+)\s*(=|!=)\s*([^\s]+)(?:\s+(AND|OR))?/g;
+  const conditions: QueryCondition[] = [];
+  let match;
+
+  console.log(searchTerm);
+  while ((match = regex.exec(searchTerm)) !== null) {
+    const [_, field, operator, value] = match;
+
+    console.log('1 :', _, '2 :', field, '3 :', operator, '4 :', value);
+
+    const condition: QueryCondition = {
+      match: {
+        [field?.trim() ?? '']: value?.trim() ?? '',
       },
-      ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
-      rejectUnauthorized: true,
     };
 
-    const req = https.request(options, (res) => {
-      let data = '';
-
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
-        try {
-          const parsedData: SearchResult = JSON.parse(data);
-          resolve(parsedData);
-        } catch (error: unknown) {
-          if (error instanceof Error) {
-            reject(new Error('Failed to parse the response: ' + error.message));
-          } else {
-            reject(new Error('An unknown error occurred'));
-          }
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    const requestBody = {
-      scroll: scroll, // scroll 시간 설정
-      scroll_id: scrollId, // 이전에 받은 scroll_id 사용
-    };
-
-    console.log('requestBody : ', requestBody);
-    req.write(JSON.stringify(requestBody));
-    req.end();
-  });
+    if (operator === '!=') {
+      conditions.push({ bool: { must_not: [condition] } });
+    } else {
+      conditions.push({ bool: { should: [condition] } }); // 배열로 변경
+    }
+  }
+  return conditions;
 }
 
 export const projectsRouter = createTRPCRouter({
   getAll: protectedProcedure({ authorizations: ['ADMIN'] })
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/projects',
-        protect: true,
-        tags: ['projects'],
-      },
-    })
     .input(
       zPaloLogsParams().extend({
         menu: z.enum(['TRAFFIC', 'THREAT', 'SYSLOG']).optional(),
@@ -201,61 +153,70 @@ export const projectsRouter = createTRPCRouter({
       })
     )
     .query(async ({ input }) => {
-      const currentPage = input.currentPage || 1;
-      const limit = input.limit;
-      const offset = (currentPage - 1) * input.limit;
+      const logsArray: zLogs[] = [];
+      const size = input.limit;
 
-      const sqlQuery = `
-        SELECT *
-        FROM logstash-logs-*
-        LIMIT ${limit} OFFSET ${offset}
-      `;
+      const searchBody: SearchBody = {
+        size,
+        query: {
+          bool: {
+            must: [
+              {
+                range: {
+                  '@timestamp': {
+                    gte: input.timeFrom,
+                    lte: input.timeTo,
+                    format: 'yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis',
+                    time_zone: '+09:00',
+                  },
+                },
+              },
+              {
+                bool: {
+                  should: [
+                    {
+                      match: {
+                        logType: input.menu ?? 'TRAFFIC',
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+        sort: [{ '@timestamp': { order: 'desc' } }],
+      };
 
-      const countQuery = `
-        SELECT COUNT(*) as totalCount
-        FROM logstash-logs-*
-      `;
-
-      console.log('SQL Query:', sqlQuery);
-      console.log('Count Query:', countQuery);
-
+      if (input.searchTerm) {
+        const conditions = parseSearchTerm(input.searchTerm);
+        searchBody.query.bool.must?.push(...conditions);
+      }
       try {
-        // 비동기 작업을 await로 처리
-        const [data, countData] = await Promise.all([
-          searchOpenSearchWithSQL(sqlQuery, 'json') as Promise<SearchResult>,
-          searchOpenSearchWithSQL(countQuery, 'json') as Promise<CountResult>,
-        ]);
+        const response = (await searchOpenSearch(
+          searchBody
+        )) as OpenSearchResponse;
+        if (!response?.hits) throw new Error('Invalid OpenSearch response');
 
-        // 처음 받은 scroll_id를 기반으로 더 많은 데이터를 요청할 수 있도록 추가 처리
+        const totalCnt = response.hits.total.value || 0;
+        const pageLength = Math.ceil(totalCnt / size);
 
-        console.log('logsArray : ', data);
-        let logsArray = data.hits.hits.map((hit) => hit._source);
-        const totalCnt = countData.aggregations.totalCount.value;
-
-        // 페이지네이션 처리
-        const pageLength =
-          totalCnt === 0 ? 1 : Math.ceil(totalCnt / input.limit);
-
-        // scroll_id가 있을 경우, 추가 페이지 요청
-        if (data.scrollId) {
-          const nextPageData = await getNextPageWithScroll(data.scrollId);
-          logsArray = [
-            ...logsArray,
-            ...nextPageData.hits.hits.map((hit) => hit._source),
-          ];
-        }
+        logsArray.push(
+          ...response.hits.hits.map((hit) => ({
+            ...columnNames.reduce(
+              (acc, col) => ({ ...acc, [col]: hit._source?.[col] || null }),
+              {}
+            ),
+          }))
+        );
 
         return {
           logs: logsArray,
-          pagination: {
-            currentPage,
-            pageLength,
-            totalCnt,
-          },
+          pagination: { currentPage: input.currentPage, pageLength, totalCnt },
         };
       } catch (error) {
-        console.error('Error:', error);
-        throw error; // 에러를 다시 던져서 클라이언트에서 처리하게 함
+        console.error('Error querying OpenSearch:', error);
+        throw new Error('Failed to fetch data');
       }
     }),
 });

@@ -476,7 +476,7 @@ curl -X GET "https://localhost:9200/logstash-logs-*/_search?pretty" \
 }' -u admin:admin -k
 
 # 테스트 실행 명령어
-docker remove -f logstash1; docker remove -f logstash2; docker remove -f logstash3; docker remove -f logstash4; docker remove -f logstash5; docker remove -f opensearch; pnpm dk:init;
+docker remove -f logstash; docker remove -f opensearch; pnpm dk:init;
 
 # 보안 인증서 복사
 docker cp opensearch:/usr/share/opensearch/config/root-ca.pem ./ca-cert.pem
