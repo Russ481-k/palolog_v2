@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import * as fs from 'fs';
 import * as https from 'https';
 import { z } from 'zod';
@@ -24,6 +25,7 @@ type OpenSearchResponse = {
     };
     hits: OpenSearchHit[];
   };
+  _scroll_id: string;
 };
 
 type QueryCondition =
@@ -41,27 +43,34 @@ type QueryCondition =
     }
   | { term: Record<string, string | number> }
   | { exists: { field: string } }
-  | { bool: BoolQuery };
+  | BoolQueryCondition;
 
-type BoolQuery = {
-  must?: QueryCondition[]; // 반드시 만족해야 하는 조건들
-  should?: QueryCondition[]; // 하나 이상 만족하면 점수를 증가시키는 조건들
-  must_not?: QueryCondition[]; // 만족하지 않아야 하는 조건들
-  filter?: QueryCondition[]; // 점수에 영향을 미치지 않고 필터링하는 조건들
-};
+interface BoolQueryCondition {
+  bool: BoolQuery;
+}
+
+interface BoolQuery {
+  must?: QueryCondition[];
+  should?: QueryCondition[];
+  must_not?: QueryCondition[];
+  filter?: QueryCondition[];
+}
 
 interface SearchBody {
-  size: number;
-  query: { bool: BoolQuery };
+  size?: number;
+  slice?: {
+    id: string;
+    max: number;
+  };
+  query: { bool?: BoolQuery; match_all?: object };
   sort?: Record<string, { order: 'asc' | 'desc' }>[];
   search_after?: [string | number | null];
 }
-
-async function searchOpenSearch(searchBody: SearchBody) {
+async function searchOpenSearchWithScroll(searchBody: SearchBody) {
   const options = {
     hostname: env.OPENSEARCH_URL.replace('https://', ''),
     port: env.OPENSEARCH_PORT,
-    path: '/logstash-logs-*/_search',
+    path: '/logstash-logs-*/_search?scroll=10m',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -83,14 +92,23 @@ async function searchOpenSearch(searchBody: SearchBody) {
         data += chunk;
       });
 
-      res.on('end', () => {
+      res.on('end', async () => {
         try {
           const parsedData = JSON.parse(data);
           if (parsedData.error) {
             console.error('OpenSearch Error:', parsedData.error);
             reject(parsedData.error);
+          } else if (!parsedData._scroll_id) {
+            reject(new Error('Scroll ID is missing from the response'));
           } else {
-            resolve(parsedData);
+            // Handle scroll API
+            try {
+              const scrollResponse = await handleScroll(parsedData._scroll_id);
+              resolve({ initialResponse: parsedData, scrollResponse });
+            } catch (scrollError) {
+              console.error('Scroll API Error:', scrollError);
+              reject(scrollError);
+            }
           }
         } catch (e) {
           console.error('Invalid JSON response:', data);
@@ -109,16 +127,71 @@ async function searchOpenSearch(searchBody: SearchBody) {
   });
 }
 
+async function handleScroll(scrollId: string) {
+  const options = {
+    hostname: env.OPENSEARCH_URL.replace('https://', ''),
+    port: env.OPENSEARCH_PORT,
+    path: '/_search/scroll',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization:
+        'Basic ' +
+        Buffer.from(
+          `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
+        ).toString('base64'),
+    },
+    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+    rejectUnauthorized: true,
+  };
+
+  const scrollBody = {
+    scroll: '10m',
+    scroll_id: scrollId,
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        try {
+          const parsedData = JSON.parse(data);
+          if (parsedData.error) {
+            console.error('OpenSearch Scroll Error:', parsedData.error);
+            reject(parsedData.error);
+          } else {
+            resolve(parsedData);
+          }
+        } catch (e) {
+          console.error('Invalid JSON response:', data);
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      console.error('HTTPS request error:', error);
+      reject(error);
+    });
+
+    req.write(JSON.stringify(scrollBody));
+    req.end();
+  });
+}
 function parseSearchTerm(searchTerm: string): QueryCondition[] {
-  const regex = /(\w+)\s*(=|!=)\s*([^\s]+)(?:\s+(AND|OR))?/g;
+  const regex = /(\w+)\s*(==|!=|=)\s*(['"])(.*?)\3(?:\s+(AND|OR))?/g;
   const conditions: QueryCondition[] = [];
   let match;
+  let currentCondition: BoolQueryCondition | null = null;
+  let isFirstCondition = true;
 
-  console.log(searchTerm);
   while ((match = regex.exec(searchTerm)) !== null) {
-    const [_, field, operator, value] = match;
-
-    console.log('1 :', _, '2 :', field, '3 :', operator, '4 :', value);
+    const [, field, operator, , value, logicalOperator] = match;
 
     const condition: QueryCondition = {
       match: {
@@ -126,12 +199,30 @@ function parseSearchTerm(searchTerm: string): QueryCondition[] {
       },
     };
 
-    if (operator === '!=') {
-      conditions.push({ bool: { must_not: [condition] } });
+    if (isFirstCondition) {
+      // Handle the first condition based on logical operator
+      const boolQuery: BoolQuery = {};
+
+      if (logicalOperator === 'OR') {
+        boolQuery.should = [condition];
+      } else {
+        boolQuery[operator === '!=' ? 'must_not' : 'must'] = [condition];
+      }
+
+      conditions.push({ bool: boolQuery });
+      isFirstCondition = false;
     } else {
-      conditions.push({ bool: { should: [condition] } }); // 배열로 변경
+      // For subsequent conditions, add based on the logical operator
+      if (logicalOperator === 'AND') {
+        currentCondition!.bool.must?.push(condition);
+      } else if (logicalOperator === 'OR') {
+        currentCondition!.bool.should?.push(condition);
+      }
     }
+
+    currentCondition = conditions[conditions.length - 1] as BoolQueryCondition;
   }
+
   return conditions;
 }
 
@@ -155,18 +246,20 @@ export const projectsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const logsArray: zLogs[] = [];
       const size = input.limit;
+      const formattedTimeFrom = dayjs(input.timeFrom).toISOString();
+      const formattedTimeTo = dayjs(input.timeTo).toISOString();
 
       const searchBody: SearchBody = {
-        size,
+        size, // 페이지당 데이터 수
         query: {
           bool: {
             must: [
               {
                 range: {
                   '@timestamp': {
-                    gte: input.timeFrom,
-                    lte: input.timeTo,
-                    format: 'yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis',
+                    gte: formattedTimeFrom,
+                    lte: formattedTimeTo,
+                    format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
                     time_zone: '+09:00',
                   },
                 },
@@ -190,19 +283,28 @@ export const projectsRouter = createTRPCRouter({
 
       if (input.searchTerm) {
         const conditions = parseSearchTerm(input.searchTerm);
-        searchBody.query.bool.must?.push(...conditions);
+        searchBody.query.bool?.must?.push(...conditions);
       }
-      try {
-        const response = (await searchOpenSearch(
-          searchBody
-        )) as OpenSearchResponse;
-        if (!response?.hits) throw new Error('Invalid OpenSearch response');
 
-        const totalCnt = response.hits.total.value || 0;
+      try {
+        const { initialResponse, scrollResponse } =
+          (await searchOpenSearchWithScroll(searchBody)) as {
+            initialResponse: OpenSearchResponse;
+            scrollResponse: OpenSearchResponse;
+          };
+
+        const totalCnt = initialResponse.hits.total.value || 0;
         const pageLength = Math.ceil(totalCnt / size);
 
+        // 스크롤된 데이터를 매핑하여 logsArray에 추가
         logsArray.push(
-          ...response.hits.hits.map((hit) => ({
+          ...initialResponse.hits.hits.map((hit) => ({
+            ...columnNames.reduce(
+              (acc, col) => ({ ...acc, [col]: hit._source?.[col] || null }),
+              {}
+            ),
+          })),
+          ...scrollResponse.hits.hits.map((hit) => ({
             ...columnNames.reduce(
               (acc, col) => ({ ...acc, [col]: hit._source?.[col] || null }),
               {}
