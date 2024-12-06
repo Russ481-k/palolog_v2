@@ -31,7 +31,7 @@ Node.js를 설치한 후, 최신 npm과 pnpm 패키지를 설치합니다.
 
 ```bash
 npm install -g npm@10.8.2
-npm install -g @pnpm/ex
+npm install -g pnpm
 
 ```
 
