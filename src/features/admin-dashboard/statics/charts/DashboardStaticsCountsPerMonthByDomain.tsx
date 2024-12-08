@@ -13,7 +13,6 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
   data: { time: string; total: number }[];
 }) => {
   const { colorMode } = useColorMode();
-  console.log('data : ', data);
   const countsPerDay = useMemo<AgChartOptions>(
     () => ({
       title: {
@@ -58,7 +57,8 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
       ],
       height: 260,
     }),
-    [data]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, colorMode]
   );
 
   return (

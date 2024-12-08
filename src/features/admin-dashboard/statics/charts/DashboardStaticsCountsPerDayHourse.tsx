@@ -57,7 +57,8 @@ export const DashboardStaticsCountsPerDayHourse = ({
       ],
       height: 260,
     }),
-    [data]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, colorMode]
   );
 
   return (
