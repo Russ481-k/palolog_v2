@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Box, Flex, GridItem, Text, useColorMode } from '@chakra-ui/react';
+import { Box, GridItem, Text, useColorMode } from '@chakra-ui/react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 

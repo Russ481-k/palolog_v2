@@ -27,7 +27,6 @@ export const DashboardStatics = () => {
   const logsPerSecond = getLogMetrics.data?.logs_per_second;
   const logsPerDay = getLogMetrics.data?.logs_per_day;
 
-  console.log('getChartMetrics : ', getChartMetrics);
   return (
     <Grid
       height="80vh"
@@ -48,10 +47,18 @@ export const DashboardStatics = () => {
       <DaemonStatusCard
         daemonStatus={daemonStatus || { dbms: 'inactive', parser: 'inactive' }}
       />
-      <DashboardStaticsCountsPerDayHourse />
-      <DashboardStaticsCountsPer10Days />
-      <DashboardStaticsCountsPerMonth />
-      <DashboardStaticsCountsPerMonthByDomain />
+      <DashboardStaticsCountsPerDayHourse
+        data={getChartMetrics.data?.hourly_totals ?? []}
+      />
+      <DashboardStaticsCountsPer10Days
+        data={getChartMetrics.data?.last_10_days_daily_totals ?? []}
+      />
+      <DashboardStaticsCountsPerMonth
+        data={getChartMetrics.data?.monthly_totals ?? []}
+      />
+      <DashboardStaticsCountsPerMonthByDomain
+        data={getChartMetrics.data?.domain_monthly_totals ?? []}
+      />
       <Text
         fontSize="xs"
         gridColumn="1/-1"

@@ -1,14 +1,17 @@
 import React, { useMemo } from 'react';
 
 import { GridItem, useColorMode } from '@chakra-ui/react';
-import { AgChartOptions, AgLineSeriesOptions } from 'ag-charts-community';
+import { AgBarSeriesOptions, AgChartOptions } from 'ag-charts-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
 import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
-import { trpc } from '@/lib/trpc/client';
 
-export const DashboardStaticsCountsPer10Days = () => {
+export const DashboardStaticsCountsPer10Days = ({
+  data,
+}: {
+  data: { time: string; total: number; countsPerDay: number }[];
+}) => {
   const { colorMode } = useColorMode();
 
   const countsPerDay = useMemo<AgChartOptions>(
@@ -16,26 +19,17 @@ export const DashboardStaticsCountsPer10Days = () => {
       title: {
         text: '10일간 로그 총 수집량',
       },
-      data: [],
+      data: data,
       series: [
         {
-          type: 'line',
+          type: 'bar',
           xKey: 'time',
           yKey: 'total',
           yName: 'Total',
           marker: {
             enabled: false,
           },
-        } as AgLineSeriesOptions,
-        {
-          type: 'line',
-          xKey: 'time',
-          yKey: 'countsPerDay',
-          yName: 'Counts Per Day',
-          marker: {
-            enabled: false,
-          },
-        } as AgLineSeriesOptions,
+        } as AgBarSeriesOptions,
       ],
       axes: [
         {
@@ -46,7 +40,7 @@ export const DashboardStaticsCountsPer10Days = () => {
           position: 'left',
           type: 'number',
           label: {
-            format: '#{.0f} M',
+            format: '#{.0f} 건',
           },
           keys: ['total'],
           title: {
@@ -56,15 +50,15 @@ export const DashboardStaticsCountsPer10Days = () => {
         {
           position: 'right',
           type: 'number',
-          keys: ['countsPerDay'],
+          keys: ['countsPer10Days'],
           title: {
-            text: 'Counts Per Day',
+            text: 'Counts Per 10 Days',
           },
         },
       ],
-      height: 320,
+      height: 260,
     }),
-    []
+    [data]
   );
 
   return (
@@ -76,11 +70,11 @@ export const DashboardStaticsCountsPer10Days = () => {
       colSpan={3}
       overflow="hidden"
       height={{
-        base: '320px',
-        sm: '320px',
-        md: '320px',
-        lg: '320px',
-        xl: '320px',
+        base: '260px',
+        sm: '260px',
+        md: '260px',
+        lg: '260px',
+        xl: '260px',
       }}
     >
       <AgChartsThemeChanged colorMode={colorMode} options={countsPerDay} />

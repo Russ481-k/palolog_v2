@@ -14,28 +14,6 @@ import { env } from '@/env.mjs';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
 export const prisma = new PrismaClient();
-interface OpenSearchAggregations {
-  aggregations: {
-    logs_per_second: {
-      buckets: Array<{
-        key_as_string: string;
-        doc_count: number;
-      }>;
-    };
-    daily_total: {
-      buckets: Array<{
-        key_as_string: string;
-        doc_count: number;
-      }>;
-    };
-    domain_distribution: {
-      buckets: Array<{
-        key: string;
-        doc_count: number;
-      }>;
-    };
-  };
-}
 
 interface OpenSearchHitsResponse {
   hits: {
@@ -183,11 +161,63 @@ async function getLogCountFromOpenSearch() {
     0
   );
 }
+async function deleteOldestLogCounts() {
+  const oldestIndex = await getOldestIndexName();
+  if (oldestIndex) {
+    await deleteIndex(oldestIndex);
+    console.log(`Deleted index ${oldestIndex}`);
+  }
+}
 
-// 1분마다 도메인별 로그 수집
+async function getOldestIndexName(): Promise<string | undefined> {
+  const indices = await listIndices();
+  return indices.sort((a, b) => dayjs(a).unix() - dayjs(b).unix())[0];
+}
+
+async function listIndices(): Promise<string[]> {
+  const response = await fetch('https://localhost:9200/_cat/indices?v&pretty', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
+    },
+  });
+  const data = await response.json();
+  return data.map((index: { index: string }) => index.index);
+}
+
+async function deleteIndex(indexName: string) {
+  const response = await fetch(`https://localhost:9200/${indexName}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to delete index ${indexName}`);
+  }
+}
+
+// 디스크 용량 체크 및 데이터 삭제 로직 추가
+async function checkDiskUsageAndDeleteOldLogs() {
+  let diskUsage = await getDiskUsage();
+
+  if (diskUsage >= 80) {
+    console.log('Disk usage is above 80%. Deleting old log counts...');
+    while (diskUsage >= 70) {
+      await deleteOldestLogCounts();
+      diskUsage = await getDiskUsage();
+    }
+    console.log('Disk usage is now below 70%.');
+  }
+}
+
+// 1분마다 도메인별 로그 수�� 및 디스크 용량 체크
 setInterval(async () => {
   try {
     await getLogCountFromOpenSearch();
+    await checkDiskUsageAndDeleteOldLogs(); // 디스크 용량 체크 및 데이터 삭제 호출
   } catch (error) {
     console.error('Error collecting log counts:', error);
   }
@@ -270,10 +300,10 @@ export const dashboardRouter = createTRPCRouter({
     )
     .query(async () => {
       const now = dayjs();
-      const oneSecondAgo = now.subtract(1, 'second');
+      const oneSecondAgo = now.subtract(10, 'second');
 
       const logsPerSecondQuery = {
-        size: 0,
+        size: 10,
         query: {
           range: {
             '@timestamp': {
@@ -288,7 +318,9 @@ export const dashboardRouter = createTRPCRouter({
         logsPerSecondQuery,
         now.format('YYYY.MM.DD')
       )) as OpenSearchHitsResponse;
-      const logsPerSecond = logsPerSecondResult?.hits.total.value / 1;
+      const logsPerSecond = Math.round(
+        logsPerSecondResult?.hits.total.value / 10
+      );
 
       const logsPerDay = await new Promise<number>((resolve) => {
         const command = `curl -X GET "https://localhost:9200/logstash-logs-$(date +%Y.%m.%d)/_count" -u "admin:admin" --insecure`;
@@ -305,7 +337,6 @@ export const dashboardRouter = createTRPCRouter({
           }
         });
       });
-      console.log({ logs_per_second: logsPerSecond, logs_per_day: logsPerDay });
       return { logs_per_second: logsPerSecond, logs_per_day: logsPerDay };
     }),
 
@@ -313,16 +344,20 @@ export const dashboardRouter = createTRPCRouter({
     .output(
       z.object({
         hourly_totals: z.array(
-          z.object({ hour: z.string(), count: z.number() })
+          z.object({ time: z.string(), total: z.number() })
         ),
         last_10_days_daily_totals: z.array(
-          z.object({ date: z.string(), count: z.number() })
+          z.object({
+            time: z.string(),
+            total: z.number(),
+            countsPerDay: z.number(),
+          })
         ),
         monthly_totals: z.array(
-          z.object({ date: z.string(), count: z.number() })
+          z.object({ time: z.string(), total: z.number() })
         ),
         domain_monthly_totals: z.array(
-          z.object({ date: z.string(), count: z.number() })
+          z.object({ time: z.string(), total: z.number() })
         ),
       })
     )
@@ -339,26 +374,32 @@ export const dashboardRouter = createTRPCRouter({
             gte: last24HoursStart, // Use Date object
           },
         },
+        orderBy: {
+          timestamp: 'asc',
+        },
       });
 
-      // Calculate hourly totals
+      // Calculate hourly totals in chronological order
       const hourlyTotals = logsLast24Hours.reduce(
         (acc, log) => {
           const hour = dayjs(log.timestamp)
             .tz('Asia/Seoul')
             .format('YYYY-MM-DD HH:00'); // Format to hour in KST
-          acc[hour] = (acc[hour] || 0) + 1; // Increment count
+          if (!acc[hour]) {
+            acc[hour] = 0; // Initialize count if not present
+          }
+          acc[hour] += 1; // Increment count
           return acc;
         },
         {} as Record<string, number>
       );
-      // Convert to array format
-      const hourlyMetrics = Object.entries(hourlyTotals).map(
-        ([hour, count]) => ({
+      // Convert to array format in chronological order
+      const hourlyMetrics = Object.entries(hourlyTotals)
+        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+        .map(([hour, count]) => ({
           hour,
           count,
-        })
-      );
+        }));
 
       // Fetch daily totals for the last 10 days
       const last10DaysDailyTotals = await prisma.logCount.findMany({
@@ -380,13 +421,12 @@ export const dashboardRouter = createTRPCRouter({
         },
         {} as Record<string, number>
       );
-
-      const last10DaysDailyMetrics = Object.entries(dailyCounts).map(
-        ([date, count]) => ({
+      const last10DaysDailyMetrics = Object.entries(dailyCounts)
+        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+        .map(([date, count]) => ({
           date,
           count,
-        })
-      );
+        }));
 
       // Fetch monthly totals
       const monthlyTotals = await prisma.logCount.findMany({
@@ -406,12 +446,12 @@ export const dashboardRouter = createTRPCRouter({
         {} as Record<string, number>
       );
 
-      const monthlyMetrics = Object.entries(monthlyCounts).map(
-        ([date, count]) => ({
+      const monthlyMetrics = Object.entries(monthlyCounts)
+        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+        .map(([date, count]) => ({
           date,
           count,
-        })
-      );
+        }));
 
       // Fetch domain distribution
       const domainDistribution = await prisma.logCount.findMany({
@@ -430,18 +470,31 @@ export const dashboardRouter = createTRPCRouter({
         },
         {} as Record<string, number>
       );
-      const domainMetrics = Object.entries(domainCount).map(
-        ([date, count]) => ({
+      const domainMetrics = Object.entries(domainCount)
+        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+        .map(([date, count]) => ({
           date,
           count,
-        })
-      );
+        }));
 
       return {
-        hourly_totals: hourlyMetrics,
-        last_10_days_daily_totals: last10DaysDailyMetrics,
-        monthly_totals: monthlyMetrics,
-        domain_monthly_totals: domainMetrics,
+        hourly_totals: hourlyMetrics.map((metric) => ({
+          time: metric.hour,
+          total: metric.count,
+        })),
+        last_10_days_daily_totals: last10DaysDailyMetrics.map((metric) => ({
+          time: metric.date,
+          total: metric.count,
+          countsPerDay: metric.count,
+        })),
+        monthly_totals: monthlyMetrics.map((metric) => ({
+          time: metric.date,
+          total: metric.count,
+        })),
+        domain_monthly_totals: domainMetrics.map((metric) => ({
+          time: metric.date,
+          total: metric.count,
+        })),
       };
     }),
 });
