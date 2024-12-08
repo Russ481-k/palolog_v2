@@ -6,21 +6,13 @@ import { AgCharts } from 'ag-charts-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
+import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
 import { trpc } from '@/lib/trpc/client';
 
 export const DashboardStaticsThreatLogData = () => {
-  const getThreatLogData = trpc.dashboard.getThreatLogData.useInfiniteQuery({});
+  // const getThreatLogData = trpc.dashboard.getThreatLogData.useInfiniteQuery({});
 
   const { colorMode } = useColorMode();
-
-  const AgChartsThemeChanged = ({ options }: { options: AgChartOptions }) => {
-    if (colorMode === 'light') {
-      options.theme = 'ag-polychroma';
-    } else if (colorMode === 'dark') {
-      options.theme = 'ag-polychroma-dark';
-    }
-    return <AgCharts options={options} />;
-  };
 
   const threatLogData = useMemo<AgChartOptions>(
     () => ({
@@ -34,7 +26,7 @@ export const DashboardStaticsThreatLogData = () => {
         text: 'Top Categories',
       },
       // Data: Data to be displayed in the chart
-      data: getThreatLogData.data?.pages[0]?.pop(),
+      data: [],
       // Series: Defines which chart type and data to use
       series: [
         {
@@ -50,14 +42,14 @@ export const DashboardStaticsThreatLogData = () => {
           fontWeight: 'bold',
         },
         {
-          text: String(getThreatLogData.data?.pages[0]?.pop()),
+          text: String(2),
           spacing: 4,
           fontSize: 42,
         },
       ],
       height: 400,
     }),
-    [getThreatLogData]
+    []
   );
 
   return (
@@ -75,7 +67,7 @@ export const DashboardStaticsThreatLogData = () => {
         xl: '400px',
       }}
     >
-      <AgChartsThemeChanged options={threatLogData} />
+      <AgChartsThemeChanged colorMode={colorMode} options={threatLogData} />
     </GridItem>
   );
 };

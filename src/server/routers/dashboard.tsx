@@ -1,308 +1,447 @@
+import { PrismaClient } from '@prisma/client';
+import { TRPCError } from '@trpc/server';
+import { exec } from 'child_process';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import fs from 'fs';
 import https from 'https';
 import { NextResponse } from 'next/server';
-import fetch from 'node-fetch';
 import os from 'os';
 import { z } from 'zod';
 
 import { env } from '@/env.mjs';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
-const cpuUsageBuffer: Array<{
-  time: string;
-  total_usage: number;
-  core_1: number;
-  core_2: number;
-  core_3: number;
-  core_4: number;
-  core_5: number;
-  core_6: number;
-}> = [];
-const memoryUsageBuffer: Array<{ time: string; usagePercentage: number }> = [];
-const diskUsageBuffer: Array<{ time: string; usagePercentage: number }> = [];
-const threatCountBuffer: Array<{ severity: string; amount: number }[]> = [];
-const recent20Rows: Array<{
-  receiveTime: number;
-  deviceName: string;
-  serial: string;
-  description: string;
-}> = [];
-const critical7Days: Array<{
-  receiveTime: number;
-  deviceName: string;
-  serial: string;
-  description: string;
-}> = [];
-const collectionsCountPerSecBuffer: Array<{
-  time: string;
-  countsPerSec: number;
-  total: number;
-}> = [];
-const collectionsCountPerDayBuffer: Array<{
-  time: string;
-  countsPerDay: number;
-}> = [];
+export const prisma = new PrismaClient();
+interface OpenSearchAggregations {
+  aggregations: {
+    logs_per_second: {
+      buckets: Array<{
+        key_as_string: string;
+        doc_count: number;
+      }>;
+    };
+    daily_total: {
+      buckets: Array<{
+        key_as_string: string;
+        doc_count: number;
+      }>;
+    };
+    domain_distribution: {
+      buckets: Array<{
+        key: string;
+        doc_count: number;
+      }>;
+    };
+  };
+}
 
-// async function fetchOpenSearch(index: string, query: Record<string, unknown>) {
-//   const response = await fetch(`${env.OPENSEARCH_URL}/${index}/_search`, {
-//     method: 'POST',
-//     headers: {
-//       'Content-Type': 'application/json',
-//     },
-//     body: JSON.stringify(query),
-//     agent: new https.Agent({
-//       rejectUnauthorized: false,
-//     }),
-//   });
+interface OpenSearchHitsResponse {
+  hits: {
+    total: {
+      value: number;
+    };
+  };
+}
 
-//   if (!response.ok) {
-//     throw new Error(`Failed to fetch data from OpenSearch: ${response.status}`);
-//   }
-//   return response.json();
-// }
+async function queryOpenSearch(
+  query: Record<string, unknown>,
+  date: string = '*'
+) {
+  const options = {
+    hostname: env.OPENSEARCH_URL.replace('https://', ''),
+    port: env.OPENSEARCH_PORT,
+    path: `/logstash-logs-${date}/_search`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization:
+        'Basic ' +
+        Buffer.from(
+          `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
+        ).toString('base64'),
+    },
+    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+    rejectUnauthorized: true,
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(JSON.stringify(query));
+    req.end();
+  });
+}
+
+async function getDiskUsage(): Promise<number> {
+  return new Promise((resolve) => {
+    exec(
+      "df -h / | tail -1 | awk '{print $5}' | cut -d'%' -f1",
+      (_, stdout) => {
+        resolve(Number(stdout.trim()) || 0);
+      }
+    );
+  });
+}
+
+async function checkDaemonStatus(): Promise<{
+  dbms: 'active' | 'inactive';
+  parser: 'active' | 'inactive';
+}> {
+  return new Promise((resolve) => {
+    exec(
+      "docker inspect opensearch | jq '.[0].State.Health.Status'",
+      (_, stdout) => {
+        const dbmsActive =
+          stdout.trim() === `"healthy"` ? 'active' : 'inactive';
+        exec(
+          "docker inspect logstash | jq '.[0].State.Status'",
+          (_, stdout) => {
+            const parserActive =
+              stdout.trim() === `"running"` ? 'active' : 'inactive';
+            resolve({ dbms: dbmsActive, parser: parserActive });
+          }
+        );
+      }
+    );
+  });
+}
+
+async function getLogCountFromOpenSearch() {
+  const now = dayjs();
+  const oneMinuteAgo = now.subtract(1, 'minute');
+
+  const query = {
+    size: 0,
+    aggs: {
+      domains: {
+        terms: {
+          field: 'domain.keyword',
+          size: 50,
+        },
+        aggs: {
+          log_count: {
+            value_count: {
+              field: '@timestamp',
+            },
+          },
+        },
+      },
+    },
+    query: {
+      range: {
+        '@timestamp': {
+          gte: oneMinuteAgo.toISOString(),
+          lt: now.toISOString(),
+        },
+      },
+    },
+  };
+
+  const result = (await queryOpenSearch(query)) as {
+    aggregations: {
+      domains: {
+        buckets: Array<{
+          key: string;
+          doc_count: number;
+          log_count: { value: number };
+        }>;
+      };
+    };
+  };
+
+  // 각 도메인별로 로그 카운트 저장
+  for (const bucket of result.aggregations.domains.buckets) {
+    await prisma.logCount.create({
+      data: {
+        count: bucket.doc_count,
+        domain: bucket.key,
+        timestamp: now.toDate(),
+      },
+    });
+    console.log(
+      `Saved log count for domain ${bucket.key}: ${bucket.doc_count}`
+    );
+  }
+
+  return result.aggregations.domains.buckets.reduce(
+    (total, bucket) => total + bucket.doc_count,
+    0
+  );
+}
+
+// 1분마다 도메인별 로그 수집
+setInterval(async () => {
+  try {
+    await getLogCountFromOpenSearch();
+  } catch (error) {
+    console.error('Error collecting log counts:', error);
+  }
+}, 60 * 1000);
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Set the default timezone to KST
+dayjs.tz.setDefault('Asia/Seoul');
 
 export const dashboardRouter = createTRPCRouter({
-  getCpuUsage: protectedProcedure()
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/dashboard/cpu-usage',
-        protect: true,
-        tags: ['dashboard'],
-      },
-    })
-    .input(z.object({}))
-    .output(
-      z.array(
-        z.object({
-          time: z.string(),
-          core_1: z.number(),
-          core_2: z.number(),
-          core_3: z.number(),
-          core_4: z.number(),
-          core_5: z.number(),
-          core_6: z.number(),
-          total_usage: z.number(),
-        })
-      )
-    )
-    .query(async ({ ctx }) => {
-      ctx.logger.info('Getting CPU usage');
-      return (
-        cpuUsageBuffer ?? [
-          {
-            time: dayjs().format('HH:mm:ss'),
-            core_1: 0,
-            core_2: 0,
-            core_3: 0,
-            core_4: 0,
-            core_5: 0,
-            core_6: 0,
-            total_usage: 0,
-          },
-        ]
-      );
-    }),
-
-  getMemoryUsage: protectedProcedure()
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/dashboard/memory-usage',
-        protect: true,
-        tags: ['dashboard'],
-      },
-    })
-    .input(z.object({}))
-    .output(
-      z.array(
-        z.object({
-          time: z.string(),
-          usagePercentage: z.number(),
-        })
-      )
-    )
-    .query(async ({ ctx }) => {
-      ctx.logger.info('Getting memory usage');
-      return (
-        memoryUsageBuffer ?? [
-          {
-            time: '',
-            usagePercentage: 0,
-          },
-        ]
-      );
-    }),
-
-  getDiskUsage: protectedProcedure()
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/dashboard/disk-usage',
-        protect: true,
-        tags: ['dashboard'],
-      },
-    })
-    .input(z.object({}))
-    .output(
-      z.array(
-        z.object({
-          time: z.string(),
-          usagePercentage: z.number(),
-        })
-      )
-    )
-    .query(async ({ ctx }) => {
-      ctx.logger.info('Getting disk usage');
-      return (
-        diskUsageBuffer || [
-          {
-            time: '',
-            usagePercentage: 0,
-          },
-        ]
-      );
-    }),
-  getCountsPerSec: protectedProcedure()
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/dashboard/counts-per-sec',
-        protect: true,
-        tags: ['dashboard'],
-      },
-    })
-    .input(z.object({}))
-    .output(
-      z.array(
-        z.object({
-          time: z.string(),
-          countsPerSec: z.number(),
-          total: z.number(),
-        })
-      )
-    )
-    .query(async ({ ctx }) => {
-      ctx.logger.info('Getting counts per sec');
-      return (
-        collectionsCountPerSecBuffer || [
-          {
-            time: '',
-            countsPerSec: 0,
-            total: 0,
-          },
-        ]
-      );
-    }),
-
-  getCountsPerDay: protectedProcedure()
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/dashboard/counts-per-day',
-        protect: true,
-        tags: ['dashboard'],
-      },
-    })
-    .input(z.object({}))
-    .output(
-      z.array(
-        z.object({
-          time: z.string(),
-          countsPerDay: z.number(),
-        })
-      )
-    )
-    .query(async ({ ctx }) => {
-      ctx.logger.info('Getting counts per day');
-      return (
-        collectionsCountPerDayBuffer || [
-          {
-            time: '',
-            countsPerDay: 0,
-          },
-        ]
-      );
-    }),
-
-  getThreatLogData: protectedProcedure()
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/dashboard/threat-counts',
-        protect: true,
-        tags: ['dashboard'],
-      },
-    })
-    .input(z.object({}))
-    .output(
-      z.array(
-        z.array(
-          z.object({
-            severity: z.string(),
-            amount: z.number(),
-          })
-        )
-      )
-    )
-    .query(async ({ ctx }) => {
-      ctx.logger.info('Getting disk usage');
-      return (
-        threatCountBuffer || [
-          [
-            {
-              severity: 'low',
-              amount: 0,
-            },
-            {
-              severity: 'informational',
-              amount: 0,
-            },
-            {
-              severity: 'critical',
-              amount: 0,
-            },
-          ],
-        ]
-      );
-    }),
-
-  getSystemLog: protectedProcedure()
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/dashboard/system-log',
-        protect: true,
-        tags: ['dashboard'],
-      },
-    })
-    .input(z.object({}))
+  // 시스템 메트릭스 조회
+  getSystemMetrics: protectedProcedure()
     .output(
       z.object({
-        recent20Rows: z.array(
-          z.object({
-            receiveTime: z.number(),
-            deviceName: z.string(),
-            serial: z.string(),
-            description: z.string(),
-          })
+        cpu_usage: z.number(),
+        memory_usage: z.number(),
+        disk_usage: z.number(),
+        daemon_status: z.object({
+          dbms: z.enum(['active', 'inactive']),
+          parser: z.enum(['active', 'inactive']),
+        }),
+      })
+    )
+    .query(async () => {
+      const cpuUsage = os.loadavg()[0] ?? 0;
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const memoryUsage = ((totalMem - freeMem) / totalMem) * 100;
+      const diskUsage = await getDiskUsage(); // Function to get disk usage
+      const daemon_status = await checkDaemonStatus(); // Function to check daemon status
+
+      return {
+        cpu_usage: cpuUsage,
+        memory_usage: memoryUsage,
+        disk_usage: diskUsage,
+        daemon_status: daemon_status,
+      };
+    }),
+
+  // 로그 수를 수동으로 입력하는 TRPC 프로시저 추가
+  inputLogCount: protectedProcedure()
+    .input(
+      z.object({
+        logCount: z.number().min(0),
+        domain: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const now = dayjs().tz('Asia/Seoul'); // Get current time in KST
+      try {
+        await prisma.logCount.create({
+          data: {
+            count: input.logCount,
+            domain: input.domain,
+            timestamp: now.toDate(),
+          },
+        });
+        return {
+          success: true,
+          message: `Log count ${input.logCount} saved for domain ${input.domain}`,
+        };
+      } catch (error) {
+        console.error('Error saving log count:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to save log count.',
+        });
+      }
+    }),
+
+  // 로그 트릭스 조회
+  getLogMetrics: protectedProcedure()
+    .output(
+      z.object({
+        logs_per_second: z.number(),
+        logs_per_day: z.number(),
+      })
+    )
+    .query(async () => {
+      const now = dayjs();
+      const oneSecondAgo = now.subtract(1, 'second');
+
+      const logsPerSecondQuery = {
+        size: 0,
+        query: {
+          range: {
+            '@timestamp': {
+              gte: oneSecondAgo.toISOString(),
+              lte: now.toISOString(),
+            },
+          },
+        },
+      };
+
+      const logsPerSecondResult = (await queryOpenSearch(
+        logsPerSecondQuery,
+        now.format('YYYY.MM.DD')
+      )) as OpenSearchHitsResponse;
+      const logsPerSecond = logsPerSecondResult?.hits.total.value / 1;
+
+      const logsPerDay = await new Promise<number>((resolve) => {
+        const command = `curl -X GET "https://localhost:9200/logstash-logs-$(date +%Y.%m.%d)/_count" -u "admin:admin" --insecure`;
+        exec(command, (error, stdout) => {
+          if (error) {
+            resolve(0);
+            return;
+          }
+          try {
+            const result = JSON.parse(stdout);
+            resolve(result.count || 0);
+          } catch (e) {
+            resolve(0);
+          }
+        });
+      });
+      console.log({ logs_per_second: logsPerSecond, logs_per_day: logsPerDay });
+      return { logs_per_second: logsPerSecond, logs_per_day: logsPerDay };
+    }),
+
+  getChartMetrics: protectedProcedure()
+    .output(
+      z.object({
+        hourly_totals: z.array(
+          z.object({ hour: z.string(), count: z.number() })
         ),
-        critical7Days: z.array(
-          z.object({
-            receiveTime: z.number(),
-            deviceName: z.string(),
-            serial: z.string(),
-            description: z.string(),
-          })
+        last_10_days_daily_totals: z.array(
+          z.object({ date: z.string(), count: z.number() })
+        ),
+        monthly_totals: z.array(
+          z.object({ date: z.string(), count: z.number() })
+        ),
+        domain_monthly_totals: z.array(
+          z.object({ date: z.string(), count: z.number() })
         ),
       })
     )
-    .query(async ({ ctx }) => {
-      ctx.logger.info('Getting system log');
+    .query(async () => {
+      const now = dayjs().tz('Asia/Seoul'); // Get current time in KST
+      const monthStart = now.subtract(1, 'month').toDate();
+      const last10DaysStart = now.subtract(10, 'days').toDate();
+      const last24HoursStart = now.subtract(24, 'hours').toDate();
+
+      // Fetch logs for the last 24 hours
+      const logsLast24Hours = await prisma.logCount.findMany({
+        where: {
+          timestamp: {
+            gte: last24HoursStart, // Use Date object
+          },
+        },
+      });
+
+      // Calculate hourly totals
+      const hourlyTotals = logsLast24Hours.reduce(
+        (acc, log) => {
+          const hour = dayjs(log.timestamp)
+            .tz('Asia/Seoul')
+            .format('YYYY-MM-DD HH:00'); // Format to hour in KST
+          acc[hour] = (acc[hour] || 0) + 1; // Increment count
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+      // Convert to array format
+      const hourlyMetrics = Object.entries(hourlyTotals).map(
+        ([hour, count]) => ({
+          hour,
+          count,
+        })
+      );
+
+      // Fetch daily totals for the last 10 days
+      const last10DaysDailyTotals = await prisma.logCount.findMany({
+        where: {
+          timestamp: {
+            gte: last10DaysStart,
+            lt: now.toDate(),
+          },
+        },
+      });
+
+      const dailyCounts = last10DaysDailyTotals.reduce(
+        (acc, log) => {
+          const date = dayjs(log.timestamp)
+            .tz('Asia/Seoul')
+            .format('YYYY-MM-DD'); // Format to date in KST
+          acc[date] = (acc[date] || 0) + 1; // Increment count
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      const last10DaysDailyMetrics = Object.entries(dailyCounts).map(
+        ([date, count]) => ({
+          date,
+          count,
+        })
+      );
+
+      // Fetch monthly totals
+      const monthlyTotals = await prisma.logCount.findMany({
+        where: {
+          timestamp: {
+            gte: monthStart,
+            lt: now.toDate(),
+          },
+        },
+      });
+      const monthlyCounts = monthlyTotals.reduce(
+        (acc, log) => {
+          const date = dayjs(log.timestamp).tz('Asia/Seoul').format('YYYY-MM'); // Format to date in KST
+          acc[date] = (acc[date] || 0) + log.count; // Increment count
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      const monthlyMetrics = Object.entries(monthlyCounts).map(
+        ([date, count]) => ({
+          date,
+          count,
+        })
+      );
+
+      // Fetch domain distribution
+      const domainDistribution = await prisma.logCount.findMany({
+        where: {
+          timestamp: {
+            gte: monthStart, // Use Date object
+          },
+        },
+      });
+
+      const domainCount = domainDistribution.reduce(
+        (acc, log) => {
+          const domain = log.domain; // Assuming you have a 'domain' field
+          acc[domain] = (acc[domain] || 0) + log.count; // Increment count
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+      const domainMetrics = Object.entries(domainCount).map(
+        ([date, count]) => ({
+          date,
+          count,
+        })
+      );
+
       return {
-        recent20Rows,
-        critical7Days,
+        hourly_totals: hourlyMetrics,
+        last_10_days_daily_totals: last10DaysDailyMetrics,
+        monthly_totals: monthlyMetrics,
+        domain_monthly_totals: domainMetrics,
       };
     }),
 });
@@ -319,6 +458,5 @@ export async function GET() {
     free: freeMemory,
     usagePercentage,
   };
-
   return NextResponse.json(response);
 }

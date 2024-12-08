@@ -6,32 +6,24 @@ import { AgCharts } from 'ag-charts-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
+import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
 import { trpc } from '@/lib/trpc/client';
 
 export const DashboardStaticsCpu = () => {
-  const getCpuUsageData = trpc.dashboard.getCpuUsage.useInfiniteQuery({});
+  // const getCpuUsageData = trpc.dashboard.getCpuUsage.useInfiniteQuery({});
 
   const { colorMode } = useColorMode();
 
-  const AgChartsThemeChanged = ({ options }: { options: AgChartOptions }) => {
-    if (colorMode === 'light') {
-      options.theme = 'ag-polychroma';
-    } else if (colorMode === 'dark') {
-      options.theme = 'ag-polychroma-dark';
-    }
-    return <AgCharts options={options} />;
-  };
   const cpuUsageDataDonut = useMemo<AgChartOptions>(
     () => ({
       data: [
         {
           asset: 'available',
-          amount:
-            100 - (getCpuUsageData.data?.pages?.[0]?.[0]?.total_usage ?? 0),
+          amount: 100 - 1,
         },
         {
           asset: 'used',
-          amount: getCpuUsageData.data?.pages?.[0]?.[0]?.total_usage,
+          amount: 1,
         },
       ],
       title: {
@@ -49,10 +41,7 @@ export const DashboardStaticsCpu = () => {
               fontWeight: 'bold',
             },
             {
-              text:
-                String(
-                  getCpuUsageData.data?.pages?.[0]?.[0]?.total_usage ?? 0
-                ) + '%',
+              text: String(20) + '%',
               spacing: 4,
               fontSize: 42,
             },
@@ -61,12 +50,12 @@ export const DashboardStaticsCpu = () => {
       ],
       height: 400,
     }),
-    [getCpuUsageData]
+    []
   );
   const cpuUsageData = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
-      data: getCpuUsageData.data?.pages[0],
+      data: [],
       series: [
         {
           type: 'line',
@@ -172,7 +161,7 @@ export const DashboardStaticsCpu = () => {
       ],
       height: 400,
     }),
-    [getCpuUsageData]
+    []
   );
 
   return (
@@ -191,8 +180,8 @@ export const DashboardStaticsCpu = () => {
         xl: '800px',
       }}
     >
-      <AgChartsThemeChanged options={cpuUsageDataDonut} />
-      <AgChartsThemeChanged options={cpuUsageData} />
+      <AgChartsThemeChanged colorMode={colorMode} options={cpuUsageDataDonut} />
+      <AgChartsThemeChanged colorMode={colorMode} options={cpuUsageData} />
     </GridItem>
   );
 };

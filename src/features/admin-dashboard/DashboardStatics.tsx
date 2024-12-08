@@ -2,33 +2,56 @@ import React from 'react';
 
 import { Grid, Text } from '@chakra-ui/react';
 
-import { DashboardStaticsThreatLog } from './grid/ThreatLog';
-import { DashboardStaticsCpu } from './statics/CPU';
-import { DashboardStaticsCollectionsCount } from './statics/CollectionsCount';
-import { DashboardStaticsDisk } from './statics/Disk';
-import { DashboardStaticsMemory } from './statics/Memory';
-import { DashboardStaticsThreatLogData } from './statics/ThreatLogData';
+import { trpc } from '@/lib/trpc/client';
+
+import { CpuUsageCard } from './statics/cards/CpuUsageCard';
+import { DaemonStatusCard } from './statics/cards/DaemonStatusCard';
+import { DailyTotalCard } from './statics/cards/DailyTotalCard';
+import { DiskUsageCard } from './statics/cards/DiskUsageCard';
+import { LogsPerSecondCard } from './statics/cards/LogsPerSecondCard';
+import { MemoryUsageCard } from './statics/cards/MemoryUsageCard';
+import { DashboardStaticsCountsPer10Days } from './statics/charts/DashboardStaticsCountsPer10Days';
+import { DashboardStaticsCountsPerDayHourse } from './statics/charts/DashboardStaticsCountsPerDayHourse';
+import { DashboardStaticsCountsPerMonth } from './statics/charts/DashboardStaticsCountsPerMonth';
+import { DashboardStaticsCountsPerMonthByDomain } from './statics/charts/DashboardStaticsCountsPerMonthByDomain';
 
 export const DashboardStatics = () => {
-  console.log('test');
+  const getChartMetrics = trpc.dashboard.getChartMetrics.useQuery();
+  const getSystemMetrics = trpc.dashboard.getSystemMetrics.useQuery();
+  const getLogMetrics = trpc.dashboard.getLogMetrics.useQuery();
+  const cpuUsage = getSystemMetrics.data?.cpu_usage;
+  const memoryUsage = getSystemMetrics.data?.memory_usage;
+  const diskUsage = getSystemMetrics.data?.disk_usage;
+  const daemonStatus = getSystemMetrics.data?.daemon_status;
+
+  const logsPerSecond = getLogMetrics.data?.logs_per_second;
+  const logsPerDay = getLogMetrics.data?.logs_per_day;
+
+  console.log('getChartMetrics : ', getChartMetrics);
   return (
     <Grid
       height="80vh"
       gap={3}
       templateColumns={{
         base: 'repeat(1, 6fr)',
-        sm: 'repeat(1, 6fr)',
-        md: 'repeat(2, 3fr)',
-        lg: 'repeat(3, 2fr)',
-        xl: 'repeat(4, 2fr)',
+        sm: 'repeat(2, 6fr)',
+        md: 'repeat(3, 3fr)',
+        lg: 'repeat(4, 2fr)',
+        xl: 'repeat(6, 2fr)',
       }}
     >
-      <DashboardStaticsCollectionsCount />
-      <DashboardStaticsCpu />
-      <DashboardStaticsDisk />
-      <DashboardStaticsMemory />
-      <DashboardStaticsThreatLog />
-      <DashboardStaticsThreatLogData />
+      <LogsPerSecondCard logsPerSecond={logsPerSecond || 0} />
+      <DailyTotalCard logsPerDay={logsPerDay || 0} />
+      <DiskUsageCard diskUsage={diskUsage || 0} />
+      <CpuUsageCard cpuUsage={cpuUsage || 0} />
+      <MemoryUsageCard memoryUsage={memoryUsage || 0} />
+      <DaemonStatusCard
+        daemonStatus={daemonStatus || { dbms: 'inactive', parser: 'inactive' }}
+      />
+      <DashboardStaticsCountsPerDayHourse />
+      <DashboardStaticsCountsPer10Days />
+      <DashboardStaticsCountsPerMonth />
+      <DashboardStaticsCountsPerMonthByDomain />
       <Text
         fontSize="xs"
         gridColumn="1/-1"

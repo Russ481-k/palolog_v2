@@ -6,21 +6,13 @@ import { AgCharts } from 'ag-charts-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
+import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
 import { trpc } from '@/lib/trpc/client';
 
 export const DashboardStaticsMemory = () => {
-  const getMemoryUsageData = trpc.dashboard.getMemoryUsage.useInfiniteQuery({});
+  // const getMemoryUsageData = trpc.dashboard.getMemoryUsage.useInfiniteQuery({});
 
   const { colorMode } = useColorMode();
-
-  const AgChartsThemeChanged = ({ options }: { options: AgChartOptions }) => {
-    if (colorMode === 'light') {
-      options.theme = 'ag-polychroma';
-    } else if (colorMode === 'dark') {
-      options.theme = 'ag-polychroma-dark';
-    }
-    return <AgCharts options={options} />;
-  };
 
   const memoryUsageDataDonut = useMemo<AgChartOptions>(
     () => ({
@@ -31,13 +23,11 @@ export const DashboardStaticsMemory = () => {
       data: [
         {
           asset: 'available',
-          amount:
-            100 -
-            (getMemoryUsageData.data?.pages?.[0]?.[0]?.usagePercentage ?? 0),
+          amount: 100 - 1,
         },
         {
           asset: 'used',
-          amount: getMemoryUsageData.data?.pages?.[0]?.[0]?.usagePercentage,
+          amount: 1,
         },
       ],
       series: [
@@ -52,10 +42,7 @@ export const DashboardStaticsMemory = () => {
               fontWeight: 'bold',
             },
             {
-              text:
-                String(
-                  getMemoryUsageData.data?.pages?.[0]?.[0]?.usagePercentage ?? 0
-                ) + '%',
+              text: String(20) + '%',
               spacing: 4,
               fontSize: 42,
             },
@@ -64,12 +51,12 @@ export const DashboardStaticsMemory = () => {
       ],
       height: 400,
     }),
-    [getMemoryUsageData]
+    []
   );
   const memoryUsageData = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
-      data: getMemoryUsageData.data?.pages[0],
+      data: [],
       series: [
         {
           type: 'line',
@@ -99,7 +86,7 @@ export const DashboardStaticsMemory = () => {
       ],
       height: 400,
     }),
-    [getMemoryUsageData]
+    []
   );
   return (
     <GridItem
@@ -117,8 +104,11 @@ export const DashboardStaticsMemory = () => {
         xl: '800px',
       }}
     >
-      <AgChartsThemeChanged options={memoryUsageDataDonut} />
-      <AgChartsThemeChanged options={memoryUsageData} />
+      <AgChartsThemeChanged
+        colorMode={colorMode}
+        options={memoryUsageDataDonut}
+      />
+      <AgChartsThemeChanged colorMode={colorMode} options={memoryUsageData} />
     </GridItem>
   );
 };

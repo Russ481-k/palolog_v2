@@ -55,7 +55,7 @@ sudo apt-get update
 Docker 설치에 필요한 패키지들을 설치합니다.
 
 ```bash
-sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common jq
 
 ```
 

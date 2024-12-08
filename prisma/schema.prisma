@@ -66,6 +66,15 @@ model Project {
   description String?
 }
 
+model LogCount {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  count     Int      @default(0)
+  domain    String
+  timestamp DateTime
+}
+
 model Menu {
   id          Int          @id @default(autoincrement())
   name        String       @unique

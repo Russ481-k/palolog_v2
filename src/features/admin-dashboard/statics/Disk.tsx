@@ -6,21 +6,13 @@ import { AgCharts } from 'ag-charts-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
+import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
 import { trpc } from '@/lib/trpc/client';
 
 export const DashboardStaticsDisk = () => {
-  const getDiskUsageData = trpc.dashboard.getDiskUsage.useInfiniteQuery({});
+  // const getDiskUsageData = trpc.dashboard.getDiskUsage.useInfiniteQuery({});
 
   const { colorMode } = useColorMode();
-
-  const AgChartsThemeChanged = ({ options }: { options: AgChartOptions }) => {
-    if (colorMode === 'light') {
-      options.theme = 'ag-polychroma';
-    } else if (colorMode === 'dark') {
-      options.theme = 'ag-polychroma-dark';
-    }
-    return <AgCharts options={options} />;
-  };
 
   const diskUsageDataDonut = useMemo<AgChartOptions>(
     () => ({
@@ -31,13 +23,11 @@ export const DashboardStaticsDisk = () => {
       data: [
         {
           asset: 'available',
-          amount:
-            100 -
-            (getDiskUsageData.data?.pages?.[0]?.[0]?.usagePercentage ?? 0),
+          amount: 100 - 1,
         },
         {
           asset: 'used',
-          amount: getDiskUsageData.data?.pages?.[0]?.[0]?.usagePercentage,
+          amount: 1,
         },
       ],
       series: [
@@ -52,10 +42,7 @@ export const DashboardStaticsDisk = () => {
               fontWeight: 'bold',
             },
             {
-              text:
-                String(
-                  getDiskUsageData.data?.pages?.[0]?.[0]?.usagePercentage ?? 0
-                ) + '%',
+              text: String(20) + '%',
               spacing: 4,
               fontSize: 42,
             },
@@ -64,12 +51,12 @@ export const DashboardStaticsDisk = () => {
       ],
       height: 400,
     }),
-    [getDiskUsageData]
+    []
   );
   const diskUsageData = useMemo<AgChartOptions>(
     () => ({
       theme: 'ag-polychroma',
-      data: getDiskUsageData.data?.pages[0],
+      data: [],
       // Series: Defines which chart type and data to use
       series: [
         {
@@ -103,7 +90,7 @@ export const DashboardStaticsDisk = () => {
       ],
       height: 400,
     }),
-    [getDiskUsageData]
+    []
   );
 
   return (
@@ -122,8 +109,11 @@ export const DashboardStaticsDisk = () => {
         xl: '800px',
       }}
     >
-      <AgChartsThemeChanged options={diskUsageDataDonut} />
-      <AgChartsThemeChanged options={diskUsageData} />
+      <AgChartsThemeChanged
+        colorMode={colorMode}
+        options={diskUsageDataDonut}
+      />
+      <AgChartsThemeChanged colorMode={colorMode} options={diskUsageData} />
     </GridItem>
   );
 };
