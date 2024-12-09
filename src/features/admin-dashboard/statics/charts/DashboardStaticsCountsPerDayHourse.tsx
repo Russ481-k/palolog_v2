@@ -55,7 +55,7 @@ export const DashboardStaticsCountsPerDayHourse = ({
           },
         },
       ],
-      height: 260,
+      height: 270,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, colorMode]
@@ -70,11 +70,11 @@ export const DashboardStaticsCountsPerDayHourse = ({
       colSpan={3}
       overflow="hidden"
       height={{
-        base: '260px',
-        sm: '260px',
-        md: '260px',
-        lg: '260px',
-        xl: '260px',
+        base: '270px',
+        sm: '270px',
+        md: '270px',
+        lg: '270px',
+        xl: '270px',
       }}
     >
       <AgChartsThemeChanged colorMode={colorMode} options={countsPerDay} />

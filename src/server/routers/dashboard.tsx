@@ -299,16 +299,16 @@ export const dashboardRouter = createTRPCRouter({
       })
     )
     .query(async () => {
-      const now = dayjs();
-      const oneSecondAgo = now.subtract(10, 'second');
+      const now = dayjs().subtract(10, 'second');
+      const oneSecondAgo = now.subtract(2, 'second');
 
       const logsPerSecondQuery = {
-        size: 10,
+        size: 1024,
         query: {
           range: {
             '@timestamp': {
               gte: oneSecondAgo.toISOString(),
-              lte: now.toISOString(),
+              lt: now.toISOString(),
             },
           },
         },
@@ -319,7 +319,7 @@ export const dashboardRouter = createTRPCRouter({
         now.format('YYYY.MM.DD')
       )) as OpenSearchHitsResponse;
       const logsPerSecond = Math.round(
-        logsPerSecondResult?.hits.total.value / 10
+        logsPerSecondResult?.hits.total.value / 2
       );
 
       const logsPerDay = await new Promise<number>((resolve) => {

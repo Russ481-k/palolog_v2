@@ -166,7 +166,7 @@ export default function PageProjects() {
       setNextCurrentPage(nextCurrentPage);
     }
   }, [pageLength, nextCurrentPage, setPageLengthBuf, setNextCurrentPage]);
-  console.log();
+
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
