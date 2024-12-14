@@ -66,11 +66,15 @@ interface SearchBody {
   sort?: Record<string, { order: 'asc' | 'desc' }>[];
   search_after?: [string | number | null];
 }
-async function searchOpenSearchWithScroll(searchBody: SearchBody) {
+
+export async function searchOpenSearchWithScroll(
+  searchBody: SearchBody,
+  date: string = '*'
+) {
   const options = {
     hostname: env.OPENSEARCH_URL.replace('https://', ''),
     port: env.OPENSEARCH_PORT,
-    path: '/logstash-logs-*/_search?scroll=10m',
+    path: `/logstash-logs-${date}/_search?scroll=10m`,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -158,7 +162,7 @@ async function handleScroll(scrollId: string) {
         data += chunk;
       });
 
-      res.on('end', () => {
+      res.on('end', async () => {
         try {
           const parsedData = JSON.parse(data);
           if (parsedData.error) {
@@ -166,6 +170,51 @@ async function handleScroll(scrollId: string) {
             reject(parsedData.error);
           } else {
             resolve(parsedData);
+            // Correctly delete the scroll context
+            if (parsedData.hits.hits.length < 10000 && !scrollId) {
+              const deleteOptions = {
+                ...options,
+                path: '/_search/scroll',
+                method: 'DELETE',
+              };
+
+              const deleteReq = https.request(deleteOptions, (deleteRes) => {
+                let deleteData = '';
+
+                deleteRes.on('data', (deleteChunk) => {
+                  deleteData += deleteChunk;
+                });
+
+                deleteRes.on('end', () => {
+                  try {
+                    const deleteParsedData = JSON.parse(deleteData);
+                    if (deleteParsedData.error) {
+                      console.error(
+                        'OpenSearch Scroll Delete Error:',
+                        deleteParsedData.error
+                      );
+                      reject(deleteParsedData.error);
+                    } else {
+                      console.log('Scroll context deleted successfully.');
+                    }
+                  } catch (deleteError) {
+                    console.error(
+                      'Invalid JSON response for delete:',
+                      deleteData
+                    );
+                    reject(deleteError);
+                  }
+                });
+              });
+
+              deleteReq.on('error', (deleteError) => {
+                console.error('HTTPS request error for delete:', deleteError);
+                reject(deleteError);
+              });
+
+              deleteReq.write(JSON.stringify({ scroll_id: scrollId }));
+              deleteReq.end();
+            }
           }
         } catch (e) {
           console.error('Invalid JSON response:', data);
@@ -183,6 +232,7 @@ async function handleScroll(scrollId: string) {
     req.end();
   });
 }
+
 function parseSearchTerm(searchTerm: string): QueryCondition[] {
   const regex = /(\w+)\s*(==|!=|=)\s*(['"])(.*?)\3(?:\s+(AND|OR))?/g;
   const conditions: QueryCondition[] = [];

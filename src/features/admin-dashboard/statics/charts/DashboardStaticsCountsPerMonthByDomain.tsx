@@ -1,35 +1,36 @@
 import React, { useMemo } from 'react';
 
 import { GridItem, useColorMode } from '@chakra-ui/react';
-import { AgBarSeriesOptions, AgChartOptions } from 'ag-charts-community';
+import { AgChartOptions } from 'ag-charts-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
 import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
+import { env } from '@/env.mjs';
 
-export const DashboardStaticsCountsPerMonthByDomain = ({
-  data,
-}: {
-  data: { time: string; total: number }[];
-}) => {
+interface Props {
+  data: Record<string, string | number>[];
+}
+
+export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
   const { colorMode } = useColorMode();
+
+  const domains = env.NEXT_PUBLIC_DOMAINS?.split(',') ?? [];
+
   const countsPerDay = useMemo<AgChartOptions>(
     () => ({
       title: {
         text: '장비별 월간 로그 총 수집량',
       },
-      data: data,
-      series: [
-        {
-          type: 'bar',
-          xKey: 'time',
-          yKey: 'total',
-          yName: 'Total',
-          marker: {
-            enabled: false,
-          },
-        } as AgBarSeriesOptions,
-      ],
+      data,
+      series: domains.map((domain: string) => ({
+        type: 'bar',
+        xKey: 'time',
+        yKey: domain,
+        stackGroup: 'domain',
+        legendItemName: domain,
+        yName: domain,
+      })),
       axes: [
         {
           type: 'category',
@@ -41,7 +42,7 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
           label: {
             format: '#{.0f} 건',
           },
-          keys: ['total'],
+          keys: domains,
           title: {
             text: 'Total',
           },

@@ -1,11 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { TRPCError } from '@trpc/server';
 import { exec } from 'child_process';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import fs from 'fs';
-import https from 'https';
 import { NextResponse } from 'next/server';
 import os from 'os';
 import { z } from 'zod';
@@ -13,65 +10,36 @@ import { z } from 'zod';
 import { env } from '@/env.mjs';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
-export const prisma = new PrismaClient();
+import { searchOpenSearchWithScroll } from './projects';
 
+// Dayjs 설정
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.tz.setDefault('Asia/Seoul');
+
+// 전역 상수
+export const prisma = new PrismaClient();
+const now = dayjs().tz('Asia/Seoul').subtract(10, 'second');
+
+// 타입 정의
 interface OpenSearchHitsResponse {
-  hits: {
-    total: {
-      value: number;
+  scrollResponse: {
+    hits: {
+      total: {
+        value: number;
+      };
+      hits: Array<{
+        _source: Record<string, string>;
+      }>;
     };
   };
 }
 
-async function queryOpenSearch(
-  query: Record<string, unknown>,
-  date: string = '*'
-) {
-  const options = {
-    hostname: env.OPENSEARCH_URL.replace('https://', ''),
-    port: env.OPENSEARCH_PORT,
-    path: `/logstash-logs-${date}/_search`,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization:
-        'Basic ' +
-        Buffer.from(
-          `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
-        ).toString('base64'),
-    },
-    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
-    rejectUnauthorized: true,
-  };
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(e);
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.write(JSON.stringify(query));
-    req.end();
-  });
-}
-
+// 시스템 모니터링 관련 함수
 async function getDiskUsage(): Promise<number> {
   return new Promise((resolve) => {
-    exec(
-      "df -h / | tail -1 | awk '{print $5}' | cut -d'%' -f1",
-      (_, stdout) => {
-        resolve(Number(stdout.trim()) || 0);
-      }
+    exec("df -h / | tail -1 | awk '{print $5}' | cut -d'%' -f1", (_, stdout) =>
+      resolve(Number(stdout.trim()) || 0)
     );
   });
 }
@@ -99,68 +67,126 @@ async function checkDaemonStatus(): Promise<{
   });
 }
 
+// 로그 수집 관련 함수
 async function getLogCountFromOpenSearch() {
-  const now = dayjs();
   const oneMinuteAgo = now.subtract(1, 'minute');
+  const domains = env.DOMAINS?.split(',') ?? [];
 
-  const query = {
-    size: 0,
-    aggs: {
-      domains: {
-        terms: {
-          field: 'domain.keyword',
-          size: 50,
-        },
-        aggs: {
-          log_count: {
-            value_count: {
-              field: '@timestamp',
-            },
+  for (const domain of domains) {
+    try {
+      const query = {
+        size: 1,
+        query: {
+          bool: {
+            must: [
+              {
+                range: {
+                  '@timestamp': {
+                    gte: oneMinuteAgo.toISOString(),
+                    lt: now.toISOString(),
+                    format: 'strict_date_optional_time',
+                    time_zone: '+09:00',
+                  },
+                },
+              },
+              { match: { domain } },
+            ],
           },
         },
+      };
+
+      const totalDomainResult = (await searchOpenSearchWithScroll(
+        query,
+        now.format('YYYY.MM.DD')
+      )) as { scrollResponse: { hits: { total: { value: number } } } };
+
+      if (!totalDomainResult.scrollResponse) {
+        console.error(
+          `Error fetching logs for host ${domain}:`,
+          totalDomainResult
+        );
+        continue;
+      }
+
+      const count = totalDomainResult.scrollResponse.hits.total.value ?? 0;
+      await insertLogCount(domain, count);
+    } catch (error) {
+      console.error(`Error collecting log counts for host ${domain}:`, error);
+    }
+  }
+}
+
+async function insertLogCount(domain: string, count: number) {
+  await prisma.logCount.create({
+    data: { domain, count, timestamp: now.toISOString() },
+  });
+}
+
+// 데이터 집계 관련 함수
+async function aggregateHourlyLogs() {
+  const previousHour = now.subtract(1, 'hour').startOf('hour');
+  const currentHour = now.startOf('hour');
+  await aggregateLogs(previousHour, currentHour);
+}
+
+async function aggregateDailyLogs() {
+  const previousDay = now.subtract(1, 'day').startOf('day');
+  const currentDay = now.startOf('day');
+  await aggregateLogs(previousDay, currentDay);
+}
+
+async function aggregateMonthlyLogs() {
+  const previousMonth = now.subtract(1, 'month').startOf('month');
+  const currentMonth = now.startOf('month');
+  await aggregateLogs(previousMonth, currentMonth);
+}
+
+async function aggregateLogs(startTime: dayjs.Dayjs, endTime: dayjs.Dayjs) {
+  const logCounts = await prisma.logCount.groupBy({
+    by: ['domain'],
+    where: {
+      timestamp: {
+        gte: startTime.toDate(),
+        lt: endTime.toDate(),
       },
     },
-    query: {
-      range: {
-        '@timestamp': {
-          gte: oneMinuteAgo.toISOString(),
-          lt: now.toISOString(),
+    _sum: { count: true },
+  });
+
+  await prisma.$transaction([
+    prisma.logCount.deleteMany({
+      where: {
+        timestamp: {
+          gte: startTime.toDate(),
+          lt: endTime.toDate(),
         },
       },
-    },
-  };
-
-  const result = (await queryOpenSearch(query)) as {
-    aggregations: {
-      domains: {
-        buckets: Array<{
-          key: string;
-          doc_count: number;
-          log_count: { value: number };
-        }>;
-      };
-    };
-  };
-
-  // 각 도메인별로 로그 카운트 저장
-  for (const bucket of result.aggregations.domains.buckets) {
-    await prisma.logCount.create({
-      data: {
-        count: bucket.doc_count,
-        domain: bucket.key,
-        timestamp: now.toDate(),
-      },
-    });
-    console.log(
-      `Saved log count for domain ${bucket.key}: ${bucket.doc_count}`
-    );
-  }
-
-  return result.aggregations.domains.buckets.reduce(
-    (total, bucket) => total + bucket.doc_count,
-    0
-  );
+    }),
+    ...logCounts.map((log) =>
+      prisma.logCount.create({
+        data: {
+          domain: log.domain,
+          count: log._sum.count ?? 0,
+          timestamp: startTime.toDate(),
+        },
+      })
+    ),
+  ]);
 }
+
+// 디스크 관리 관련 함수
+async function checkDiskUsageAndDeleteOldLogs() {
+  let diskUsage = await getDiskUsage();
+  if (diskUsage >= 80) {
+    console.log('Disk usage is above 80%. Deleting old log counts...');
+    while (diskUsage >= 70) {
+      await deleteOldestLogCounts();
+      diskUsage = await getDiskUsage();
+    }
+    console.log('Disk usage is now below 70%.');
+  }
+}
+
 async function deleteOldestLogCounts() {
   const oldestIndex = await getOldestIndexName();
   if (oldestIndex) {
@@ -199,35 +225,53 @@ async function deleteIndex(indexName: string) {
   }
 }
 
-// 디스크 용량 체크 및 데이터 삭제 로직 추가
-async function checkDiskUsageAndDeleteOldLogs() {
-  let diskUsage = await getDiskUsage();
-
-  if (diskUsage >= 80) {
-    console.log('Disk usage is above 80%. Deleting old log counts...');
-    while (diskUsage >= 70) {
-      await deleteOldestLogCounts();
-      diskUsage = await getDiskUsage();
-    }
-    console.log('Disk usage is now below 70%.');
+// 1분마다 디스크 용량 체크
+setInterval(async () => {
+  try {
+    await checkDiskUsageAndDeleteOldLogs();
+  } catch (error) {
+    console.error('Error checking disk usage:', error);
   }
-}
+}, 60 * 1000);
 
-// 1분마다 도메인별 로그 수�� 및 디스크 용량 체크
+// 초기 로그 카운트 수집
 setInterval(async () => {
   try {
     await getLogCountFromOpenSearch();
-    await checkDiskUsageAndDeleteOldLogs(); // 디스크 용량 체크 및 데이터 삭제 호출
   } catch (error) {
     console.error('Error collecting log counts:', error);
   }
 }, 60 * 1000);
 
-dayjs.extend(utc);
-dayjs.extend(timezone);
+// 스케줄러 설정
+setInterval(async () => {
+  // 매 시간 정각
+  if (now.minute() === 0) {
+    try {
+      await aggregateHourlyLogs();
+    } catch (error) {
+      console.error('Error aggregating hourly logs:', error);
+    }
+  }
 
-// Set the default timezone to KST
-dayjs.tz.setDefault('Asia/Seoul');
+  // 매일 00시
+  if (now.hour() === 0 && now.minute() === 0) {
+    try {
+      await aggregateDailyLogs();
+    } catch (error) {
+      console.error('Error aggregating daily logs:', error);
+    }
+  }
+
+  // 매월 1일 00시
+  if (now.date() === 1 && now.hour() === 0 && now.minute() === 0) {
+    try {
+      await aggregateMonthlyLogs();
+    } catch (error) {
+      console.error('Error aggregating monthly logs:', error);
+    }
+  }
+}, 60 * 1000); // 1분마다 체크
 
 export const dashboardRouter = createTRPCRouter({
   // 시스템 메트릭스 조회
@@ -259,37 +303,6 @@ export const dashboardRouter = createTRPCRouter({
       };
     }),
 
-  // 로그 수를 수동으로 입력하는 TRPC 프로시저 추가
-  inputLogCount: protectedProcedure()
-    .input(
-      z.object({
-        logCount: z.number().min(0),
-        domain: z.string(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const now = dayjs().tz('Asia/Seoul'); // Get current time in KST
-      try {
-        await prisma.logCount.create({
-          data: {
-            count: input.logCount,
-            domain: input.domain,
-            timestamp: now.toDate(),
-          },
-        });
-        return {
-          success: true,
-          message: `Log count ${input.logCount} saved for domain ${input.domain}`,
-        };
-      } catch (error) {
-        console.error('Error saving log count:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to save log count.',
-        });
-      }
-    }),
-
   // 로그 트릭스 조회
   getLogMetrics: protectedProcedure()
     .output(
@@ -299,31 +312,36 @@ export const dashboardRouter = createTRPCRouter({
       })
     )
     .query(async () => {
-      const now = dayjs().subtract(10, 'second');
       const oneSecondAgo = now.subtract(2, 'second');
 
       const logsPerSecondQuery = {
         size: 1024,
         query: {
-          range: {
-            '@timestamp': {
-              gte: oneSecondAgo.toISOString(),
-              lt: now.toISOString(),
-            },
+          bool: {
+            must: [
+              {
+                range: {
+                  '@timestamp': {
+                    gte: oneSecondAgo.toISOString(),
+                    lt: now.toISOString(),
+                    format: 'strict_date_optional_time',
+                    time_zone: '+09:00',
+                  },
+                },
+              },
+            ],
           },
         },
       };
-
-      const logsPerSecondResult = (await queryOpenSearch(
+      const logsPerSecondResult = (await searchOpenSearchWithScroll(
         logsPerSecondQuery,
         now.format('YYYY.MM.DD')
       )) as OpenSearchHitsResponse;
       const logsPerSecond = Math.round(
-        logsPerSecondResult?.hits.total.value / 2
+        logsPerSecondResult.scrollResponse.hits.total.value / 2
       );
-
       const logsPerDay = await new Promise<number>((resolve) => {
-        const command = `curl -X GET "https://localhost:9200/logstash-logs-$(date +%Y.%m.%d)/_count" -u "admin:admin" --insecure`;
+        const command = `curl -X GET "https://localhost:9200/logstash-logs-${now.format('YYYY.MM.DD')}/_count" -u "admin:admin" --insecure`;
         exec(command, (error, stdout) => {
           if (error) {
             resolve(0);
@@ -357,15 +375,17 @@ export const dashboardRouter = createTRPCRouter({
           z.object({ time: z.string(), total: z.number() })
         ),
         domain_monthly_totals: z.array(
-          z.object({ time: z.string(), total: z.number() })
+          z.record(z.union([z.string(), z.number()]))
         ),
       })
     )
     .query(async () => {
-      const now = dayjs().tz('Asia/Seoul'); // Get current time in KST
-      const monthStart = now.subtract(1, 'month').toDate();
-      const last10DaysStart = now.subtract(10, 'days').toDate();
-      const last24HoursStart = now.subtract(24, 'hours').toDate();
+      const monthStart = now.subtract(1, 'month').startOf('month').toDate();
+      const last10DaysStart = now.subtract(10, 'days').startOf('day').toDate();
+      const last24HoursStart = now
+        .subtract(24, 'hours')
+        .startOf('hour')
+        .toDate();
 
       // Fetch logs for the last 24 hours
       const logsLast24Hours = await prisma.logCount.findMany({
@@ -385,10 +405,7 @@ export const dashboardRouter = createTRPCRouter({
           const hour = dayjs(log.timestamp)
             .tz('Asia/Seoul')
             .format('YYYY-MM-DD HH:00'); // Format to hour in KST
-          if (!acc[hour]) {
-            acc[hour] = 0; // Initialize count if not present
-          }
-          acc[hour] += 1; // Increment count
+          acc[hour] = (acc[hour] || 0) + log.count; // Increment count
           return acc;
         },
         {} as Record<string, number>
@@ -416,7 +433,7 @@ export const dashboardRouter = createTRPCRouter({
           const date = dayjs(log.timestamp)
             .tz('Asia/Seoul')
             .format('YYYY-MM-DD'); // Format to date in KST
-          acc[date] = (acc[date] || 0) + 1; // Increment count
+          acc[date] = (acc[date] || 0) + log.count; // Increment count
           return acc;
         },
         {} as Record<string, number>
@@ -462,20 +479,20 @@ export const dashboardRouter = createTRPCRouter({
         },
       });
 
-      const domainCount = domainDistribution.reduce(
-        (acc, log) => {
-          const domain = log.domain; // Assuming you have a 'domain' field
-          acc[domain] = (acc[domain] || 0) + log.count; // Increment count
-          return acc;
-        },
-        {} as Record<string, number>
+      const domainMetrics = Object.entries(
+        domainDistribution.reduce<Record<string, Record<string, number>>>(
+          (acc, log) => {
+            const date = dayjs(log.timestamp).format('YYYY-MM');
+            const domain = log.domain;
+            acc[date] = {
+              ...acc[date],
+              [domain]: (acc[date]?.[domain] || 0) + log.count,
+            };
+            return acc;
+          },
+          {}
+        )
       );
-      const domainMetrics = Object.entries(domainCount)
-        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-        .map(([date, count]) => ({
-          date,
-          count,
-        }));
 
       return {
         hourly_totals: hourlyMetrics.map((metric) => ({
@@ -491,9 +508,9 @@ export const dashboardRouter = createTRPCRouter({
           time: metric.date,
           total: metric.count,
         })),
-        domain_monthly_totals: domainMetrics.map((metric) => ({
-          time: metric.date,
-          total: metric.count,
+        domain_monthly_totals: domainMetrics.map(([date, domains]) => ({
+          time: date,
+          ...domains,
         })),
       };
     }),

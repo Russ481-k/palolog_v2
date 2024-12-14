@@ -14,7 +14,7 @@ export const DiskUsageCard = ({ diskUsage }: { diskUsage: number }) => {
       data: [
         {
           asset: 'available',
-          amount: 100,
+          amount: 100 - diskUsage,
         },
         {
           asset: 'used',
@@ -30,8 +30,8 @@ export const DiskUsageCard = ({ diskUsage }: { diskUsage: number }) => {
           innerLabels: [
             {
               text: String(diskUsage.toFixed(1)) + '%',
-              spacing: 5,
-              fontSize: 24,
+              spacing: 0,
+              fontSize: 18,
               fontWeight: 'bold',
             },
           ],

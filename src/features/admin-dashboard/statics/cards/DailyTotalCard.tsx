@@ -41,7 +41,7 @@ export const DailyTotalCard = ({ logsPerDay }: { logsPerDay: number }) => {
         </Box>
         <Text fontSize={46} fontWeight="extrabold">
           {logsPerDay >= 1000000
-            ? Math.floor(logsPerDay / 10000).toLocaleString() + ' M'
+            ? Math.floor(logsPerDay / 1000000).toLocaleString() + ' M'
             : logsPerDay >= 100000
               ? Math.floor(logsPerDay / 1000).toLocaleString() + ' K'
               : logsPerDay.toLocaleString()}{' '}
