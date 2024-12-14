@@ -475,6 +475,9 @@ curl -X GET "https://localhost:9200/logstash-logs-*/_search?pretty" \
   ]
 }' -u admin:admin -k
 
+# 도커 재시작
+docker stop $(docker ps -aq);       docker rm $(docker ps -aq); pnpm dk:init
+
 # 테스트 실행 명령어
 docker remove -f logstash; docker remove -f opensearch; pnpm dk:init;
 

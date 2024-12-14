@@ -20,6 +20,7 @@ services:
       - discovery.type=single-node
       - "OPENSEARCH_JAVA_OPTS=-Xms8g -Xmx8g" # JVM 메모리 설정
       - TZ=Asia/Seoul
+      - "search.max_open_scroll_context=1000"
     healthcheck:
       test: ["CMD", "curl", "-s", "-k", "https://localhost:9200"]
       interval: 30s
