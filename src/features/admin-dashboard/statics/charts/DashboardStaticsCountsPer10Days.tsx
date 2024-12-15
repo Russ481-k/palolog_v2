@@ -10,7 +10,7 @@ import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
 export const DashboardStaticsCountsPer10Days = ({
   data,
 }: {
-  data: { time: string; total: number; countsPerDay: number }[];
+  data: { time: string; total: number }[];
 }) => {
   const { colorMode } = useColorMode();
 
