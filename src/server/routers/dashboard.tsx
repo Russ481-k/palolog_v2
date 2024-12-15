@@ -368,7 +368,6 @@ export const dashboardRouter = createTRPCRouter({
           z.object({
             time: z.string(),
             total: z.number(),
-            countsPerDay: z.number(),
           })
         ),
         monthly_totals: z.array(
@@ -502,7 +501,6 @@ export const dashboardRouter = createTRPCRouter({
         last_10_days_daily_totals: last10DaysDailyMetrics.map((metric) => ({
           time: metric.date,
           total: metric.count,
-          countsPerDay: metric.count,
         })),
         monthly_totals: monthlyMetrics.map((metric) => ({
           time: metric.date,
