@@ -31,12 +31,15 @@ export const DiskUsageCard = ({ diskUsage }: { diskUsage: number }) => {
             {
               text: String(diskUsage.toFixed(1)) + '%',
               spacing: 0,
-              fontSize: 18,
+              fontSize: 22,
               fontWeight: 'bold',
             },
           ],
         },
       ],
+      legend: {
+        enabled: false,
+      },
       height: 200,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
