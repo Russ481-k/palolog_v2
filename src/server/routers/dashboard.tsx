@@ -69,7 +69,7 @@ async function checkDaemonStatus(): Promise<{
 
 // 로그 수집 관련 함수
 async function getLogCountFromOpenSearch() {
-  const oneMinuteAgo = now.subtract(1, 'minute');
+  const oneMinuteAgo = now.subtract(1, 'minute').subtract(10, 'second');
   const domains = env.DOMAINS?.split(',') ?? [];
 
   for (const domain of domains) {
@@ -124,19 +124,28 @@ async function insertLogCount(domain: string, count: number) {
 
 // 데이터 집계 관련 함수
 async function aggregateHourlyLogs() {
-  const previousHour = now.subtract(1, 'hour').startOf('hour');
+  const previousHour = now
+    .subtract(1, 'hour')
+    .subtract(10, 'second')
+    .startOf('hour');
   const currentHour = now.startOf('hour');
   await aggregateLogs(previousHour, currentHour);
 }
 
 async function aggregateDailyLogs() {
-  const previousDay = now.subtract(1, 'day').startOf('day');
+  const previousDay = now
+    .subtract(1, 'day')
+    .subtract(10, 'second')
+    .startOf('day');
   const currentDay = now.startOf('day');
   await aggregateLogs(previousDay, currentDay);
 }
 
 async function aggregateMonthlyLogs() {
-  const previousMonth = now.subtract(1, 'month').startOf('month');
+  const previousMonth = now
+    .subtract(1, 'month')
+    .subtract(10, 'second')
+    .startOf('month');
   const currentMonth = now.startOf('month');
   await aggregateLogs(previousMonth, currentMonth);
 }

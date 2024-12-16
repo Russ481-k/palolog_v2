@@ -187,14 +187,17 @@ DATABASE_URL="postgres://${DOCKER_DATABASE_USERNAME}:${DOCKER_DATABASE_PASSWORD}
 
 ---
 
-### **8. Docker 이미지 생성 및 실행**
+### **8. Docker https 인증서 복사**
+```bash
+docker cp opensearch:/usr/share/opensearch/config/root-ca.pem ./ca-cert.pem
+```
 
 모든 설정이 완료된 후, Docker 이미지를 생성하고 서버를 실행합니다.
 
-```bash
-docker build -t palolog .
-docker run -p 8080:8080 palolog
 
+### **9. Docker 서버 실행 및 pm2 실행하여 서비스 배포**
+```bash
+docker stop $(docker ps -aq); docker rm $(docker ps -aq); pnpm dk:init; pm2 delete palolog; pnpm build; pm2 start pnpm --name 'palolog' --log '/home/vtek/palolog_v2/log.txt' -- start
 ```
 
 ---
@@ -202,5 +205,3 @@ docker run -p 8080:8080 palolog
 ### **마무리**
 
 이 가이드를 따라 Palolog 로그 서버를 성공적으로 설치하고 실행할 수 있습니다. 설치 과정에서 발생할 수 있는 권한 문제나 Dockerfile 수정 사항도 함께 다뤘으며, 이를 통해 보다 원활한 서버 환경을 구축할 수 있을 것입니다.
-
-이와 같은 설정을 통해 안정적인 로그 관리 시스템을 운영할 수 있기를 바랍니다.
