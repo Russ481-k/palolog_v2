@@ -67,10 +67,14 @@ model Project {
 }
 
 model LogCount {
-  id        String   @id @default(cuid())
-  count     Int      @default(0)
-  domain    String
-  timestamp DateTime @default(now())
+  id              String   @id @default(cuid())
+  domain          String
+  count           Int
+  timestamp       DateTime
+  aggregationType String   @default("hourly") // 'hourly', 'daily', 'monthly'
+
+  @@index([timestamp])
+  @@index([aggregationType])
 }
 
 model Menu {
