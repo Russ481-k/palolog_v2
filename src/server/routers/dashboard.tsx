@@ -69,7 +69,7 @@ async function checkDaemonStatus(): Promise<{
 
 // 로그 수집 관련 함수
 async function getLogCountFromOpenSearch() {
-  const oneMinuteAgo = now.subtract(1, 'minute').subtract(10, 'second');
+  const oneMinuteAgo = now.subtract(1, 'minute').subtract(6, 'second');
   const domains = env.DOMAINS?.split(',') ?? [];
 
   for (const domain of domains) {
@@ -118,39 +118,39 @@ async function getLogCountFromOpenSearch() {
 
 async function insertLogCount(domain: string, count: number) {
   await prisma.logCount.create({
-    data: { domain, count, timestamp: now.toISOString() },
+    data: {
+      domain,
+      count,
+      timestamp: now.toDate(),
+      aggregationType: 'hourly', // 기본값 추가
+    },
   });
 }
 
 // 데이터 집계 관련 함수
 async function aggregateHourlyLogs() {
-  const previousHour = now
-    .subtract(1, 'hour')
-    .subtract(10, 'second')
-    .startOf('hour');
+  const previousHour = now.subtract(1, 'hour').startOf('hour');
   const currentHour = now.startOf('hour');
-  await aggregateLogs(previousHour, currentHour);
+  await aggregateLogs(previousHour, currentHour, 'hourly');
 }
 
 async function aggregateDailyLogs() {
-  const previousDay = now
-    .subtract(1, 'day')
-    .subtract(10, 'second')
-    .startOf('day');
+  const previousDay = now.subtract(1, 'day').startOf('day');
   const currentDay = now.startOf('day');
-  await aggregateLogs(previousDay, currentDay);
+  await aggregateLogs(previousDay, currentDay, 'daily');
 }
 
 async function aggregateMonthlyLogs() {
-  const previousMonth = now
-    .subtract(1, 'month')
-    .subtract(10, 'second')
-    .startOf('month');
+  const previousMonth = now.subtract(1, 'month').startOf('month');
   const currentMonth = now.startOf('month');
-  await aggregateLogs(previousMonth, currentMonth);
+  await aggregateLogs(previousMonth, currentMonth, 'monthly');
 }
 
-async function aggregateLogs(startTime: dayjs.Dayjs, endTime: dayjs.Dayjs) {
+async function aggregateLogs(
+  startTime: dayjs.Dayjs,
+  endTime: dayjs.Dayjs,
+  aggregationType: 'hourly' | 'daily' | 'monthly'
+) {
   const logCounts = await prisma.logCount.groupBy({
     by: ['domain'],
     where: {
@@ -177,6 +177,7 @@ async function aggregateLogs(startTime: dayjs.Dayjs, endTime: dayjs.Dayjs) {
           domain: log.domain,
           count: log._sum.count ?? 0,
           timestamp: startTime.toDate(),
+          aggregationType, // 집계 타입 저장
         },
       })
     ),
@@ -395,17 +396,78 @@ export const dashboardRouter = createTRPCRouter({
         .startOf('hour')
         .toDate();
 
-      // Fetch logs for the last 24 hours
+      // 시간별 데이터 조회 (상세 데이터)
       const logsLast24Hours = await prisma.logCount.findMany({
         where: {
           timestamp: {
-            gte: last24HoursStart, // Use Date object
+            gte: last24HoursStart,
           },
+          aggregationType: 'hourly',
         },
         orderBy: {
           timestamp: 'asc',
         },
       });
+
+      // 일별 데이터 조회 (집계 데이터)
+      const last10DaysDailyTotals = await prisma.logCount.findMany({
+        where: {
+          timestamp: {
+            gte: last10DaysStart,
+          },
+          aggregationType: 'daily',
+        },
+        orderBy: {
+          timestamp: 'asc',
+        },
+      });
+
+      const dailyCounts = last10DaysDailyTotals.reduce(
+        (acc, log) => {
+          const date = dayjs(log.timestamp)
+            .tz('Asia/Seoul')
+            .format('YYYY-MM-DD');
+          acc[date] = (acc[date] || 0) + log.count;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      const last10DaysDailyMetrics = Object.entries(dailyCounts)
+        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+        .map(([date, count]) => ({
+          date,
+          count,
+        }));
+
+      // 월별 데이터 조회 (집계 데이터)
+      const monthlyTotals = await prisma.logCount.findMany({
+        where: {
+          timestamp: {
+            gte: monthStart,
+          },
+          aggregationType: 'monthly',
+        },
+        orderBy: {
+          timestamp: 'asc',
+        },
+      });
+
+      const monthlyCounts = monthlyTotals.reduce(
+        (acc, log) => {
+          const date = dayjs(log.timestamp).tz('Asia/Seoul').format('YYYY-MM');
+          acc[date] = (acc[date] || 0) + log.count;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      const monthlyMetrics = Object.entries(monthlyCounts)
+        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+        .map(([date, count]) => ({
+          date,
+          count,
+        }));
 
       // Calculate hourly totals in chronological order
       const hourlyTotals = logsLast24Hours.reduce(
@@ -423,58 +485,6 @@ export const dashboardRouter = createTRPCRouter({
         .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
         .map(([hour, count]) => ({
           hour,
-          count,
-        }));
-
-      // Fetch daily totals for the last 10 days
-      const last10DaysDailyTotals = await prisma.logCount.findMany({
-        where: {
-          timestamp: {
-            gte: last10DaysStart,
-            lt: now.toDate(),
-          },
-        },
-      });
-
-      const dailyCounts = last10DaysDailyTotals.reduce(
-        (acc, log) => {
-          const date = dayjs(log.timestamp)
-            .tz('Asia/Seoul')
-            .format('YYYY-MM-DD'); // Format to date in KST
-          acc[date] = (acc[date] || 0) + log.count; // Increment count
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-      const last10DaysDailyMetrics = Object.entries(dailyCounts)
-        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-        .map(([date, count]) => ({
-          date,
-          count,
-        }));
-
-      // Fetch monthly totals
-      const monthlyTotals = await prisma.logCount.findMany({
-        where: {
-          timestamp: {
-            gte: monthStart,
-            lt: now.toDate(),
-          },
-        },
-      });
-      const monthlyCounts = monthlyTotals.reduce(
-        (acc, log) => {
-          const date = dayjs(log.timestamp).tz('Asia/Seoul').format('YYYY-MM'); // Format to date in KST
-          acc[date] = (acc[date] || 0) + log.count; // Increment count
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-
-      const monthlyMetrics = Object.entries(monthlyCounts)
-        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-        .map(([date, count]) => ({
-          date,
           count,
         }));
 
