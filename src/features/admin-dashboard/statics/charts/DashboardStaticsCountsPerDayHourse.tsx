@@ -34,16 +34,24 @@ export const DashboardStaticsCountsPerDayHourse = ({
         {
           type: 'category',
           position: 'bottom',
+          label: {
+            formatter: (params) => {
+              const [date, time] = params.value.split(' ');
+              return `${date.slice(5)} ${time.slice(0, 5)}`;
+            },
+          },
         },
         {
           position: 'left',
           type: 'number',
           label: {
-            format: '#{.0f} 건',
+            formatter: (params) => {
+              return `${(params.value / 1000000).toFixed(1)}M`;
+            },
           },
           keys: ['total'],
           title: {
-            text: 'Total',
+            text: 'Total (M)',
           },
         },
         {

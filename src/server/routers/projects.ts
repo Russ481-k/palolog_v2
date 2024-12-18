@@ -67,14 +67,30 @@ interface SearchBody {
   search_after?: [string | number | null];
 }
 
+interface OpenSearchOptions {
+  hostname: string;
+  port: number;
+  path: string;
+  method: string;
+  headers: {
+    'Content-Type': string;
+    Authorization: string;
+  };
+  ca: Buffer;
+  rejectUnauthorized: boolean;
+}
+
 export async function searchOpenSearchWithScroll(
   searchBody: SearchBody,
-  date: string = '*'
-) {
+  indices: string
+): Promise<{
+  initialResponse: OpenSearchResponse;
+  scrollResponse: OpenSearchResponse;
+}> {
   const options = {
     hostname: env.OPENSEARCH_URL.replace('https://', ''),
-    port: env.OPENSEARCH_PORT,
-    path: `/logstash-logs-${date}/_search?scroll=10m`,
+    port: Number(env.OPENSEARCH_PORT),
+    path: `/${indices}/_search?scroll=10m`,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -131,10 +147,10 @@ export async function searchOpenSearchWithScroll(
   });
 }
 
-async function handleScroll(scrollId: string) {
+async function handleScroll(scrollId: string): Promise<OpenSearchResponse> {
   const options = {
     hostname: env.OPENSEARCH_URL.replace('https://', ''),
-    port: env.OPENSEARCH_PORT,
+    port: Number(env.OPENSEARCH_PORT),
     path: '/_search/scroll',
     method: 'POST',
     headers: {
@@ -149,12 +165,7 @@ async function handleScroll(scrollId: string) {
     rejectUnauthorized: true,
   };
 
-  const scrollBody = {
-    scroll: '10m',
-    scroll_id: scrollId,
-  };
-
-  return new Promise((resolve, reject) => {
+  return new Promise<OpenSearchResponse>((resolve, reject) => {
     const req = https.request(options, (res) => {
       let data = '';
 
@@ -166,69 +177,34 @@ async function handleScroll(scrollId: string) {
         try {
           const parsedData = JSON.parse(data);
           if (parsedData.error) {
-            console.error('OpenSearch Scroll Error:', parsedData.error);
             reject(parsedData.error);
           } else {
             resolve(parsedData);
-            // Correctly delete the scroll context
-            if (parsedData.hits.hits.length < 10000 && !scrollId) {
-              const deleteOptions = {
-                ...options,
-                path: '/_search/scroll',
-                method: 'DELETE',
-              };
 
-              const deleteReq = https.request(deleteOptions, (deleteRes) => {
-                let deleteData = '';
-
-                deleteRes.on('data', (deleteChunk) => {
-                  deleteData += deleteChunk;
+            // 스크롤이 완료되면 컨텍스트 삭제
+            if (parsedData.hits.hits.length === 0) {
+              try {
+                await makeOpenSearchRequest('/_search/scroll', 'DELETE', {
+                  scroll_id: scrollId,
                 });
-
-                deleteRes.on('end', () => {
-                  try {
-                    const deleteParsedData = JSON.parse(deleteData);
-                    if (deleteParsedData.error) {
-                      console.error(
-                        'OpenSearch Scroll Delete Error:',
-                        deleteParsedData.error
-                      );
-                      reject(deleteParsedData.error);
-                    } else {
-                      console.log('Scroll context deleted successfully.');
-                    }
-                  } catch (deleteError) {
-                    console.error(
-                      'Invalid JSON response for delete:',
-                      deleteData
-                    );
-                    reject(deleteError);
-                  }
-                });
-              });
-
-              deleteReq.on('error', (deleteError) => {
-                console.error('HTTPS request error for delete:', deleteError);
-                reject(deleteError);
-              });
-
-              deleteReq.write(JSON.stringify({ scroll_id: scrollId }));
-              deleteReq.end();
+              } catch (error) {
+                console.warn('Failed to delete scroll context:', error);
+              }
             }
           }
         } catch (e) {
-          console.error('Invalid JSON response:', data);
           reject(e);
         }
       });
     });
 
-    req.on('error', (error) => {
-      console.error('HTTPS request error:', error);
-      reject(error);
-    });
-
-    req.write(JSON.stringify(scrollBody));
+    req.on('error', reject);
+    req.write(
+      JSON.stringify({
+        scroll: '1m',
+        scroll_id: scrollId,
+      })
+    );
     req.end();
   });
 }
@@ -276,6 +252,108 @@ function parseSearchTerm(searchTerm: string): QueryCondition[] {
   return conditions;
 }
 
+async function makeOpenSearchRequest<T>(
+  path: string,
+  method: string,
+  body?: object
+): Promise<T> {
+  const options: OpenSearchOptions = {
+    hostname: env.OPENSEARCH_URL.replace('https://', ''),
+    port: Number(env.OPENSEARCH_PORT),
+    path,
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization:
+        'Basic ' +
+        Buffer.from(
+          `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
+        ).toString('base64'),
+    },
+    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+    rejectUnauthorized: true,
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
+// 인덱스 범위 체크 함수 추가
+async function getIndexTimeRange(): Promise<{
+  earliest: dayjs.Dayjs;
+  latest: dayjs.Dayjs;
+}> {
+  try {
+    const indices = await makeOpenSearchRequest<{ [key: string]: string }>(
+      '/_cat/indices/20*?format=json&s=index:asc',
+      'GET'
+    );
+
+    if (!Array.isArray(indices) || indices.length === 0) {
+      return {
+        earliest: dayjs(),
+        latest: dayjs(),
+      };
+    }
+
+    // 인덱스 이름에서 날짜 추출 (YYYY.MM.DD.HH 형식)
+    const dateRegex = /\d{4}\.\d{2}\.\d{2}\.\d{2}/;
+    const dates = indices
+      .map((index) => index.index.match(dateRegex)?.[0])
+      .filter(Boolean);
+
+    if (dates.length === 0) {
+      return {
+        earliest: dayjs(),
+        latest: dayjs(),
+      };
+    }
+
+    return {
+      earliest: dayjs(dates[0].replace(/\./g, '-')),
+      latest: dayjs(dates[dates.length - 1].replace(/\./g, '-')),
+    };
+  } catch (error) {
+    console.error('Error getting index range:', error);
+    return {
+      earliest: dayjs(),
+      latest: dayjs(),
+    };
+  }
+}
+
+// 시간 범위에 해당하는 인덱스 패턴 생성
+function createIndexPattern(
+  timeFrom: dayjs.Dayjs,
+  timeTo: dayjs.Dayjs
+): string {
+  const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
+  const patterns = domains.map((domain) => {
+    const domainPattern = domain
+      .toLowerCase()
+      .replace(/\./g, '-')
+      .replace(/[^a-z0-9\-]/g, '_');
+    return `20*_${domainPattern.slice(0, -1)}*`;
+  });
+
+  return patterns.join(',');
+}
+
 export const projectsRouter = createTRPCRouter({
   getAll: protectedProcedure({ authorizations: ['ADMIN'] })
     .input(
@@ -296,19 +374,30 @@ export const projectsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const logsArray: zLogs[] = [];
       const size = input.limit;
-      const formattedTimeFrom = dayjs(input.timeFrom).toISOString();
-      const formattedTimeTo = dayjs(input.timeTo).toISOString();
+      let formattedTimeFrom = dayjs(input.timeFrom);
+      let formattedTimeTo = dayjs(input.timeTo);
+
+      // 인덱스 범위 체크
+      const { earliest, latest } = await getIndexTimeRange();
+
+      // 조회 범위 조정
+      if (formattedTimeFrom.isBefore(earliest)) {
+        formattedTimeFrom = earliest;
+      }
+      if (formattedTimeTo.isAfter(latest)) {
+        formattedTimeTo = latest;
+      }
 
       const searchBody: SearchBody = {
-        size, // 페이지당 데이터 수
+        size,
         query: {
           bool: {
             must: [
               {
                 range: {
                   '@timestamp': {
-                    gte: formattedTimeFrom,
-                    lte: formattedTimeTo,
+                    gte: formattedTimeFrom.toISOString(),
+                    lte: formattedTimeTo.toISOString(),
                     format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
                     time_zone: '+09:00',
                   },
@@ -337,11 +426,12 @@ export const projectsRouter = createTRPCRouter({
       }
 
       try {
+        const indexPattern = createIndexPattern(
+          formattedTimeFrom,
+          formattedTimeTo
+        );
         const { initialResponse, scrollResponse } =
-          (await searchOpenSearchWithScroll(searchBody)) as {
-            initialResponse: OpenSearchResponse;
-            scrollResponse: OpenSearchResponse;
-          };
+          await searchOpenSearchWithScroll(searchBody, indexPattern);
 
         const totalCnt = initialResponse.hits.total.value || 0;
         const pageLength = Math.ceil(totalCnt / size);

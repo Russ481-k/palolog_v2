@@ -40,11 +40,13 @@ export const DashboardStaticsCountsPer10Days = ({
           position: 'left',
           type: 'number',
           label: {
-            format: '#{.0f} 건',
+            formatter: (params) => {
+              return `${(params.value / 1000000).toFixed(1)}M`;
+            },
           },
           keys: ['total'],
           title: {
-            text: 'Total',
+            text: 'Total (M)',
           },
         },
         {

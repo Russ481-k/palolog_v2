@@ -40,7 +40,9 @@ export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
           position: 'left',
           type: 'number',
           label: {
-            format: '#{.0f} 건',
+            formatter: (params) => {
+              return `${(params.value / 1000000).toFixed(1)}M`;
+            },
           },
           keys: domains,
           title: {

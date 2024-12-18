@@ -3,14 +3,14 @@ import { exec } from 'child_process';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+import * as fs from 'fs';
+import * as https from 'https';
 import { NextResponse } from 'next/server';
 import os from 'os';
 import { z } from 'zod';
 
 import { env } from '@/env.mjs';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
-
-import { searchOpenSearchWithScroll } from './projects';
 
 // Dayjs 설정
 dayjs.extend(utc);
@@ -19,28 +19,53 @@ dayjs.tz.setDefault('Asia/Seoul');
 
 // 전역 상수
 export const prisma = new PrismaClient();
-const now = dayjs().tz('Asia/Seoul').subtract(10, 'second');
+const now = dayjs().tz('Asia/Seoul');
 
-// 타입 정의
-interface OpenSearchHitsResponse {
-  scrollResponse: {
-    hits: {
-      total: {
-        value: number;
-      };
-      hits: Array<{
-        _source: Record<string, string>;
-      }>;
-    };
+interface OpenSearchOptions {
+  hostname: string;
+  port: number;
+  path: string;
+  method: string;
+  headers: {
+    'Content-Type': string;
+    Authorization: string;
   };
+  ca: Buffer;
+  rejectUnauthorized: boolean;
+}
+
+interface OpenSearchCountResponse {
+  count?: number;
+  index?: string;
+  [key: string]: string | number | undefined;
+}
+
+interface OpenSearchIndicesResponse {
+  index: string;
+  health: string;
+  status: string;
+  [key: string]: string | number | undefined;
 }
 
 // 시스템 모니터링 관련 함수
-async function getDiskUsage(): Promise<number> {
+async function getDiskUsage(): Promise<{
+  total: number;
+  used: number;
+  usage: number;
+}> {
   return new Promise((resolve) => {
-    exec("df -h / | tail -1 | awk '{print $5}' | cut -d'%' -f1", (_, stdout) =>
-      resolve(Number(stdout.trim()) || 0)
-    );
+    exec("df -BG / | tail -1 | awk '{print $2,$3,$5}'", (_, stdout) => {
+      const [total, used, usagePercent] = stdout.trim().split(/\s+/);
+      const totalGB = parseInt(total ?? '0');
+      const usedGB = parseInt(used ?? '0');
+      const usage = parseInt(usagePercent ?? '0');
+
+      resolve({
+        total: isNaN(totalGB) ? 0 : totalGB,
+        used: isNaN(usedGB) ? 0 : usedGB,
+        usage: isNaN(usage) ? 0 : usage,
+      });
+    });
   });
 }
 
@@ -68,128 +93,122 @@ async function checkDaemonStatus(): Promise<{
 }
 
 // 로그 수집 관련 함수
-async function getLogCountFromOpenSearch() {
-  const oneMinuteAgo = now.subtract(1, 'minute').subtract(6, 'second');
-  const domains = env.DOMAINS?.split(',') ?? [];
+async function makeOpenSearchRequest<T>(
+  path: string,
+  method: string,
+  body?: object
+): Promise<T> {
+  const options: OpenSearchOptions = {
+    hostname: env.OPENSEARCH_URL.replace('https://', ''),
+    port: Number(env.OPENSEARCH_PORT),
+    path,
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
+    },
+    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+    rejectUnauthorized: true,
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) {
+      req.write(JSON.stringify(body));
+    }
+    req.end();
+  });
+}
+
+// 매일 자정과 매월 1일에 전체 로그 수를 측정하는 함수
+async function measureTotalLogs(type: 'daily' | 'monthly') {
+  const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
 
   for (const domain of domains) {
     try {
-      const query = {
-        size: 1,
-        query: {
-          bool: {
-            must: [
-              {
-                range: {
-                  '@timestamp': {
-                    gte: oneMinuteAgo.toISOString(),
-                    lt: now.toISOString(),
-                    format: 'strict_date_optional_time',
-                    time_zone: '+09:00',
-                  },
-                },
-              },
-              { match: { domain } },
-            ],
+      const domainPattern = domain
+        .toLowerCase()
+        .replace(/\./g, '-')
+        .replace(/[^a-z0-9\-]/g, '_');
+
+      const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
+        `/20*_${domainPattern.slice(0, -1)}*/_count`,
+        'POST',
+        {
+          query: {
+            bool: {
+              must: [],
+            },
           },
+        }
+      );
+
+      const totalCount = result.count ?? 0;
+
+      // DB에 저장
+      await prisma.logCount.create({
+        data: {
+          domain,
+          count: totalCount,
+          timestamp: now.toDate(),
+          aggregationType: type,
         },
-      };
+      });
 
-      const totalDomainResult = (await searchOpenSearchWithScroll(
-        query,
-        now.format('YYYY.MM.DD')
-      )) as { scrollResponse: { hits: { total: { value: number } } } };
-
-      if (!totalDomainResult.scrollResponse) {
-        console.error(
-          `Error fetching logs for host ${domain}:`,
-          totalDomainResult
-        );
-        continue;
-      }
-
-      const count = totalDomainResult.scrollResponse.hits.total.value ?? 0;
-      await insertLogCount(domain, count);
+      console.log(`${type} total count for ${domain}:`, totalCount);
     } catch (error) {
-      console.error(`Error collecting log counts for host ${domain}:`, error);
+      console.error(`Error measuring ${type} total for ${domain}:`, error);
     }
   }
 }
 
-async function insertLogCount(domain: string, count: number) {
-  await prisma.logCount.create({
-    data: {
-      domain,
-      count,
-      timestamp: now.toDate(),
-      aggregationType: 'hourly', // 기본값 추가
-    },
-  });
-}
+// 스케줄러 수정
+setInterval(async () => {
+  const currentTime = dayjs().tz('Asia/Seoul');
 
-// 데이터 집계 관련 함수
-async function aggregateHourlyLogs() {
-  const previousHour = now.subtract(1, 'hour').startOf('hour');
-  const currentHour = now.startOf('hour');
-  await aggregateLogs(previousHour, currentHour, 'hourly');
-}
+  // 매일 자정에 일간 총량 측정
+  if (currentTime.hour() === 0 && currentTime.minute() === 0) {
+    try {
+      await measureTotalLogs('daily');
+    } catch (error) {
+      console.error('Error measuring daily total:', error);
+    }
+  }
 
-async function aggregateDailyLogs() {
-  const previousDay = now.subtract(1, 'day').startOf('day');
-  const currentDay = now.startOf('day');
-  await aggregateLogs(previousDay, currentDay, 'daily');
-}
-
-async function aggregateMonthlyLogs() {
-  const previousMonth = now.subtract(1, 'month').startOf('month');
-  const currentMonth = now.startOf('month');
-  await aggregateLogs(previousMonth, currentMonth, 'monthly');
-}
-
-async function aggregateLogs(
-  startTime: dayjs.Dayjs,
-  endTime: dayjs.Dayjs,
-  aggregationType: 'hourly' | 'daily' | 'monthly'
-) {
-  const logCounts = await prisma.logCount.groupBy({
-    by: ['domain'],
-    where: {
-      timestamp: {
-        gte: startTime.toDate(),
-        lt: endTime.toDate(),
-      },
-    },
-    _sum: { count: true },
-  });
-
-  await prisma.$transaction([
-    prisma.logCount.deleteMany({
-      where: {
-        timestamp: {
-          gte: startTime.toDate(),
-          lt: endTime.toDate(),
-        },
-      },
-    }),
-    ...logCounts.map((log) =>
-      prisma.logCount.create({
-        data: {
-          domain: log.domain,
-          count: log._sum.count ?? 0,
-          timestamp: startTime.toDate(),
-          aggregationType, // 집계 타입 저장
-        },
-      })
-    ),
-  ]);
-}
+  // 매월 1일 자정에 월간 총량 측정
+  if (
+    currentTime.date() === 1 &&
+    currentTime.hour() === 0 &&
+    currentTime.minute() === 0
+  ) {
+    try {
+      await measureTotalLogs('monthly');
+    } catch (error) {
+      console.error('Error measuring monthly total:', error);
+    }
+  }
+}, 60 * 1000);
 
 // 디스크 관리 관련 함수
 async function checkDiskUsageAndDeleteOldLogs() {
   let diskUsage = await getDiskUsage();
-  if (diskUsage >= 80) {
+  if (diskUsage.usage >= 80) {
     console.log('Disk usage is above 80%. Deleting old log counts...');
-    while (diskUsage >= 70) {
+    while (diskUsage.usage >= 70) {
       await deleteOldestLogCounts();
       diskUsage = await getDiskUsage();
     }
@@ -199,38 +218,38 @@ async function checkDiskUsageAndDeleteOldLogs() {
 
 async function deleteOldestLogCounts() {
   const oldestIndex = await getOldestIndexName();
-  if (oldestIndex) {
+  if (oldestIndex !== '') {
     await deleteIndex(oldestIndex);
     console.log(`Deleted index ${oldestIndex}`);
   }
 }
 
-async function getOldestIndexName(): Promise<string | undefined> {
+async function getOldestIndexName(): Promise<string> {
   const indices = await listIndices();
-  return indices.sort((a, b) => dayjs(a).unix() - dayjs(b).unix())[0];
+  const validIndices = indices.filter((index) =>
+    index.startsWith('logstash-logs-')
+  );
+  if (validIndices.length === 0) return '';
+  const oldestIndex = validIndices.sort(
+    (a, b) => dayjs(a).unix() - dayjs(b).unix()
+  )[0];
+  return oldestIndex ?? '';
 }
 
 async function listIndices(): Promise<string[]> {
-  const response = await fetch('https://localhost:9200/_cat/indices?v&pretty', {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
-    },
-  });
-  const data = await response.json();
-  return data.map((index: { index: string }) => index.index);
+  const result = await makeOpenSearchRequest<OpenSearchIndicesResponse[]>(
+    '/_cat/indices?format=json',
+    'GET'
+  );
+  return result
+    .filter((item) => item.index && typeof item.index === 'string')
+    .map((item) => item.index);
 }
 
 async function deleteIndex(indexName: string) {
-  const response = await fetch(`https://localhost:9200/${indexName}`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
-    },
-  });
-  if (!response.ok) {
+  try {
+    await makeOpenSearchRequest(`/${indexName}`, 'DELETE');
+  } catch (error) {
     throw new Error(`Failed to delete index ${indexName}`);
   }
 }
@@ -244,44 +263,24 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 
-// 초기 로그 카운트 수집
-setInterval(async () => {
-  try {
-    await getLogCountFromOpenSearch();
-  } catch (error) {
-    console.error('Error collecting log counts:', error);
-  }
-}, 60 * 1000);
+// 시스템 메트릭스 관련 함수
+async function getCpuUsage(): Promise<number> {
+  return new Promise((resolve) => {
+    exec("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'", (_, stdout) => {
+      const cpuUsage = parseFloat(stdout.trim());
+      resolve(isNaN(cpuUsage) ? 0 : cpuUsage);
+    });
+  });
+}
 
-// 스케줄러 설정
-setInterval(async () => {
-  // 매 시간 정각
-  if (now.minute() === 0) {
-    try {
-      await aggregateHourlyLogs();
-    } catch (error) {
-      console.error('Error aggregating hourly logs:', error);
-    }
-  }
-
-  // 매일 00시
-  if (now.hour() === 0 && now.minute() === 0) {
-    try {
-      await aggregateDailyLogs();
-    } catch (error) {
-      console.error('Error aggregating daily logs:', error);
-    }
-  }
-
-  // 매월 1일 00시
-  if (now.date() === 1 && now.hour() === 0 && now.minute() === 0) {
-    try {
-      await aggregateMonthlyLogs();
-    } catch (error) {
-      console.error('Error aggregating monthly logs:', error);
-    }
-  }
-}, 60 * 1000); // 1분마다 체크
+async function getMemoryUsage(): Promise<number> {
+  return new Promise((resolve) => {
+    exec("free | grep Mem | awk '{print ($3/$2) * 100}'", (_, stdout) => {
+      const memUsage = parseFloat(stdout.trim());
+      resolve(isNaN(memUsage) ? 0 : memUsage);
+    });
+  });
+}
 
 export const dashboardRouter = createTRPCRouter({
   // 시스템 메트릭스 조회
@@ -290,7 +289,11 @@ export const dashboardRouter = createTRPCRouter({
       z.object({
         cpu_usage: z.number(),
         memory_usage: z.number(),
-        disk_usage: z.number(),
+        disk: z.object({
+          total: z.number(),
+          used: z.number(),
+          usage: z.number(),
+        }),
         daemon_status: z.object({
           dbms: z.enum(['active', 'inactive']),
           parser: z.enum(['active', 'inactive']),
@@ -298,18 +301,18 @@ export const dashboardRouter = createTRPCRouter({
       })
     )
     .query(async () => {
-      const cpuUsage = os.loadavg()[0] ?? 0;
-      const totalMem = os.totalmem();
-      const freeMem = os.freemem();
-      const memoryUsage = ((totalMem - freeMem) / totalMem) * 100;
-      const diskUsage = await getDiskUsage(); // Function to get disk usage
-      const daemon_status = await checkDaemonStatus(); // Function to check daemon status
+      const [cpuUsage, memoryUsage, disk, daemon_status] = await Promise.all([
+        getCpuUsage(),
+        getMemoryUsage(),
+        getDiskUsage(),
+        checkDaemonStatus(),
+      ]);
 
       return {
         cpu_usage: cpuUsage,
         memory_usage: memoryUsage,
-        disk_usage: diskUsage,
-        daemon_status: daemon_status,
+        disk,
+        daemon_status,
       };
     }),
 
@@ -322,215 +325,213 @@ export const dashboardRouter = createTRPCRouter({
       })
     )
     .query(async () => {
-      const oneSecondAgo = now.subtract(2, 'second');
+      const oneSecondAgo = now.subtract(1, 'second');
+      const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
+      const currentHour = now.format('YYYY.MM.DD.HH');
 
-      const logsPerSecondQuery = {
-        size: 1024,
-        query: {
-          bool: {
-            must: [
-              {
-                range: {
-                  '@timestamp': {
-                    gte: oneSecondAgo.toISOString(),
-                    lt: now.toISOString(),
-                    format: 'strict_date_optional_time',
-                    time_zone: '+09:00',
+      // 초당 로그 수 계산
+      const logsPerSecondPromises = domains.map(async (domain) => {
+        const domainPattern = domain
+          .toLowerCase()
+          .replace(/\./g, '-')
+          .replace(/[^a-z0-9\-]/g, '_');
+        const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
+          `/${currentHour}_${domainPattern.slice(0, -1)}*/_count`,
+          'POST',
+          {
+            query: {
+              bool: {
+                must: [
+                  {
+                    range: {
+                      '@timestamp': {
+                        gte: oneSecondAgo.toISOString(),
+                        lt: now.toISOString(),
+                      },
+                    },
                   },
-                },
+                ],
               },
-            ],
-          },
-        },
-      };
-      const logsPerSecondResult = (await searchOpenSearchWithScroll(
-        logsPerSecondQuery,
-        now.format('YYYY.MM.DD')
-      )) as OpenSearchHitsResponse;
-      const logsPerSecond = Math.round(
-        logsPerSecondResult.scrollResponse.hits.total.value / 2
-      );
-      const logsPerDay = await new Promise<number>((resolve) => {
-        const command = `curl -X GET "https://localhost:9200/logstash-logs-${now.format('YYYY.MM.DD')}/_count" -u "admin:admin" --insecure`;
-        exec(command, (error, stdout) => {
-          if (error) {
-            resolve(0);
-            return;
+            },
           }
-          try {
-            const result = JSON.parse(stdout);
-            resolve(result.count || 0);
-          } catch (e) {
-            resolve(0);
-          }
-        });
+        );
+        return result.count ?? 0;
       });
-      return { logs_per_second: logsPerSecond, logs_per_day: logsPerDay };
+
+      // 일간 로그 수 계산
+      const currentDate = now.format('YYYY.MM.DD');
+      const logsPerDayPromises = domains.map(async (domain) => {
+        const domainPattern = domain
+          .toLowerCase()
+          .replace(/\./g, '-')
+          .replace(/[^a-z0-9\-]/g, '_');
+        const indices = Array.from(
+          { length: 24 },
+          (_, i) =>
+            `${currentDate}.${i.toString().padStart(2, '0')}_${domainPattern.slice(0, -1)}*`
+        ).join(',');
+
+        const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
+          `/${indices}/_count`,
+          'GET'
+        );
+        return result.count ?? 0;
+      });
+
+      const logsPerSecond = await Promise.all(logsPerSecondPromises);
+      const logsPerDay = await Promise.all(logsPerDayPromises);
+
+      return {
+        logs_per_second: logsPerSecond.reduce((a, b) => a + b, 0),
+        logs_per_day: logsPerDay.reduce((a, b) => a + b, 0),
+      };
     }),
 
-  getChartMetrics: protectedProcedure()
-    .output(
-      z.object({
-        hourly_totals: z.array(
-          z.object({ time: z.string(), total: z.number() })
-        ),
-        last_10_days_daily_totals: z.array(
-          z.object({
-            time: z.string(),
-            total: z.number(),
-          })
-        ),
-        monthly_totals: z.array(
-          z.object({ time: z.string(), total: z.number() })
-        ),
-        domain_monthly_totals: z.array(
-          z.record(z.union([z.string(), z.number()]))
-        ),
-      })
-    )
-    .query(async () => {
-      const monthStart = now.subtract(1, 'month').startOf('month').toDate();
-      const last10DaysStart = now.subtract(10, 'days').startOf('day').toDate();
-      const last24HoursStart = now
-        .subtract(24, 'hours')
-        .startOf('hour')
-        .toDate();
+  getChartMetrics: protectedProcedure().query(async () => {
+    const now = dayjs().tz('Asia/Seoul');
+    const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
 
-      // 시간별 데이터 조회 (상세 데이터)
-      const logsLast24Hours = await prisma.logCount.findMany({
-        where: {
-          timestamp: {
-            gte: last24HoursStart,
-          },
-          aggregationType: 'hourly',
-        },
-        orderBy: {
-          timestamp: 'asc',
-        },
+    // 시간별 데이터 (최근 24시간)
+    const hourlyLogsPromises = domains.map(async (domain) => {
+      const domainPattern = domain
+        .toLowerCase()
+        .replace(/\./g, '-')
+        .replace(/[^a-z0-9\-]/g, '_');
+
+      const hourlyPromises = Array.from({ length: 24 }, async (_, i) => {
+        const targetHour = now.subtract(23 - i, 'hours');
+        const hourPattern = targetHour.format('YYYY.MM.DD.HH');
+
+        const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
+          `/${hourPattern}_${domainPattern.slice(0, -1)}*/_count`,
+          'GET'
+        );
+        return {
+          time: targetHour.format('YYYY-MM-DD HH:00'),
+          total: result.count ?? 0,
+        };
       });
 
-      // 일별 데이터 조회 (집계 데이터)
-      const last10DaysDailyTotals = await prisma.logCount.findMany({
-        where: {
-          timestamp: {
-            gte: last10DaysStart,
-          },
-          aggregationType: 'daily',
-        },
-        orderBy: {
-          timestamp: 'asc',
-        },
+      return await Promise.all(hourlyPromises);
+    });
+
+    const hourlyResults = await Promise.all(hourlyLogsPromises);
+    const hourlyTotals = Array.from({ length: 24 }, (_, i) => {
+      const targetHour = now.subtract(23 - i, 'hours');
+      return {
+        time: targetHour.format('YYYY-MM-DD HH:00'),
+        total: hourlyResults.reduce(
+          (sum, domainHours) => sum + (domainHours[i]?.total ?? 0),
+          0
+        ),
+      };
+    });
+
+    // 일별 데이터 (최근 10일)
+    const dailyLogsPromises = domains.map(async (domain) => {
+      const domainPattern = domain
+        .toLowerCase()
+        .replace(/\./g, '-')
+        .replace(/[^a-z0-9\-]/g, '_');
+
+      const dailyPromises = Array.from({ length: 10 }, async (_, i) => {
+        const targetDay = now.subtract(9 - i, 'days');
+        const dayPattern = targetDay.format('YYYY.MM.DD');
+
+        const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
+          `/${dayPattern}*_${domainPattern.slice(0, -1)}*/_count`,
+          'GET'
+        );
+        return {
+          time: targetDay.format('YYYY-MM-DD'),
+          total: result.count ?? 0,
+        };
       });
 
-      const dailyCounts = last10DaysDailyTotals.reduce(
-        (acc, log) => {
-          const date = dayjs(log.timestamp)
-            .tz('Asia/Seoul')
-            .format('YYYY-MM-DD');
-          acc[date] = (acc[date] || 0) + log.count;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
+      return await Promise.all(dailyPromises);
+    });
 
-      const last10DaysDailyMetrics = Object.entries(dailyCounts)
-        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-        .map(([date, count]) => ({
-          date,
-          count,
-        }));
+    const dailyResults = await Promise.all(dailyLogsPromises);
+    const dailyTotals = Array.from({ length: 10 }, (_, i) => {
+      const targetDay = now.subtract(9 - i, 'days');
+      return {
+        time: targetDay.format('YYYY-MM-DD'),
+        total: dailyResults.reduce(
+          (sum, domainDays) => sum + (domainDays[i]?.total ?? 0),
+          0
+        ),
+      };
+    });
 
-      // 월별 데이터 조회 (집계 데이터)
-      const monthlyTotals = await prisma.logCount.findMany({
-        where: {
-          timestamp: {
-            gte: monthStart,
-          },
-          aggregationType: 'monthly',
-        },
-        orderBy: {
-          timestamp: 'asc',
-        },
+    // 도메인별 월간 데이터
+    const monthlyLogsPromises = Array.from({ length: 12 }, async (_, i) => {
+      const targetMonth = now.subtract(11 - i, 'months');
+      const monthPattern = targetMonth.format('YYYY.MM');
+
+      const domainPromises = domains.map(async (domain) => {
+        const domainPattern = domain
+          .toLowerCase()
+          .replace(/\./g, '-')
+          .replace(/[^a-z0-9\-]/g, '_');
+
+        try {
+          const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
+            `/${monthPattern}*_${domainPattern.slice(0, -1)}*/_count`,
+            'GET'
+          );
+          return {
+            domain,
+            total: result.count ?? 0,
+          };
+        } catch (error) {
+          console.error(
+            `Error fetching logs for ${domain} in ${monthPattern}:`,
+            error
+          );
+          return {
+            domain,
+            total: 0,
+          };
+        }
       });
 
-      const monthlyCounts = monthlyTotals.reduce(
-        (acc, log) => {
-          const date = dayjs(log.timestamp).tz('Asia/Seoul').format('YYYY-MM');
-          acc[date] = (acc[date] || 0) + log.count;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-
-      const monthlyMetrics = Object.entries(monthlyCounts)
-        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-        .map(([date, count]) => ({
-          date,
-          count,
-        }));
-
-      // Calculate hourly totals in chronological order
-      const hourlyTotals = logsLast24Hours.reduce(
-        (acc, log) => {
-          const hour = dayjs(log.timestamp)
-            .tz('Asia/Seoul')
-            .format('YYYY-MM-DD HH:00'); // Format to hour in KST
-          acc[hour] = (acc[hour] || 0) + log.count; // Increment count
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-      // Convert to array format in chronological order
-      const hourlyMetrics = Object.entries(hourlyTotals)
-        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-        .map(([hour, count]) => ({
-          hour,
-          count,
-        }));
-
-      // Fetch domain distribution
-      const domainDistribution = await prisma.logCount.findMany({
-        where: {
-          timestamp: {
-            gte: monthStart, // Use Date object
-          },
-        },
-      });
-
-      const domainMetrics = Object.entries(
-        domainDistribution.reduce<Record<string, Record<string, number>>>(
-          (acc, log) => {
-            const date = dayjs(log.timestamp).format('YYYY-MM');
-            const domain = log.domain;
-            acc[date] = {
-              ...acc[date],
-              [domain]: (acc[date]?.[domain] || 0) + log.count,
-            };
-            return acc;
-          },
-          {}
-        )
+      const monthResults = await Promise.all(domainPromises);
+      const monthTotal = monthResults.reduce(
+        (sum, result) => sum + result.total,
+        0
       );
 
       return {
-        hourly_totals: hourlyMetrics.map((metric) => ({
-          time: metric.hour,
-          total: metric.count,
-        })),
-        last_10_days_daily_totals: last10DaysDailyMetrics.map((metric) => ({
-          time: metric.date,
-          total: metric.count,
-        })),
-        monthly_totals: monthlyMetrics.map((metric) => ({
-          time: metric.date,
-          total: metric.count,
-        })),
-        domain_monthly_totals: domainMetrics.map(([date, domains]) => ({
-          time: date,
-          ...domains,
-        })),
+        monthData: {
+          time: monthPattern,
+          total: monthTotal,
+        },
+        domainData: {
+          time: monthPattern,
+          ...Object.fromEntries(
+            monthResults.map((result) => [result.domain, result.total])
+          ),
+        },
       };
-    }),
+    });
+
+    const monthlyResults = await Promise.all(monthlyLogsPromises);
+
+    // 월별 총계
+    const monthlyTotals = monthlyResults.map((result) => result.monthData);
+
+    // 도메인별 월간 데이터
+    const domainMonthlyTotals = monthlyResults.map(
+      (result) => result.domainData
+    );
+
+    return {
+      hourly_totals: hourlyTotals,
+      last_10_days_daily_totals: dailyTotals,
+      monthly_totals: monthlyTotals,
+      domain_monthly_totals: domainMonthlyTotals,
+    };
+  }),
 });
 
 export async function GET() {

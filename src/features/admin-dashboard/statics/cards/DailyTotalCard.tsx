@@ -16,11 +16,11 @@ export const DailyTotalCard = ({ logsPerDay }: { logsPerDay: number }) => {
       colSpan={1}
       overflow="hidden"
       height={{
-        base: '260px',
-        sm: '260px',
-        md: '260px',
-        lg: '260px',
-        xl: '260px',
+        base: '220px',
+        sm: '220px',
+        md: '220px',
+        lg: '220px',
+        xl: '220px',
       }}
     >
       <Box
@@ -29,7 +29,7 @@ export const DailyTotalCard = ({ logsPerDay }: { logsPerDay: number }) => {
         alignItems="center"
         textAlign="center"
         justifyContent="center"
-        height="260px"
+        height="220px"
       >
         <Box>
           <Text fontSize="xl" fontWeight="bold">

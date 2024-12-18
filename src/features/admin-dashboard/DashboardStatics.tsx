@@ -21,7 +21,7 @@ export const DashboardStatics = () => {
   const getLogMetrics = trpc.dashboard.getLogMetrics.useQuery();
   const cpuUsage = getSystemMetrics.data?.cpu_usage;
   const memoryUsage = getSystemMetrics.data?.memory_usage;
-  const diskUsage = getSystemMetrics.data?.disk_usage;
+  const diskUsage = getSystemMetrics.data?.disk;
   const daemonStatus = getSystemMetrics.data?.daemon_status;
 
   const logsPerSecond = getLogMetrics.data?.logs_per_second;
@@ -41,7 +41,7 @@ export const DashboardStatics = () => {
     >
       <LogsPerSecondCard logsPerSecond={logsPerSecond || 0} />
       <DailyTotalCard logsPerDay={logsPerDay || 0} />
-      <DiskUsageCard diskUsage={diskUsage || 0} />
+      <DiskUsageCard diskUsage={diskUsage || { total: 0, used: 0, usage: 0 }} />
       <CpuUsageCard cpuUsage={cpuUsage || 0} />
       <MemoryUsageCard memoryUsage={memoryUsage || 0} />
       <DaemonStatusCard

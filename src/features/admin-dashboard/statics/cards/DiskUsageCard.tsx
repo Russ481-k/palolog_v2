@@ -1,24 +1,28 @@
 import React, { useMemo } from 'react';
 
-import { Box, GridItem, Text, useColorMode } from '@chakra-ui/react';
+import { Box, Flex, GridItem, Text, useColorMode } from '@chakra-ui/react';
 import { AgChartOptions } from 'ag-charts-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
 import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
 
-export const DiskUsageCard = ({ diskUsage }: { diskUsage: number }) => {
+export const DiskUsageCard = ({
+  diskUsage,
+}: {
+  diskUsage: { total: number; used: number; usage: number };
+}) => {
   const { colorMode } = useColorMode();
   const cpuUsageDataDonut = useMemo<AgChartOptions>(
     () => ({
       data: [
         {
           asset: 'available',
-          amount: 100 - diskUsage,
+          amount: 100 - diskUsage.usage,
         },
         {
           asset: 'used',
-          amount: diskUsage,
+          amount: diskUsage.usage,
         },
       ],
       series: [
@@ -29,9 +33,9 @@ export const DiskUsageCard = ({ diskUsage }: { diskUsage: number }) => {
           innerRadiusRatio: 0.85,
           innerLabels: [
             {
-              text: String(diskUsage.toFixed(1)) + '%',
+              text: String(diskUsage.usage.toFixed(1)) + '%',
               spacing: 0,
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: 'bold',
             },
           ],
@@ -40,7 +44,8 @@ export const DiskUsageCard = ({ diskUsage }: { diskUsage: number }) => {
       legend: {
         enabled: false,
       },
-      height: 200,
+      height: 170,
+      width: 120,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [diskUsage, colorMode]
@@ -55,11 +60,11 @@ export const DiskUsageCard = ({ diskUsage }: { diskUsage: number }) => {
       colSpan={1}
       overflow="hidden"
       height={{
-        base: '260px',
-        sm: '260px',
-        md: '260px',
-        lg: '260px',
-        xl: '260px',
+        base: '220px',
+        sm: '220px',
+        md: '220px',
+        lg: '220px',
+        xl: '220px',
       }}
     >
       <Box
@@ -68,18 +73,30 @@ export const DiskUsageCard = ({ diskUsage }: { diskUsage: number }) => {
         alignItems="center"
         textAlign="center"
         justifyContent="center"
-        height="260px"
+        height="220px"
       >
-        <Box mb="-54px">
+        <Box>
           <Text fontSize="lg" fontWeight="bold">
             Disk 사용량
           </Text>
         </Box>
+        <Flex justifyContent="center" alignItems="center" w="100%" h="100px">
+          <Box width="50%">
+            <Text fontSize={14} fontWeight="bold">
+              Total : {diskUsage.total}GB
+            </Text>
+            <Text fontSize={14} fontWeight="bold">
+              Used : {diskUsage.used}GB
+            </Text>
+          </Box>
+          <Box width="50%">
+            <AgChartsThemeChanged
+              colorMode={colorMode}
+              options={cpuUsageDataDonut}
+            />
+          </Box>
+        </Flex>
         <Box />
-        <AgChartsThemeChanged
-          colorMode={colorMode}
-          options={cpuUsageDataDonut}
-        />
       </Box>
     </GridItem>
   );

@@ -43,6 +43,19 @@ const createColumn = (
     column.width = 170;
   }
 
+  // Domain 컬럼에 대한 valueFormatter 추가
+  if (columnName === 'Domain') {
+    column.valueFormatter = (params) => {
+      if (typeof params.value === 'string') {
+        const match = params.value.match(
+          /(?:<\d+>)?[A-Za-z]+ \d+ \d+:\d+:\d+ (.+)/
+        );
+        return match ? match[1] : params.value;
+      }
+      return params.value;
+    };
+  }
+
   return column;
 };
 

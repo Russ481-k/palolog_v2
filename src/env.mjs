@@ -13,7 +13,7 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
-    DOMAINS: z.string(),
+    DOMAINS: z.string().min(1),
     OPENSEARCH_URL: z.string().url(),
     OPENSEARCH_PORT: z.string(),
     OPENSEARCH_USERNAME: z.string(),
@@ -40,7 +40,7 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    NEXT_PUBLIC_DOMAINS: z.string(),
+    NEXT_PUBLIC_DOMAINS: z.string().min(1),
     NEXT_PUBLIC_IS_DEMO: z
       .enum(['true', 'false'])
       .optional()
