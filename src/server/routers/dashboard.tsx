@@ -19,7 +19,6 @@ dayjs.tz.setDefault('Asia/Seoul');
 
 // 전역 상수
 export const prisma = new PrismaClient();
-const now = dayjs().tz('Asia/Seoul');
 
 interface OpenSearchOptions {
   hostname: string;
@@ -47,7 +46,7 @@ interface OpenSearchIndicesResponse {
   [key: string]: string | number | undefined;
 }
 
-// 시스템 모니터링 관련 함수
+// 시스템 터링 관련 함수
 async function getDiskUsage(): Promise<{
   total: number;
   used: number;
@@ -125,7 +124,6 @@ async function makeOpenSearchRequest<T>(
         }
       });
     });
-
     req.on('error', reject);
     if (body) {
       req.write(JSON.stringify(body));
@@ -164,7 +162,7 @@ async function measureTotalLogs(type: 'daily' | 'monthly') {
         data: {
           domain,
           count: totalCount,
-          timestamp: now.toDate(),
+          timestamp: dayjs().toDate(),
           aggregationType: type,
         },
       });
@@ -178,10 +176,8 @@ async function measureTotalLogs(type: 'daily' | 'monthly') {
 
 // 스케줄러 수정
 setInterval(async () => {
-  const currentTime = dayjs().tz('Asia/Seoul');
-
   // 매일 자정에 일간 총량 측정
-  if (currentTime.hour() === 0 && currentTime.minute() === 0) {
+  if (dayjs().hour() === 0 && dayjs().minute() === 0) {
     try {
       await measureTotalLogs('daily');
     } catch (error) {
@@ -190,11 +186,7 @@ setInterval(async () => {
   }
 
   // 매월 1일 자정에 월간 총량 측정
-  if (
-    currentTime.date() === 1 &&
-    currentTime.hour() === 0 &&
-    currentTime.minute() === 0
-  ) {
+  if (dayjs().date() === 1 && dayjs().hour() === 0 && dayjs().minute() === 0) {
     try {
       await measureTotalLogs('monthly');
     } catch (error) {
@@ -325,7 +317,8 @@ export const dashboardRouter = createTRPCRouter({
       })
     )
     .query(async () => {
-      const oneSecondAgo = now.subtract(1, 'second');
+      const now = dayjs().tz('Asia/Seoul');
+      const oneSecondAgo = now.subtract(5, 'second');
       const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
       const currentHour = now.format('YYYY.MM.DD.HH');
 
@@ -336,7 +329,7 @@ export const dashboardRouter = createTRPCRouter({
           .replace(/\./g, '-')
           .replace(/[^a-z0-9\-]/g, '_');
         const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
-          `/${currentHour}_${domainPattern.slice(0, -1)}*/_count`,
+          `/${currentHour}_${domainPattern}/_count`,
           'POST',
           {
             query: {
@@ -355,6 +348,7 @@ export const dashboardRouter = createTRPCRouter({
             },
           }
         );
+        console.log(domainPattern, result.count);
         return result.count ?? 0;
       });
 
@@ -382,7 +376,9 @@ export const dashboardRouter = createTRPCRouter({
       const logsPerDay = await Promise.all(logsPerDayPromises);
 
       return {
-        logs_per_second: logsPerSecond.reduce((a, b) => a + b, 0),
+        logs_per_second: Math.round(
+          logsPerSecond.reduce((a, b) => a + b, 0) / 5
+        ),
         logs_per_day: logsPerDay.reduce((a, b) => a + b, 0),
       };
     }),

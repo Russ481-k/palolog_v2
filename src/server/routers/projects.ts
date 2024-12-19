@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import * as fs from 'fs';
 import * as https from 'https';
 import { z } from 'zod';
@@ -11,6 +12,8 @@ import {
   zPaloLogsParams,
 } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
+
+dayjs.extend(isSameOrBefore);
 
 // OpenSearchHit 타입 정의
 type OpenSearchHit = {
@@ -85,7 +88,7 @@ export async function searchOpenSearchWithScroll(
   indices: string
 ): Promise<{
   initialResponse: OpenSearchResponse;
-  scrollResponse: OpenSearchResponse;
+  scrollResponse: OpenSearchHit[];
 }> {
   const options = {
     hostname: env.OPENSEARCH_URL.replace('https://', ''),
@@ -105,7 +108,7 @@ export async function searchOpenSearchWithScroll(
   };
 
   return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
+    const req = https.request(options, async (res) => {
       let data = '';
 
       res.on('data', (chunk) => {
@@ -114,34 +117,35 @@ export async function searchOpenSearchWithScroll(
 
       res.on('end', async () => {
         try {
-          const parsedData = JSON.parse(data);
-          if (parsedData.error) {
-            console.error('OpenSearch Error:', parsedData.error);
-            reject(parsedData.error);
-          } else if (!parsedData._scroll_id) {
-            reject(new Error('Scroll ID is missing from the response'));
-          } else {
-            // Handle scroll API
-            try {
-              const scrollResponse = await handleScroll(parsedData._scroll_id);
-              resolve({ initialResponse: parsedData, scrollResponse });
-            } catch (scrollError) {
-              console.error('Scroll API Error:', scrollError);
-              reject(scrollError);
-            }
+          const initialResponse = JSON.parse(data);
+          if (initialResponse.error) {
+            reject(initialResponse.error);
+            return;
           }
+
+          let scrollId = initialResponse._scroll_id;
+          let allHits = [...initialResponse.hits.hits];
+
+          // 모든 결과를 가져�� 때까지 스크롤 계속
+          while (true) {
+            const scrollResponse = await handleScroll(scrollId);
+            if (!scrollResponse.hits.hits.length) break;
+
+            allHits = [...allHits, ...scrollResponse.hits.hits];
+            scrollId = scrollResponse._scroll_id;
+          }
+
+          resolve({
+            initialResponse,
+            scrollResponse: allHits,
+          });
         } catch (e) {
-          console.error('Invalid JSON response:', data);
           reject(e);
         }
       });
     });
 
-    req.on('error', (error) => {
-      console.error('HTTPS request error:', error);
-      reject(error);
-    });
-
+    req.on('error', reject);
     req.write(JSON.stringify(searchBody));
     req.end();
   });
@@ -300,7 +304,7 @@ async function getIndexTimeRange(): Promise<{
 }> {
   try {
     const indices = await makeOpenSearchRequest<{ [key: string]: string }>(
-      '/_cat/indices/20*?format=json&s=index:asc',
+      '/_cat/indices?format=json&s=index:asc',
       'GET'
     );
 
@@ -337,21 +341,27 @@ async function getIndexTimeRange(): Promise<{
   }
 }
 
-// 시간 범위에 해당하는 인덱스 패턴 생성
-function createIndexPattern(
+function createTimeBasedIndexPattern(
   timeFrom: dayjs.Dayjs,
-  timeTo: dayjs.Dayjs
+  timeTo: dayjs.Dayjs,
+  domains: string[]
 ): string {
-  const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
-  const patterns = domains.map((domain) => {
-    const domainPattern = domain
-      .toLowerCase()
-      .replace(/\./g, '-')
-      .replace(/[^a-z0-9\-]/g, '_');
-    return `20*_${domainPattern.slice(0, -1)}*`;
-  });
+  const indices: string[] = [];
+  let current = timeFrom.clone().startOf('hour');
 
-  return patterns.join(',');
+  while (current.isSameOrBefore(timeTo)) {
+    domains.forEach((domain) => {
+      const domainPattern = domain
+        .toLowerCase()
+        .replace(/\./g, '-')
+        .replace(/[^a-z0-9\-]/g, '_');
+
+      indices.push(`${current.format('YYYY.MM.DD.HH')}_${domainPattern}`);
+    });
+    current = current.add(1, 'hour');
+  }
+
+  return indices.join(',');
 }
 
 export const projectsRouter = createTRPCRouter({
@@ -426,25 +436,22 @@ export const projectsRouter = createTRPCRouter({
       }
 
       try {
-        const indexPattern = createIndexPattern(
+        const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
+        const indexPattern = createTimeBasedIndexPattern(
           formattedTimeFrom,
-          formattedTimeTo
+          formattedTimeTo,
+          domains
         );
+
         const { initialResponse, scrollResponse } =
           await searchOpenSearchWithScroll(searchBody, indexPattern);
 
         const totalCnt = initialResponse.hits.total.value || 0;
         const pageLength = Math.ceil(totalCnt / size);
 
-        // 스크롤된 데이터를 매핑하여 logsArray에 추가
+        // 모든 스크롤 결과를 매핑
         logsArray.push(
-          ...initialResponse.hits.hits.map((hit) => ({
-            ...columnNames.reduce(
-              (acc, col) => ({ ...acc, [col]: hit._source?.[col] || null }),
-              {}
-            ),
-          })),
-          ...scrollResponse.hits.hits.map((hit) => ({
+          ...scrollResponse.map((hit) => ({
             ...columnNames.reduce(
               (acc, col) => ({ ...acc, [col]: hit._source?.[col] || null }),
               {}
