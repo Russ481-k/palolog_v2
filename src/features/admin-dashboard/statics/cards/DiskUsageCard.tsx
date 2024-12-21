@@ -1,6 +1,18 @@
 import React, { useMemo } from 'react';
 
-import { Box, Flex, GridItem, Text, useColorMode } from '@chakra-ui/react';
+import {
+  Box,
+  Flex,
+  GridItem,
+  Table,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+  useColorMode,
+} from '@chakra-ui/react';
 import { AgChartOptions } from 'ag-charts-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
@@ -45,7 +57,7 @@ export const DiskUsageCard = ({
         enabled: false,
       },
       height: 170,
-      width: 140,
+      width: 160,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [diskUsage, colorMode]
@@ -81,15 +93,33 @@ export const DiskUsageCard = ({
           </Text>
         </Box>
         <Flex justifyContent="center" alignItems="center" w="100%" h="100px">
-          <Box width="50%">
-            <Text fontSize={14} fontWeight="bold">
-              Total : {diskUsage.total}GB
-            </Text>
-            <Text fontSize={14} fontWeight="bold">
-              Used : {diskUsage.used}GB
-            </Text>
-          </Box>
-          <Box width="50%">
+          <Table size="xs" variant="simple">
+            <Thead>
+              <Tr>
+                <Th fontSize="xs">Total</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              <Tr>
+                <Td fontSize="xs" textAlign="right">
+                  {diskUsage.total}GB
+                </Td>
+              </Tr>
+            </Tbody>
+            <Thead>
+              <Tr>
+                <Th fontSize="xs">Used</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              <Tr>
+                <Td fontSize="xs" textAlign="right">
+                  {diskUsage.used}GB
+                </Td>
+              </Tr>
+            </Tbody>
+          </Table>
+          <Box width="70%">
             <AgChartsThemeChanged
               colorMode={colorMode}
               options={cpuUsageDataDonut}

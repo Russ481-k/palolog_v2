@@ -44,7 +44,7 @@ export const MemoryUsageCard = ({ memoryUsage }: { memoryUsage: number }) => {
               memoryUsage >= 80
                 ? 'red.400'
                 : colorMode === 'light'
-                  ? 'gray.200'
+                  ? 'gray.800'
                   : 'white'
             }
           >
@@ -57,7 +57,7 @@ export const MemoryUsageCard = ({ memoryUsage }: { memoryUsage: number }) => {
               memoryUsage >= 80
                 ? 'red.400'
                 : colorMode === 'light'
-                  ? 'gray.200'
+                  ? 'gray.800'
                   : 'white'
             }
           >
@@ -71,7 +71,7 @@ export const MemoryUsageCard = ({ memoryUsage }: { memoryUsage: number }) => {
             memoryUsage >= 80
               ? 'red.500'
               : colorMode === 'light'
-                ? 'gray.200'
+                ? 'gray.800'
                 : 'white'
           }
         >
