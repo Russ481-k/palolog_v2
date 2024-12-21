@@ -45,7 +45,7 @@ export const DiskUsageCard = ({
         enabled: false,
       },
       height: 170,
-      width: 120,
+      width: 140,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [diskUsage, colorMode]

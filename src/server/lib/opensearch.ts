@@ -4,21 +4,14 @@ import * as https from 'https';
 import { env } from '@/env.mjs';
 
 export interface OpenSearchOptions {
-  hostname: string;
-  port: number;
   path: string;
   method: string;
-  headers: {
-    'Content-Type': string;
-    Authorization: string;
-  };
-  ca: Buffer;
-  rejectUnauthorized: boolean;
+  body?: object;
 }
 
 export class OpenSearchClient {
   private static instance: OpenSearchClient;
-  private readonly baseOptions: Partial<OpenSearchOptions>;
+  private readonly baseOptions: https.RequestOptions;
 
   private constructor() {
     this.baseOptions = {
@@ -44,12 +37,12 @@ export class OpenSearchClient {
     return OpenSearchClient.instance;
   }
 
-  async request<T>(path: string, method: string, body?: object): Promise<T> {
-    const options: OpenSearchOptions = {
+  async request<T>({ path, method, body }: OpenSearchOptions): Promise<T> {
+    const options: https.RequestOptions = {
       ...this.baseOptions,
       path,
       method,
-    } as OpenSearchOptions;
+    };
 
     return new Promise((resolve, reject) => {
       const req = https.request(options, (res) => {
@@ -67,6 +60,34 @@ export class OpenSearchClient {
       req.on('error', reject);
       if (body) req.write(JSON.stringify(body));
       req.end();
+    });
+  }
+
+  // 편의 메서드 추가
+  async search<T>(index: string, body: object): Promise<T> {
+    return this.request<T>({
+      path: `/${index}/_search`,
+      method: 'POST',
+      body,
+    });
+  }
+
+  async count<T>(index: string, body?: object): Promise<T> {
+    return this.request<T>({
+      path: `/${index}/_count`,
+      method: 'POST',
+      body,
+    });
+  }
+
+  async scroll<T>(scrollId: string, scrollTime: string = '1m'): Promise<T> {
+    return this.request<T>({
+      path: '/_search/scroll',
+      method: 'POST',
+      body: {
+        scroll: scrollTime,
+        scroll_id: scrollId,
+      },
     });
   }
 }

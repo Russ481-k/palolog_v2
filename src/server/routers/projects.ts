@@ -1,10 +1,15 @@
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
 
 import { columnNames } from '@/features/monitoring/colNameList';
 import { zPaloLogs, zPaloLogsParams } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 import { OpenSearchClient } from '@/server/lib/opensearch';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 type OpenSearchHit = {
   _source: Record<string, string | number | null> | undefined;
@@ -113,11 +118,11 @@ export async function searchOpenSearchWithScroll(
 
     console.log('Search Query:', JSON.stringify(modifiedSearchBody, null, 2));
 
-    const response = await client.request<OpenSearchResponse>(
-      searchPath,
-      'POST',
-      modifiedSearchBody
-    );
+    const response = await client.request<OpenSearchResponse>({
+      path: searchPath,
+      method: 'POST',
+      body: modifiedSearchBody,
+    });
 
     return {
       initialResponse: response,
