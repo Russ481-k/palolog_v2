@@ -39,9 +39,9 @@ import { FormFieldsPaloLogsParams, zLogs, zPaloLogsParams } from './schemas';
 export default function PageProjects() {
   const { colorMode } = useColorMode();
 
-  const nowTime = dayjs().format('YYYY-MM-DD HH:mm:ss');
+  const now = dayjs().subtract(10, 'second').format('YYYY-MM-DD HH:mm:ss');
   const beforeHourTime = dayjs()
-    .set('minute', dayjs().minute() - 1)
+    .subtract(1, 'minute')
     .format('YYYY-MM-DD HH:mm:ss');
 
   const form = useForm<FormFieldsPaloLogsParams>({
@@ -49,7 +49,7 @@ export default function PageProjects() {
     resolver: zodResolver(zPaloLogsParams()),
     defaultValues: {
       timeFrom: String(beforeHourTime),
-      timeTo: String(nowTime),
+      timeTo: String(now),
       currentPage: 1,
       searchTerm: '',
     },
@@ -62,7 +62,7 @@ export default function PageProjects() {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedFromDate, setSelectedFromDate] =
     useState<string>(beforeHourTime);
-  const [selectedToDate, setSelectedToDate] = useState<string>(nowTime);
+  const [selectedToDate, setSelectedToDate] = useState<string>(now);
 
   const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
   const toast = useToast();

@@ -67,10 +67,10 @@ export default function MenuSetter({
                 fontSize="18px"
                 size="sm"
                 p={4}
-                isDisabled={menu === 'SYSLOG'}
-                onClick={() => onMenuButtonClick('SYSLOG')}
+                isDisabled={menu === 'SYSTEM'}
+                onClick={() => onMenuButtonClick('SYSTEM')}
               >
-                SYSLOG
+                SYSTEM
               </Button>
             </Flex>
           </DrawerBody>

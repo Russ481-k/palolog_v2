@@ -12,7 +12,13 @@ export const CpuUsageCard = ({ cpuUsage }: { cpuUsage: number }) => {
       borderRadius="lg"
       bg={colorMode === 'light' ? 'white' : 'whiteAlpha.50'}
       borderWidth={1}
-      borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
+      borderColor={
+        cpuUsage >= 80
+          ? 'red.400'
+          : colorMode === 'light'
+            ? 'gray.200'
+            : 'whiteAlpha.300'
+      }
       colSpan={1}
       overflow="hidden"
       height={{
@@ -32,14 +38,44 @@ export const CpuUsageCard = ({ cpuUsage }: { cpuUsage: number }) => {
         height="220px"
       >
         <Box>
-          <Text fontSize="xl" fontWeight="bold">
+          <Text
+            fontSize="xl"
+            fontWeight="bold"
+            color={
+              cpuUsage >= 80
+                ? 'red.400'
+                : colorMode === 'light'
+                  ? 'gray.200'
+                  : 'white'
+            }
+          >
             CPU 사용량
           </Text>
-          <Text fontSize="sm" fontWeight="regular">
+          <Text
+            fontSize="sm"
+            fontWeight="regular"
+            color={
+              cpuUsage >= 80
+                ? 'red.400'
+                : colorMode === 'light'
+                  ? 'gray.200'
+                  : 'white'
+            }
+          >
             CPU Usage
           </Text>
         </Box>
-        <Text fontSize={46} fontWeight="extrabold">
+        <Text
+          fontSize={46}
+          fontWeight="extrabold"
+          color={
+            cpuUsage >= 80
+              ? 'red.500'
+              : colorMode === 'light'
+                ? 'gray.200'
+                : 'white'
+          }
+        >
           {cpuUsage.toFixed(2)} %
         </Text>
         <Box />

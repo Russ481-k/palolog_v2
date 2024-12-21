@@ -35,7 +35,7 @@ export const DiskUsageCard = ({
             {
               text: String(diskUsage.usage.toFixed(1)) + '%',
               spacing: 0,
-              fontSize: 18,
+              fontSize: 14,
               fontWeight: 'bold',
             },
           ],

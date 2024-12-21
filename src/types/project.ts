@@ -1,4 +1,4 @@
-export type MenuType = 'TRAFFIC' | 'THREAT' | 'SYSLOG';
+export type MenuType = 'TRAFFIC' | 'THREAT' | 'SYSTEM';
 
 export interface OpenSearchHit {
   _source: {

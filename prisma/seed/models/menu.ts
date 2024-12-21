@@ -19,10 +19,10 @@ export async function createMenus() {
     });
   }
 
-  if (!(await prisma.menu.findUnique({ where: { name: 'SYSLOG' } }))) {
+  if (!(await prisma.menu.findUnique({ where: { name: 'SYSTEM' } }))) {
     await prisma.menu.create({
       data: {
-        name: 'SYSLOG',
+        name: 'SYSTEM',
       },
     });
   }
