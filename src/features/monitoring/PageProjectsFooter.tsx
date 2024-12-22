@@ -5,9 +5,9 @@ import {
   Flex,
   Input,
   InputGroup,
-  InputLeftAddon,
-  Select,
-  useColorMode, // Heading,
+  InputLeftAddon, // Progress,
+  // ProgressLabel,
+  Select, // Heading,
   // Modal,
   // ModalBody,
   // ModalCloseButton,
@@ -17,6 +17,7 @@ import {
   // ModalOverlay,
   // Progress,
   // useDisclosure,
+  useColorMode,
 } from '@chakra-ui/react';
 
 // import { AgGridReact } from 'ag-grid-react';
@@ -28,6 +29,7 @@ export const PageProjectsFooter = ({
   totalCnt,
   onChangeLimit,
   onCurrentPageChange,
+  // scrollProgress = { progress: 0, current: 0, total: 0, status: 'complete' },
 }: {
   isLoading: boolean;
   nextCurrentPage: number;
@@ -35,6 +37,7 @@ export const PageProjectsFooter = ({
   totalCnt: number;
   onChangeLimit: (e: ChangeEvent<HTMLSelectElement>) => void;
   onCurrentPageChange: (page: number) => void;
+  // scrollProgress?: ProgressStatus;
 }) => {
   // const gridRef = useRef(null);
 
@@ -45,6 +48,19 @@ export const PageProjectsFooter = ({
   const onGoToPageClick = () => {
     onCurrentPageChange(goToPage);
   };
+
+  // const progressRef = useRef<ProgressStatus>(scrollProgress);
+
+  // useEffect(() => {
+  //   if (progressRef.current !== scrollProgress) {
+  //     progressRef.current = scrollProgress;
+  //     console.log('Progress updated:', scrollProgress);
+  //   }
+  // }, [scrollProgress]);
+
+  // useEffect(() => {
+  //   console.log('Footer received progress:', scrollProgress);
+  // }, [scrollProgress]);
 
   return (
     <Flex justifyContent="space-between" h="24px">
@@ -75,22 +91,19 @@ export const PageProjectsFooter = ({
                 textAlign="right"
                 borderRightWidth={0}
                 borderRightRadius={0}
-                placeholder={
-                  nextCurrentPage
-                    .toString()
-                    .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',') +
-                  ' / ' +
-                  pageLength
-                    .toString()
-                    .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')
-                }
+                placeholder={`${nextCurrentPage.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')} / ${pageLength.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')}`}
                 onChange={(e) => setGoToPage(Number(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    return onGoToPageClick();
+                  }
+                }}
                 width="auto"
               />
+              <Button size="xs" borderLeftRadius={0} onClick={onGoToPageClick}>
+                Page
+              </Button>
             </InputGroup>
-            <Button size="xs" borderLeftRadius={0} onClick={onGoToPageClick}>
-              Page
-            </Button>
           </Flex>
         </Flex>
       </Flex>
@@ -103,14 +116,44 @@ export const PageProjectsFooter = ({
           onCurrentPageChange={onCurrentPageChange}
         />
       </Flex>
-      <Flex flex={1} w="180px" justifyContent="right">
+      <Flex
+        flex={1}
+        gap={2}
+        w="180px"
+        justifyContent="right"
+        alignItems="center"
+      >
+        {/* <Progress
+          value={scrollProgress.progress}
+          size="xs"
+          w="200px"
+          h="16px"
+          borderRadius={6}
+          isIndeterminate={false}
+          colorScheme={scrollProgress.progress === 100 ? 'green' : 'blue'}
+          transition="none"
+        >
+          <ProgressLabel
+            fontSize="xs"
+            color={
+              scrollProgress.status === 'loading' ? 'blue.500' : 'gray.500'
+            }
+            fontWeight="normal"
+          >
+            {scrollProgress.status === 'error'
+              ? 'Error'
+              : scrollProgress.status === 'complete'
+                ? 'Complete'
+                : scrollProgress.progress === 0
+                  ? 'Ready'
+                  : `Loading... ${scrollProgress.progress}% (${scrollProgress.current.toLocaleString()}/${scrollProgress.total.toLocaleString()})`}
+          </ProgressLabel>
+        </Progress> */}
         <InputGroup size="xs" w="150px">
           <InputLeftAddon borderLeftRadius={5}>Total</InputLeftAddon>
           <Input
             textAlign="right"
             borderRightRadius={5}
-            // borderRightWidth={0}
-            // borderRightRadius={0}
             readOnly
             value={totalCnt
               .toString()

@@ -60,9 +60,47 @@ export default function PageProjects() {
   const [selectedFromDate, setSelectedFromDate] =
     useState<string>(beforeHourTime);
   const [selectedToDate, setSelectedToDate] = useState<string>(now);
+  const [progress, setProgress] = useState<{
+    progress: number;
+    current: number;
+    total: number;
+    status: string;
+  }>({
+    progress: 0,
+    current: 0,
+    total: 0,
+    status: 'complete',
+  });
 
   const gridRef = useRef<AgGridReact<zLogs>>(null);
   const toast = useToast();
+
+  useEffect(() => {
+    console.log('Setting up WebSocket subscription');
+
+    // trpc.projects.onProgress.useSubscription(undefined, {
+    //   onData(data: {
+    //     progress: number;
+    //     current: number;
+    //     total: number;
+    //     status: string;
+    //   }) {
+    //     console.log('Client received progress:', data);
+    //     setProgress(data);
+    //   },
+    //   onError(err: TRPCClientErrorLike<AppRouter>) {
+    //     console.error('WebSocket error:', err);
+    //   },
+    // });
+
+    return () => {
+      console.log('Cleaning up subscription');
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('Current progress state:', progress);
+  }, [progress]);
 
   const { data, isLoading } = trpc.projects.getAll.useInfiniteQuery(
     {
@@ -73,7 +111,24 @@ export default function PageProjects() {
       currentPage: nextCurrentPage,
       limit,
     },
-    {}
+    {
+      onSettled: () => {
+        setProgress({
+          progress: 100,
+          current: 0,
+          total: 0,
+          status: 'complete',
+        });
+      },
+      onError: () => {
+        setProgress({
+          progress: 0,
+          current: 0,
+          total: 0,
+          status: 'error',
+        });
+      },
+    }
   );
   const pageLength = data?.pages[0]?.pagination.pageLength;
   const totalCnt = data?.pages[0]?.pagination.totalCnt ?? 0;
@@ -168,7 +223,7 @@ export default function PageProjects() {
     if (!logs?.length) return;
 
     const columnsToShow = columnNames.filter((columnName) => {
-      return logs.some((log) => {
+      return logs.some((log: zLogs) => {
         const value = log[columnName as keyof zLogs];
         return value !== null && value !== undefined && value !== '-';
       });
@@ -185,12 +240,23 @@ export default function PageProjects() {
 
   useEffect(() => {
     const logs = data?.pages[0]?.logs?.filter(
-      (log): log is zLogs => log !== null && log !== undefined
+      (log: unknown): log is zLogs => log !== null && log !== undefined
     );
     if (logs?.length) {
       updateColumnVisibility(logs);
     }
   }, [updateColumnVisibility, data?.pages]);
+
+  useEffect(() => {
+    if (isLoading) {
+      setProgress({
+        progress: 0,
+        current: 0,
+        total: 0,
+        status: 'loading',
+      });
+    }
+  }, [isLoading]);
 
   return (
     <AdminLayoutPage>
@@ -292,6 +358,7 @@ export default function PageProjects() {
               totalCnt={totalCnt}
               onChangeLimit={onRowLoadLimitChange}
               onCurrentPageChange={onCurrentPageChange}
+              // scrollProgress={progress}
             />
           </Stack>
         </Form>

@@ -230,3 +230,19 @@ export const protectedProcedure = (
       });
     })
   );
+
+export const createSubscription = t.procedure.subscription;
+
+// subscription 프로시저 추가
+export const subscriptionProcedure = t.procedure.use(
+  t.middleware(({ ctx, next }) => {
+    const user = ctx.user;
+    if (!user || user.accountStatus !== 'ENABLED') {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: user?.id,
+      });
+    }
+    return next({ ctx: { user } });
+  })
+).subscription;

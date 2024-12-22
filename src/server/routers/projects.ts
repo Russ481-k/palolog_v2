@@ -75,14 +75,15 @@ export async function searchOpenSearchWithScroll(
   scrollResponse: OpenSearchHit[];
 }> {
   const client = OpenSearchClient.getInstance();
-  const from = (page - 1) * size;
+  const scrollSize = 1000;
+  const start = (page - 1) * size;
+  const scrollsNeeded = Math.floor(start / scrollSize);
 
   try {
-    const searchPath = '/*vision-seoul-fw-seoulfw*/_search';
+    const searchPath = '/*vision-seoul-fw-seoulfw*/_search?scroll=1m';
 
     const modifiedSearchBody = {
-      from,
-      size,
+      size: scrollSize,
       track_total_hits: true,
       query: {
         bool: {
@@ -116,21 +117,91 @@ export async function searchOpenSearchWithScroll(
       sort: [{ '@timestamp': { order: 'desc' } }],
     };
 
-    console.log('Search Query:', JSON.stringify(modifiedSearchBody, null, 2));
-
-    const response = await client.request<OpenSearchResponse>({
+    // 초기 검색 요청
+    const initialResponse = await client.request<OpenSearchResponse>({
       path: searchPath,
       method: 'POST',
       body: modifiedSearchBody,
     });
 
+    if (!initialResponse?.hits?.hits) {
+      console.error('Invalid response format:', initialResponse);
+      throw new Error('Invalid response format from OpenSearch');
+    }
+
+    let scrollId = initialResponse._scroll_id;
+    let currentScrolls = 0;
+    let targetHits: OpenSearchHit[] = [];
+
+    // 목표 페이지까지 스크롤
+    while (currentScrolls < scrollsNeeded && scrollId) {
+      const scrollResponse = await client.request<OpenSearchResponse>({
+        path: `/_search/scroll?scroll=1m&scroll_id=${encodeURIComponent(scrollId)}`,
+        method: 'GET',
+      });
+
+      if (!scrollResponse?.hits?.hits) {
+        console.error('Invalid scroll response format:', scrollResponse);
+        break;
+      }
+
+      if (scrollResponse.hits.hits.length === 0) break;
+
+      scrollId = scrollResponse._scroll_id;
+      currentScrolls++;
+    }
+
+    // 목표 페이지의 데이터 수집
+    if (scrollId) {
+      const finalScrollResponse = await client.request<OpenSearchResponse>({
+        path: `/_search/scroll?scroll=1m&scroll_id=${encodeURIComponent(scrollId)}`,
+        method: 'GET',
+      });
+
+      if (!finalScrollResponse?.hits?.hits) {
+        console.error(
+          'Invalid final scroll response format:',
+          finalScrollResponse
+        );
+        throw new Error('Invalid response format from OpenSearch scroll');
+      }
+
+      const offsetInLastBatch = start % scrollSize;
+      targetHits = finalScrollResponse.hits.hits.slice(
+        offsetInLastBatch,
+        offsetInLastBatch + size
+      );
+    } else {
+      // 초기 응답에서 필요한 데이터 추출
+      targetHits = initialResponse.hits.hits.slice(start, start + size);
+    }
+
+    // scroll 컨텍스트 정리
+    if (scrollId) {
+      try {
+        await client.request({
+          path: `/_search/scroll?scroll_id=${encodeURIComponent(scrollId)}`,
+          method: 'DELETE',
+        });
+      } catch (clearError) {
+        console.error('Error clearing scroll context:', clearError);
+        // 스크롤 컨텍스트 정리 실패는 결과에 영향을 주지 않으므로 무시
+      }
+    }
+
     return {
-      initialResponse: response,
-      scrollResponse: response.hits.hits,
+      initialResponse: {
+        ...initialResponse,
+        hits: {
+          ...initialResponse.hits,
+          hits: targetHits,
+        },
+      },
+      scrollResponse: targetHits,
     };
   } catch (error) {
     console.error('OpenSearch Error:', error);
-    throw error;
+    throw new Error('Failed to fetch data from OpenSearch');
   }
 }
 
