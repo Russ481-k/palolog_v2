@@ -23,7 +23,7 @@ export const AppNavBarDesktop = (props: BoxProps) => {
   const { t } = useTranslation(['app']);
   const account = trpc.account.get.useQuery();
   const pathname = usePathname();
-  const isAccountActive = pathname.startsWith(`${APP_PATH}/account`);
+  const isAccountActive = pathname?.startsWith(`${APP_PATH}/account`);
 
   return (
     <Box display={{ base: 'none', md: 'block' }} {...props}>

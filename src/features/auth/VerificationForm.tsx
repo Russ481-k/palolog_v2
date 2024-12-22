@@ -25,7 +25,7 @@ export const useOnVerificationSuccess = ({
       isAuthenticated: true,
     });
 
-    router.push(searchParams.get('redirect') || defaultRedirect || '/');
+    router.push(searchParams?.get('redirect') || defaultRedirect || '/');
   };
 };
 

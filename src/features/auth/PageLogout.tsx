@@ -22,7 +22,7 @@ export default function PageLogout() {
       trpcUtils.auth.checkAuthenticated.setData(undefined, {
         isAuthenticated: false,
       });
-      router.replace(searchParams.get('redirect') || '/');
+      router.replace(searchParams?.get('redirect') || '/');
     };
     trigger();
   }, [
