@@ -107,6 +107,7 @@ export const PageProjectsFooter = ({
             textAlign="right"
             // borderRightWidth={0}
             // borderRightRadius={0}
+            readOnly
             value={totalCnt
               .toString()
               .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')}

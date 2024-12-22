@@ -21,6 +21,7 @@ export const Document = ({ children }: { children: ReactNode }) => {
         AVAILABLE_LANGUAGES.find(({ key }) => key === i18n.language)?.dir ??
         'ltr'
       }
+      suppressHydrationWarning
     >
       <head>
         <meta
@@ -61,8 +62,7 @@ export const Document = ({ children }: { children: ReactNode }) => {
         />
         <meta name="theme-color" content={theme.colors.gray?.['800']} />
       </head>
-      <body>
-        {/* https://github.com/chakra-ui/chakra-ui/issues/7040 */}
+      <body suppressHydrationWarning>
         <ColorModeScript
           initialColorMode={theme.config.initialColorMode}
           storageKey={COLOR_MODE_STORAGE_KEY}
