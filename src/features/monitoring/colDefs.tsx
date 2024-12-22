@@ -81,13 +81,22 @@ const createColumn = (
       }
       return params.value;
     };
-    // domain 컬럼의 특별한 설정 추가
+
     column.cellRenderer = (params: ICellRendererParams<zLogs>) => {
+      if (!isLoading) {
+        return (
+          <Flex py="14px">
+            <Skeleton h="14px" w="120px" borderRadius={2} />
+          </Flex>
+        );
+      }
+
       if (typeof params.value === 'string') {
-        return params.value.replace(
+        const formattedValue = params.value.replace(
           /^(?:<\d+>)?(?:[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+/,
           ''
         );
+        return <span>{formattedValue}</span>;
       }
       return params.value;
     };

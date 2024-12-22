@@ -206,7 +206,7 @@ export default function PageProjects() {
             );
           }}
         >
-          <Stack spacing={2} h="100vh">
+          <Stack spacing={2} h="88vh">
             <Flex
               justifyContent="space-between"
               h="24px"
@@ -228,7 +228,7 @@ export default function PageProjects() {
                     name="timeFrom"
                     size="xs"
                     type="text"
-                    width="180px"
+                    width="140px"
                   />
                   <Heading color="gray.500" flex="none" size="xs" py="3px">
                     ~
@@ -238,7 +238,7 @@ export default function PageProjects() {
                     name="timeTo"
                     size="xs"
                     type="text"
-                    width="200px"
+                    width="140px"
                   />
                 </Flex>
               </Flex>
@@ -263,7 +263,6 @@ export default function PageProjects() {
               }
               style={{ width: '100%', height: '82vh', zIndex: 0 }}
             >
-              {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
               <AgGridReact
                 ref={gridRef}
                 rowData={!isLoading ? data?.pages[0]?.logs : dummy}
