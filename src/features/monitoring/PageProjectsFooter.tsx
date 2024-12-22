@@ -68,7 +68,7 @@ export const PageProjectsFooter = ({
             </Select>
           </InputGroup>
           <Flex>
-            <InputGroup size="xs" w="180px">
+            <InputGroup size="xs">
               <InputLeftAddon borderLeftRadius={5}>Go To</InputLeftAddon>
               <Input
                 id="pagination_batch"
@@ -85,6 +85,7 @@ export const PageProjectsFooter = ({
                     .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')
                 }
                 onChange={(e) => setGoToPage(Number(e.target.value))}
+                width="auto"
               />
             </InputGroup>
             <Button size="xs" borderLeftRadius={0} onClick={onGoToPageClick}>
