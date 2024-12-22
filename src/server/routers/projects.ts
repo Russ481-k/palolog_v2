@@ -69,7 +69,12 @@ export async function searchOpenSearchWithScroll(
   searchBody: SearchBody,
   menu?: string,
   page: number = 1,
-  size: number = 100
+  size: number = 100,
+  onProgress?: (progress: {
+    current: number;
+    total: number;
+    status: string;
+  }) => void
 ): Promise<{
   initialResponse: OpenSearchResponse;
   scrollResponse: OpenSearchHit[];
@@ -133,6 +138,14 @@ export async function searchOpenSearchWithScroll(
     let currentScrolls = 0;
     let targetHits: OpenSearchHit[] = [];
 
+    if (onProgress) {
+      onProgress({
+        current: 0,
+        total: initialResponse.hits.total.value,
+        status: 'loading',
+      });
+    }
+
     // 목표 페이지까지 스크롤
     while (currentScrolls < scrollsNeeded && scrollId) {
       const scrollResponse = await client.request<OpenSearchResponse>({
@@ -149,6 +162,14 @@ export async function searchOpenSearchWithScroll(
 
       scrollId = scrollResponse._scroll_id;
       currentScrolls++;
+
+      if (onProgress) {
+        onProgress({
+          current: (currentScrolls + 1) * scrollSize,
+          total: initialResponse.hits.total.value,
+          status: 'loading',
+        });
+      }
     }
 
     // 목표 페이지의 데이터 수집
@@ -172,8 +193,16 @@ export async function searchOpenSearchWithScroll(
         offsetInLastBatch + size
       );
     } else {
-      // 초기 응답에서 필요한 데이터 추출
       targetHits = initialResponse.hits.hits.slice(start, start + size);
+    }
+
+    // 데이터 조회 완료 후 상태 업데이트
+    if (onProgress) {
+      onProgress({
+        current: initialResponse.hits.total.value,
+        total: initialResponse.hits.total.value,
+        status: 'complete',
+      });
     }
 
     // scroll 컨텍스트 정리
@@ -200,6 +229,13 @@ export async function searchOpenSearchWithScroll(
       scrollResponse: targetHits,
     };
   } catch (error) {
+    if (onProgress) {
+      onProgress({
+        current: 0,
+        total: 0,
+        status: 'error',
+      });
+    }
     console.error('OpenSearch Error:', error);
     throw new Error('Failed to fetch data from OpenSearch');
   }
@@ -220,9 +256,20 @@ export const projectsRouter = createTRPCRouter({
           pageLength: z.number().min(0),
           totalCnt: z.number().min(0).default(0),
         }),
+        loadingStatus: z.object({
+          current: z.number(),
+          total: z.number(),
+          status: z.enum(['ready', 'loading', 'complete', 'error']),
+        }),
       })
     )
     .query(async ({ input }) => {
+      let loadingStatus = {
+        current: 0,
+        total: 0,
+        status: 'loading' as 'ready' | 'loading' | 'complete' | 'error',
+      };
+
       try {
         const timeFrom = dayjs.tz(input.timeFrom, 'Asia/Seoul');
         const timeTo = dayjs.tz(input.timeTo, 'Asia/Seoul');
@@ -257,8 +304,21 @@ export const projectsRouter = createTRPCRouter({
           searchBody,
           input.menu,
           input.currentPage,
-          input.limit
+          input.limit,
+          (progress) => {
+            loadingStatus = {
+              current: progress.current,
+              total: progress.total,
+              status: progress.status as
+                | 'ready'
+                | 'loading'
+                | 'complete'
+                | 'error',
+            };
+          }
         );
+
+        loadingStatus.status = 'complete';
 
         return {
           logs: result.scrollResponse.map((hit) => ({
@@ -279,10 +339,24 @@ export const projectsRouter = createTRPCRouter({
             ),
             totalCnt: result.initialResponse.hits.total.value || 0,
           },
+          loadingStatus,
         };
       } catch (error) {
         console.error('Query Error:', error);
-        throw new Error('Failed to fetch data');
+        loadingStatus = {
+          current: 0,
+          total: 0,
+          status: 'error',
+        };
+        return {
+          logs: [],
+          pagination: {
+            currentPage: input.currentPage,
+            pageLength: 0,
+            totalCnt: 0,
+          },
+          loadingStatus,
+        };
       }
     }),
 });
