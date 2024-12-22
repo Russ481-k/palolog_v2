@@ -1,26 +1,25 @@
-import { ChangeEvent, useRef, useState } from 'react';
+import { ChangeEvent, useState } from 'react';
 
 import {
   Button,
   Flex,
-  Heading,
   Input,
   InputGroup,
   InputLeftAddon,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Progress,
   Select,
-  useColorMode,
-  useDisclosure,
+  useColorMode, // Heading,
+  // Modal,
+  // ModalBody,
+  // ModalCloseButton,
+  // ModalContent,
+  // ModalFooter,
+  // ModalHeader,
+  // ModalOverlay,
+  // Progress,
+  // useDisclosure,
 } from '@chakra-ui/react';
-import { AgGridReact } from 'ag-grid-react';
 
+// import { AgGridReact } from 'ag-grid-react';
 import PaginationButtons from './PaginationButtons';
 
 export const PageProjectsFooter = ({
@@ -37,10 +36,10 @@ export const PageProjectsFooter = ({
   onChangeLimit: (e: ChangeEvent<HTMLSelectElement>) => void;
   onCurrentPageChange: (page: number) => void;
 }) => {
-  const gridRef = useRef(null);
+  // const gridRef = useRef(null);
 
   const { colorMode } = useColorMode();
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  // const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [goToPage, setGoToPage] = useState<number>(1);
   const onGoToPageClick = () => {
@@ -106,14 +105,14 @@ export const PageProjectsFooter = ({
           <InputLeftAddon borderLeftRadius={5}>Total</InputLeftAddon>
           <Input
             textAlign="right"
-            borderRightWidth={0}
-            borderRightRadius={0}
+            // borderRightWidth={0}
+            // borderRightRadius={0}
             value={totalCnt
               .toString()
               .replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ',')}
           />
         </InputGroup>
-        <Button size="sm" borderLeftRadius={0} onClick={onOpen}>
+        {/* <Button size="sm" borderLeftRadius={0} onClick={onOpen}>
           Download
         </Button>
         <Modal isOpen={isOpen} size="xxl" onClose={onClose}>
@@ -209,7 +208,7 @@ export const PageProjectsFooter = ({
               <Button variant="ghost">DOWNLOAD</Button>
             </ModalFooter>
           </ModalContent>
-        </Modal>
+        </Modal> */}
       </Flex>
     </Flex>
   );
