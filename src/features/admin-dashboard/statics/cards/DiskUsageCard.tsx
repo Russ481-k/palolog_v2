@@ -71,6 +71,7 @@ export const DiskUsageCard = ({
       borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
       colSpan={1}
       overflow="hidden"
+      w="100%"
       height={{
         base: '220px',
         sm: '220px',
@@ -93,7 +94,7 @@ export const DiskUsageCard = ({
           </Text>
         </Box>
         <Flex justifyContent="center" alignItems="center" w="100%" h="100px">
-          <Table size="xs" variant="simple">
+          <Table size="xs" variant="simple" w="100%" zIndex={100}>
             <Thead>
               <Tr>
                 <Th fontSize="xs">Total</Th>
@@ -102,7 +103,7 @@ export const DiskUsageCard = ({
             <Tbody>
               <Tr>
                 <Td fontSize="xs" textAlign="right">
-                  {diskUsage.total}GB
+                  {diskUsage.total} GB
                 </Td>
               </Tr>
             </Tbody>
@@ -114,12 +115,12 @@ export const DiskUsageCard = ({
             <Tbody>
               <Tr>
                 <Td fontSize="xs" textAlign="right">
-                  {diskUsage.used}GB
+                  {diskUsage.used} GB
                 </Td>
               </Tr>
             </Tbody>
           </Table>
-          <Box width="70%">
+          <Box w="70%">
             <AgChartsThemeChanged
               colorMode={colorMode}
               options={cpuUsageDataDonut}

@@ -2,6 +2,7 @@ import { Flex, Skeleton } from '@chakra-ui/react';
 import {
   CellClickedEvent,
   ColDef,
+  ICellRendererParams,
   ILoadingCellRendererParams,
   ValueFormatterParams,
 } from 'ag-grid-community';
@@ -24,8 +25,32 @@ const createColumn = (
       .replace(/([A-Z])/g, ' $1')
       .trim()
       .toUpperCase(),
-    minWidth: 50,
-    width: 160,
+    minWidth: 120,
+    flex: 1,
+    resizable: true,
+    suppressSizeToFit: false,
+    autoHeaderHeight: false,
+    wrapText: false,
+    cellStyle: {
+      fontSize: '12px',
+      padding: '2px 8px',
+      lineHeight: '16px',
+      // whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      display: 'flex',
+      alignItems: 'center',
+    },
+    headerComponentParams: {
+      fontSize: '12px',
+      fontWeight: 'normal',
+      padding: '0 4px',
+      lineHeight: '18px',
+      height: '26px',
+      whiteSpace: 'nowrap',
+      overflow: 'visible',
+      textOverflow: 'unset',
+    },
     onCellClicked: (e) => onCellClickChanged(e),
     cellRenderer: (e: ILoadingCellRendererParams) =>
       !isLoading ? (
@@ -40,17 +65,29 @@ const createColumn = (
   // time이 포함된 컬럼에는 valueFormatter 적용
   if (columnName.toLowerCase().includes('time')) {
     column.valueFormatter = timeFormatter;
-    column.width = 170;
+    column.flex = 0;
   }
 
   // Domain 컬럼에 대한 valueFormatter 추가
-  if (columnName === 'Domain') {
+  if (columnName.toLowerCase() === 'domain') {
+    column.flex = 0;
+    column.width = 180;
     column.valueFormatter = (params) => {
       if (typeof params.value === 'string') {
-        const match = params.value.match(
-          /(?:<\d+>)?[A-Za-z]+ \d+ \d+:\d+:\d+ (.+)/
+        return params.value.replace(
+          /^(?:<\d+>)?(?:[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+/,
+          ''
         );
-        return match ? match[1] : params.value;
+      }
+      return params.value;
+    };
+    // domain 컬럼의 특별한 설정 추가
+    column.cellRenderer = (params: ICellRendererParams<zLogs>) => {
+      if (typeof params.value === 'string') {
+        return params.value.replace(
+          /^(?:<\d+>)?(?:[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+/,
+          ''
+        );
       }
       return params.value;
     };

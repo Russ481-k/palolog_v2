@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Button,
@@ -11,11 +11,7 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  CellClickedEvent,
-  ColDef,
-  ValueFormatterParams,
-} from 'ag-grid-community';
+import { CellClickedEvent, ValueFormatterParams } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 import { AgGridReact } from 'ag-grid-react';
@@ -33,6 +29,7 @@ import { MenuType } from '@/types/project';
 import MenuSetter from './MenuSetter';
 import { PageProjectsFooter } from './PageProjectsFooter';
 import { colDefs } from './colDefs';
+import { columnNames } from './colNameList';
 import { dummy } from './dummy';
 import { FormFieldsPaloLogsParams, zLogs, zPaloLogsParams } from './schemas';
 
@@ -64,7 +61,7 @@ export default function PageProjects() {
     useState<string>(beforeHourTime);
   const [selectedToDate, setSelectedToDate] = useState<string>(now);
 
-  const gridRef = useRef<AgGridReact<ColDef<zLogs>[]>>(null);
+  const gridRef = useRef<AgGridReact<zLogs>>(null);
   const toast = useToast();
 
   const { data, isLoading } = trpc.projects.getAll.useInfiniteQuery(
@@ -167,6 +164,34 @@ export default function PageProjects() {
     }
   }, [pageLength, nextCurrentPage, setPageLengthBuf, setNextCurrentPage]);
 
+  const updateColumnVisibility = useCallback((logs: zLogs[]) => {
+    if (!logs?.length) return;
+
+    const columnsToShow = columnNames.filter((columnName) => {
+      return logs.some((log) => {
+        const value = log[columnName as keyof zLogs];
+        return value !== null && value !== undefined && value !== '-';
+      });
+    });
+
+    if (gridRef.current?.api) {
+      const columnState = columnNames.map((columnName) => ({
+        colId: columnName,
+        hide: !columnsToShow.includes(columnName),
+      }));
+      gridRef.current.api.applyColumnState({ state: columnState });
+    }
+  }, []);
+
+  useEffect(() => {
+    const logs = data?.pages[0]?.logs?.filter(
+      (log): log is zLogs => log !== null && log !== undefined
+    );
+    if (logs?.length) {
+      updateColumnVisibility(logs);
+    }
+  }, [updateColumnVisibility, data?.pages]);
+
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
@@ -249,6 +274,17 @@ export default function PageProjects() {
                   onCellClickChanged,
                   timeFormatter
                 )}
+                rowHeight={26}
+                headerHeight={26}
+                onGridReady={(params) => {
+                  setTimeout(() => {
+                    const allColumnIds: string[] = [];
+                    params.api.getAllGridColumns().forEach((column) => {
+                      allColumnIds.push(column.getId());
+                    });
+                    params.api.autoSizeColumns(allColumnIds);
+                  }, 100);
+                }}
               />
             </div>
             <PageProjectsFooter
