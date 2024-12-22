@@ -47,18 +47,20 @@ export const PageProjectsFooter = ({
   };
 
   return (
-    <Flex justifyContent="space-between">
+    <Flex justifyContent="space-between" h="24px">
       <Flex flex={1}>
-        <Flex gap={3}>
-          <InputGroup size="sm" w="180px">
-            <InputLeftAddon borderLeftRadius={5}>Batch</InputLeftAddon>
+        <Flex gap={2}>
+          <InputGroup size="xs" lineHeight="16px">
+            <InputLeftAddon borderLeftRadius={4}>Batch</InputLeftAddon>
             <Select
               borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
               borderWidth={1}
-              borderRightRadius={5}
+              borderRightRadius={4}
               textAlign="center"
               variant="filled"
               onChange={onChangeLimit}
+              fontSize="xs"
+              size="xs"
             >
               <option value="100">100</option>
               <option value="500">500</option>
@@ -66,7 +68,7 @@ export const PageProjectsFooter = ({
             </Select>
           </InputGroup>
           <Flex>
-            <InputGroup size="sm" w="180px">
+            <InputGroup size="xs" w="180px">
               <InputLeftAddon borderLeftRadius={5}>Go To</InputLeftAddon>
               <Input
                 id="pagination_batch"
@@ -85,7 +87,7 @@ export const PageProjectsFooter = ({
                 onChange={(e) => setGoToPage(Number(e.target.value))}
               />
             </InputGroup>
-            <Button size="sm" borderLeftRadius={0} onClick={onGoToPageClick}>
+            <Button size="xs" borderLeftRadius={0} onClick={onGoToPageClick}>
               Page
             </Button>
           </Flex>
@@ -101,10 +103,11 @@ export const PageProjectsFooter = ({
         />
       </Flex>
       <Flex flex={1} w="180px" justifyContent="right">
-        <InputGroup size="sm" w="180px">
+        <InputGroup size="xs" w="150px">
           <InputLeftAddon borderLeftRadius={5}>Total</InputLeftAddon>
           <Input
             textAlign="right"
+            borderRightRadius={5}
             // borderRightWidth={0}
             // borderRightRadius={0}
             readOnly

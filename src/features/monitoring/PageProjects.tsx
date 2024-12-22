@@ -206,32 +206,37 @@ export default function PageProjects() {
             );
           }}
         >
-          <Stack spacing={3}>
-            <Flex justifyContent="space-between" gap={3}>
+          <Stack spacing={2} h="100vh">
+            <Flex
+              justifyContent="space-between"
+              h="24px"
+              gap={3}
+              alignItems="center"
+            >
               <Flex
                 flexDirection={{ base: 'column', md: 'row' }}
                 alignItems={{ base: 'start', md: 'center' }}
-                gap={2}
+                gap={3}
               >
                 <MenuSetter
                   menu={menu}
                   handleSetMenuChange={handleSetMenuChange}
                 />
-                <Flex gap={2}>
+                <Flex gap={1}>
                   <FormField
                     control={form.control}
                     name="timeFrom"
-                    size="sm"
+                    size="xs"
                     type="text"
-                    width="200px"
+                    width="180px"
                   />
-                  <Heading color="gray.500" flex="none" size="sm" py="5px">
+                  <Heading color="gray.500" flex="none" size="xs" py="3px">
                     ~
                   </Heading>
                   <FormField
                     control={form.control}
                     name="timeTo"
-                    size="sm"
+                    size="xs"
                     type="text"
                     width="200px"
                   />
@@ -240,18 +245,12 @@ export default function PageProjects() {
               <Flex w="100%">
                 <FormField
                   type="search-input"
-                  size="sm"
+                  size="xs"
                   borderRightRadius={0}
                   control={form.control}
                   name="searchTerm"
                 />
-                <Button
-                  type="submit"
-                  h="32px"
-                  w="4.5rem"
-                  size="xs"
-                  borderLeftRadius={0}
-                >
+                <Button type="submit" w="4.5rem" size="xs" borderLeftRadius={0}>
                   Search
                 </Button>
               </Flex>
@@ -262,7 +261,7 @@ export default function PageProjects() {
                   ? 'ag-theme-quartz'
                   : 'ag-theme-quartz-dark'
               }
-              style={{ width: '100%', height: '79vh', zIndex: 0 }}
+              style={{ width: '100%', height: '82vh', zIndex: 0 }}
             >
               {/*//@ts-expect-error Note: AgGridReact타입 충돌 예방으로 ts-expect-error 를 사용*/}
               <AgGridReact

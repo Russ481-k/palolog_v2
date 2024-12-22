@@ -30,10 +30,11 @@ export default function MenuSetter({
   return (
     <Flex>
       <Button
-        fontSize="24px"
-        size="sm"
+        fontSize="18px"
+        size="xs"
         color="gray.400"
         borderWidth={0}
+        borderRadius={4}
         onClick={onOpen}
       >
         {menu}

@@ -184,54 +184,46 @@ const PaginationButtons = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRefetch]);
 
+  const commonButtonStyle = {
+    size: 'xs',
+    bgColor: 'white',
+    borderColor: 'gray.300',
+    borderWidth: 1,
+    color: 'gray.800',
+    fontSize: '11px',
+    height: '24px',
+    minW: '32px',
+    padding: '0px',
+    _hover: { bg: 'gray.50' },
+  };
+
   return (
-    <Flex alignItems="center" flex={1} justifyContent="space-between">
+    <Flex alignItems="center" flex={1} justifyContent="space-between" h="24px">
       <Flex flex={4} justifyContent="center" gap={1}>
         <Button
-          bgColor="white"
-          borderColor="gray.300"
-          borderWidth={1}
-          color="gray.800"
-          fontSize="xs"
-          h="32px"
+          {...commonButtonStyle}
           isDisabled={pageLength <= 0 || isLoading}
-          minW="32px"
-          p={3}
           onClick={() => (currentPage > 1 ? handleCurrentPageChange(1) : '')}
         >{`<<`}</Button>
         <Button
-          bgColor="white"
-          borderColor="gray.300"
-          borderWidth={1}
-          color="gray.800"
-          fontSize="xs"
-          h="32px"
+          {...commonButtonStyle}
           isDisabled={pageLength <= 0 || isLoading}
-          minW="32px"
-          p={3}
           onClick={() =>
             currentPage > 1 ? handleCurrentPageChange(currentPage - 1) : ''
           }
         >{`<`}</Button>
         {paginationButtonsData?.map((page) => (
           <Button
+            key={`page-${page.id}`}
+            {...commonButtonStyle}
             bgColor={currentPage === page.buttonNumber() ? 'gray.200' : 'white'}
             borderColor={
               currentPage === page.buttonNumber() ? 'gray.400' : 'gray.300'
             }
-            borderWidth={1}
-            color={
-              currentPage === page.buttonNumber() ? 'gray.700' : 'gray.800'
-            }
             display={
               page.buttonNumber() > pageList.length ? 'none' : 'inline-flex'
             }
-            fontSize="xs"
             fontWeight={currentPage === page.buttonNumber() ? '800' : '300'}
-            h="32px"
-            key={`page-${page.id}`}
-            minW="32px"
-            p={3}
             pointerEvents={
               currentPage === page.buttonNumber() ? 'none' : 'initial'
             }
@@ -241,15 +233,8 @@ const PaginationButtons = ({
           </Button>
         ))}
         <Button
-          bgColor="white"
-          borderColor="gray.300"
-          borderWidth={1}
-          color="gray.800"
-          fontSize="xs"
-          h="32px"
+          {...commonButtonStyle}
           isDisabled={pageLength <= 0 || isLoading}
-          minW="32px"
-          p={3}
           onClick={() =>
             currentPage < pageList.length
               ? handleCurrentPageChange(currentPage + 1)
@@ -257,15 +242,8 @@ const PaginationButtons = ({
           }
         >{`>`}</Button>
         <Button
-          bgColor="white"
-          borderColor="gray.300"
-          borderWidth={1}
-          color="gray.800"
-          fontSize="xs"
-          h="32px"
+          {...commonButtonStyle}
           isDisabled={pageLength <= 0 || isLoading}
-          minW="32px"
-          p={3}
           onClick={() =>
             currentPage < pageList.length
               ? handleCurrentPageChange(pageList.length)
