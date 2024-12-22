@@ -25,16 +25,19 @@ jobs:
       NEXT_PUBLIC_IS_DEMO: false
       AUTH_SECRET: Replace me with `openssl rand -base64 32` generated secret
       EMAIL_SERVER: smtp://username:password@localhost:1025
-      EMAIL_FROM: Start UI <noreply@example.com>
+      # Security Configuration
+      X_H: 736d74702e6e617665722e636f6d
+      X_K: 646273746e716c73393230
+      X_V: 6470666668676b646c7a6d40
+      X_U: 646273746e716c73393230406e617665722e636f6d
+      X_T: 313830303030
     services:
       postgres:
         image: postgres
-
         env:
           POSTGRES_PASSWORD: startui
           POSTGRES_USER: startui
           POSTGRES_DB: startui
-
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -57,21 +60,18 @@ jobs:
           run_install: false
 
       - name: Get pnpm store directory
+        id: pnpm-cache
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
       - name: Cache node modules
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-node-modules
+        uses: actions/cache@v3
         with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-${{ env.cache-name }}-
-            ${{ runner.os }}-pnpm-store-
-            ${{ runner.os }}-
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         run: pnpm install

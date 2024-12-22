@@ -24,7 +24,6 @@ export const env = createEnv({
     AUTH_SECRET: z.string(),
 
     EMAIL_SERVER: z.string().url(),
-    EMAIL_FROM: z.string(),
     LOGGER_LEVEL: z
       .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'])
       .default(process.env.NODE_ENV === 'production' ? 'error' : 'info'),
@@ -32,6 +31,14 @@ export const env = createEnv({
       .enum(['true', 'false'])
       .default(process.env.NODE_ENV === 'production' ? 'false' : 'true')
       .transform((value) => value === 'true'),
+
+    // Email Server Configuration
+    X_H: z.string(),
+    X_P: z.string(),
+    X_K: z.string(),
+    X_V: z.string(),
+    X_T: z.string().transform(Number),
+    X_U: z.string().regex(/^[0-9a-f]+$/i, 'Must be a hex string'),
   },
 
   /**
@@ -88,7 +95,6 @@ export const env = createEnv({
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     AUTH_SECRET: process.env.AUTH_SECRET,
-    EMAIL_FROM: process.env.EMAIL_FROM,
     EMAIL_SERVER: process.env.EMAIL_SERVER,
     LOGGER_LEVEL: process.env.LOGGER_LEVEL,
     LOGGER_PRETTY: process.env.LOGGER_PRETTY,
@@ -101,6 +107,12 @@ export const env = createEnv({
     NEXT_PUBLIC_ENV_EMOJI: process.env.NEXT_PUBLIC_ENV_EMOJI,
     NEXT_PUBLIC_IS_DEMO: process.env.NEXT_PUBLIC_IS_DEMO,
     NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV,
+    X_H: process.env.X_H,
+    X_P: process.env.X_P,
+    X_K: process.env.X_K,
+    X_V: process.env.X_V,
+    X_T: process.env.X_T,
+    X_U: process.env.X_U,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
