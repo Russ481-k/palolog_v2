@@ -258,7 +258,7 @@ setInterval(async () => {
 // 시스템 메트릭스 관련 함수
 async function getCpuUsage(): Promise<number> {
   return new Promise((resolve) => {
-    exec("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'", (_, stdout) => {
+    exec("top -bn1 | grep '%Cpu(s)' | awk '{print $2 + $4 + $6}'", (_, stdout) => {
       const cpuUsage = parseFloat(stdout.trim());
       resolve(isNaN(cpuUsage) ? 0 : cpuUsage);
     });
