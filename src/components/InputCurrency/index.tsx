@@ -60,7 +60,7 @@ export const InputCurrency = forwardRef<InputCurrencyProps, 'input'>(
       onChange(v);
     };
 
-    const getNumericFormatOptions = (v: number | null) =>
+    const getNumericFormatOptions = (_: number | null) =>
       ({
         getInputRef: ref,
         decimalScale: decimals,

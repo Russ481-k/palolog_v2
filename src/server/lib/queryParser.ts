@@ -1,4 +1,4 @@
-type Operator = '=' | '!=' | 'AND' | 'OR';
+import type { QueryCondition } from '@/server/routers/projects';
 
 interface Condition {
   field: string;
@@ -15,10 +15,10 @@ interface QueryNode {
 
 export function parseWhereClause(whereClause: string): QueryNode {
   let currentIndex = 0;
-  
+
   function parseCondition(): QueryNode {
     skipWhitespace();
-    
+
     if (whereClause[currentIndex] === '(') {
       currentIndex++;
       const node = parseExpression();
@@ -33,11 +33,11 @@ export function parseWhereClause(whereClause: string): QueryNode {
     const field = parseField();
     const operator = parseOperator();
     skipWhitespace();
-    
+
     if (whereClause[currentIndex] !== "'") {
       throw new Error(`Expected quote at position ${currentIndex}`);
     }
-    
+
     const value = parseValue();
     return {
       type: 'condition',
@@ -50,7 +50,7 @@ export function parseWhereClause(whereClause: string): QueryNode {
 
     while (currentIndex < whereClause.length) {
       skipWhitespace();
-      
+
       if (currentIndex >= whereClause.length) break;
 
       if (whereClause[currentIndex] === ')') break;
@@ -60,7 +60,7 @@ export function parseWhereClause(whereClause: string): QueryNode {
         const operator = nextOp === 'AND' ? 'AND' : 'OR';
         currentIndex += operator === 'AND' ? 3 : 2;
         skipWhitespace();
-        
+
         const right = parseCondition();
         left = {
           type: 'operator',
@@ -118,8 +118,10 @@ export function parseWhereClause(whereClause: string): QueryNode {
   return parseExpression();
 }
 
-export function buildOpenSearchQuery(node: QueryNode): any[] {
-  function buildQuery(node: QueryNode): any {
+
+
+export function buildOpenSearchQuery(node: QueryNode): QueryCondition[] {
+  function buildQuery(node: QueryNode): QueryCondition {
     if (node.type === 'condition') {
       const condition = node.value as Condition;
       if (condition.operator === '=') {

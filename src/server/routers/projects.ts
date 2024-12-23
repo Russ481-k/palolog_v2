@@ -27,20 +27,20 @@ type OpenSearchResponse = {
   _scroll_id: string;
 };
 
-type QueryCondition =
+export type QueryCondition =
   | { match: Record<string, string | number> }
   | { multi_match: { query: string; fields: string[]; type: string } }
   | {
-      range: Record<
-        string,
-        {
-          gte?: string | number;
-          lte?: string | number;
-          format: string;
-          time_zone: string;
-        }
-      >;
-    }
+    range: Record<
+      string,
+      {
+        gte?: string | number;
+        lte?: string | number;
+        format: string;
+        time_zone: string;
+      }
+    >;
+  }
   | { term: Record<string, string | number> }
   | { exists: { field: string } }
   | BoolQueryCondition;
@@ -54,6 +54,7 @@ interface BoolQuery {
   should?: QueryCondition[];
   must_not?: QueryCondition[];
   filter?: QueryCondition[];
+  minimum_should_match?: number;
 }
 
 interface SearchBody {
@@ -123,7 +124,7 @@ export async function searchOpenSearchWithScroll(
             },
             {
               match: {
-                logType: menu??'TRAFFIC',
+                logType: menu ?? 'TRAFFIC',
               },
             },
             ...(searchBody.query.bool?.must?.slice(1) || []),
@@ -135,7 +136,7 @@ export async function searchOpenSearchWithScroll(
 
     console.log('Initial search body:', JSON.stringify(modifiedSearchBody, null, 2));
     console.log('Modified search body with search term:', JSON.stringify(modifiedSearchBody, null, 2));
-    
+
     // 초기 검색 요청
     const initialResponse = await client.request<OpenSearchResponse>({
       path: searchPath,
@@ -161,7 +162,7 @@ export async function searchOpenSearchWithScroll(
     // 목표 페이지까지 스크롤
     while (currentScrolls < scrollsNeeded && scrollId) {
       console.log(`Executing scroll ${currentScrolls + 1}/${scrollsNeeded}`);
-      
+
       const scrollResponse = await client.request<OpenSearchResponse>({
         path: `/_search/scroll?scroll=1m&scroll_id=${encodeURIComponent(scrollId)}`,
         method: 'GET',
@@ -181,7 +182,7 @@ export async function searchOpenSearchWithScroll(
 
       // 스크롤 응답 데이터 누적
       allScrollResponses = [...allScrollResponses, ...scrollResponse.hits.hits];
-      
+
       scrollId = scrollResponse._scroll_id;
       currentScrolls++;
 
@@ -201,14 +202,10 @@ export async function searchOpenSearchWithScroll(
         path: `/_search/scroll?scroll=1m&scroll_id=${encodeURIComponent(scrollId)}`,
         method: 'GET',
       });
-    // 목표 페이지의 데이터 수집 부분 수정
-    console.log('Total accumulated hits:', allScrollResponses.length);
+      // 목표 페이지의 데이터 수집 부분 수정
+      console.log('Total accumulated hits:', allScrollResponses.length);
       console.log('Final scroll response hits:', finalScrollResponse.hits.hits.length);
 
-      
-    const sliceStart = start;
-    const sliceEnd = Math.min(start + size, allScrollResponses.length);
-    
       if (!finalScrollResponse?.hits?.hits) {
         console.error('Invalid final scroll response format:', finalScrollResponse);
         throw new Error('Invalid response format from OpenSearch scroll');
@@ -234,7 +231,7 @@ export async function searchOpenSearchWithScroll(
         sliceEnd,
         totalHits: initialResponse.hits.hits.length
       });
-      
+
       targetHits = initialResponse.hits.hits.slice(sliceStart, sliceEnd);
       console.log('Calculating final slice:', {
         sliceStart,
@@ -242,7 +239,7 @@ export async function searchOpenSearchWithScroll(
         totalAccumulatedHits: allScrollResponses.length
       });
     }
-    
+
     console.log('Final target hits length:', targetHits.length);
 
     // 데이터 조회 완료 후 상태 업데이트
@@ -351,7 +348,7 @@ export const projectsRouter = createTRPCRouter({
         };
 
         // searchTerm이 있을 경우 쿼리 조건 추가
-        if (input.searchTerm) {          
+        if (input.searchTerm) {
           try {
             // WHERE 절 형식인지 확인 (trim()으로 앞뒤 공백 제거 후 검사)
             const trimmedSearchTerm = input.searchTerm.trim();
@@ -359,12 +356,12 @@ export const projectsRouter = createTRPCRouter({
               // AND로 시작하는 경우 WHERE 절 파싱
               const whereClause = trimmedSearchTerm.substring(3).trim(); // 'AND ' 제거
               console.log('Parsing where clause:', whereClause);
-              
+
               const parsedQuery = parseWhereClause(whereClause);
               const opensearchQueries = buildOpenSearchQuery(parsedQuery);
-              
+
               console.log('Parsed OpenSearch queries:', JSON.stringify(opensearchQueries, null, 2));
-              
+
               if (searchBody.query.bool?.must) {
                 searchBody.query.bool.must.push(...opensearchQueries);
               }
