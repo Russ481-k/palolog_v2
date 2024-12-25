@@ -6,26 +6,12 @@ import { z } from 'zod';
 import { columnNames } from '@/features/monitoring/colNameList';
 import { zPaloLogs, zPaloLogsParams } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
-import { OpenSearchClient } from '@/server/lib/opensearch';
+import { OpenSearchClient, OpenSearchResponse } from '@/server/lib/opensearch';
 import { parseWhereClause, buildOpenSearchQuery } from '@/server/lib/queryParser';
+import { OpenSearchHit } from '@/types/project';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-type OpenSearchHit = {
-  _source: Record<string, string | number | null> | undefined;
-  sort: [string | number | null];
-};
-
-type OpenSearchResponse = {
-  hits: {
-    total: {
-      value: number;
-    };
-    hits: OpenSearchHit[];
-  };
-  _scroll_id: string;
-};
 
 export type QueryCondition =
   | { match: Record<string, string | number> }
@@ -63,7 +49,7 @@ interface SearchBody {
     id: string;
     max: number;
   };
-  query: { bool?: BoolQuery; match_all?: object };
+  query: { bool?: BoolQuery; match_all?: Record<string, unknown> };
   sort?: Record<string, { order: 'asc' | 'desc' }>[];
   search_after?: [string | number | null];
 }
@@ -85,6 +71,17 @@ export async function searchOpenSearchWithScroll(
   const client = OpenSearchClient.getInstance();
 
   try {
+    const rangeQuery = (searchBody.query.bool?.must?.[0] as {
+      range: {
+        '@timestamp': {
+          gte: string;
+          lte: string;
+          format: string;
+          time_zone: string;
+        }
+      }
+    })?.range?.['@timestamp'];
+
     const modifiedSearchBody = {
       track_total_hits: true,
       query: {
@@ -93,7 +90,10 @@ export async function searchOpenSearchWithScroll(
             {
               range: {
                 '@timestamp': {
-                  ...(searchBody.query.bool?.must?.[0] as any)?.range?.['@timestamp'],
+                  gte: rangeQuery?.gte,
+                  lte: rangeQuery?.lte,
+                  format: 'strict_date_time',
+                  time_zone: '+09:00',
                 },
               },
             },
@@ -130,11 +130,11 @@ export async function searchOpenSearchWithScroll(
       initialResponse: {
         hits: {
           total: { value: result.total },
-          hits: result.hits
+          hits: result.hits as OpenSearchHit[] // Ensure type compatibility
         },
         _scroll_id: result.scrollId || ''
       },
-      scrollResponse: result.hits
+      scrollResponse: result.hits as OpenSearchHit[] // Ensure type compatibility
     };
   } catch (error) {
     console.error('Search error:', error);
@@ -321,4 +321,3 @@ export const projectsRouter = createTRPCRouter({
       }
     }),
 });
-

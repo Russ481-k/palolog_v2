@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as https from 'https';
 
 import { env } from '@/env.mjs';
+import { OpenSearchHit } from '@/types/project';
 
 export interface OpenSearchOptions {
   path: string;
@@ -19,6 +20,25 @@ export interface ScrollSearchOptions {
 export interface PaginatedScrollOptions extends ScrollSearchOptions {
   page: number;
   pageSize: number;
+}
+
+export interface OpenSearchResponse {
+  hits: {
+    total: {
+      value: number;
+      relation?: string;
+    };
+    hits: OpenSearchHit[];
+  };
+  _scroll_id: string;
+  took?: number;
+  timed_out?: boolean;
+}
+
+export interface ScrollResponse {
+  hits: OpenSearchHit[];
+  total: number;
+  scrollId?: string;
 }
 
 export class OpenSearchClient {
@@ -80,9 +100,9 @@ export class OpenSearchClient {
   }
 
   // 스크롤 검색 초기화
-  async initScroll({ index, body, scrollTime = '1m', size = 1000 }: ScrollSearchOptions) {
+  async initScroll({ index, body, scrollTime = '1m', size = 1000 }: ScrollSearchOptions): Promise<OpenSearchResponse> {
     const path = `/${index}/_search?scroll=${scrollTime}&size=${size}`;
-    return this.request<any>({
+    return this.request<OpenSearchResponse>({
       path,
       method: 'POST',
       body,
@@ -90,8 +110,8 @@ export class OpenSearchClient {
   }
 
   // 스크롤 계속
-  async scroll(scrollId: string, scrollTime = '1m') {
-    return this.request<any>({
+  async scroll(scrollId: string, scrollTime = '1m'): Promise<OpenSearchResponse> {
+    return this.request<OpenSearchResponse>({
       path: '/_search/scroll',
       method: 'POST',
       body: {
@@ -102,18 +122,18 @@ export class OpenSearchClient {
   }
 
   // 스크롤 종료
-  async clearScroll(scrollId: string) {
-    return this.request<any>({
+  async clearScroll(scrollId: string): Promise<{ succeeded: boolean }> {
+    return this.request<{ succeeded: boolean }>({
       path: '/_search/scroll',
       method: 'DELETE',
       body: {
-        scroll_id: [scrollId]
+        "scroll_id": scrollId
       }
     });
   }
 
   // 전체 결과를 가져오는 헬퍼 메서드
-  async scrollAll(options: ScrollSearchOptions): Promise<any[]> {
+  async scrollAll(options: ScrollSearchOptions): Promise<OpenSearchHit[]> {
     try {
       const initialResponse = await this.initScroll(options);
       let results = [...initialResponse.hits.hits];
@@ -143,15 +163,13 @@ export class OpenSearchClient {
     pageSize,
     scrollTime = '1m',
     size = 1000
-  }: PaginatedScrollOptions): Promise<{
-    hits: any[];
-    total: number;
-    scrollId?: string;
-  }> {
+  }: PaginatedScrollOptions): Promise<ScrollResponse> {
     let currentScrollId: string | undefined;
 
     try {
       const start = (page - 1) * pageSize;
+      const batchesNeeded = Math.floor(start / size);
+
       const initialResponse = await this.initScroll({
         index,
         body: {
@@ -165,15 +183,13 @@ export class OpenSearchClient {
 
       let results = [...initialResponse.hits.hits];
       currentScrollId = initialResponse._scroll_id;
-      let currentPosition = 0;
 
-      // 목표 위치까지 스크롤
-      while (currentPosition + results.length < start && currentScrollId) {
+      // 필요한 배치만큼 스크롤
+      for (let i = 0; i < batchesNeeded && currentScrollId; i++) {
         try {
           const response = await this.scroll(currentScrollId, scrollTime);
           if (!response?.hits?.hits?.length) break;
 
-          currentPosition += results.length;
           results = response.hits.hits;
           currentScrollId = response._scroll_id;
         } catch (scrollError) {
@@ -182,25 +198,23 @@ export class OpenSearchClient {
         }
       }
 
-      // 현재 배치에서 필요한 부분만 추출
-      const startInBatch = start - currentPosition;
-      let pageResults = results.slice(startInBatch, startInBatch + pageSize);
+      // 현재 배치에서 필요한 부분 추출
+      const offsetInBatch = start % size;
+      let pageResults = results.slice(offsetInBatch, offsetInBatch + pageSize);
 
-      // 필요한 경우 추가 스크롤
-      while (pageResults.length < pageSize && currentScrollId) {
+      // 현재 배치에서 부족한 경우 다음 배치 가져오기
+      if (pageResults.length < pageSize && currentScrollId) {
         try {
           const response = await this.scroll(currentScrollId, scrollTime);
-          if (!response?.hits?.hits?.length) break;
-
-          const remaining = pageSize - pageResults.length;
-          pageResults = [
-            ...pageResults,
-            ...response.hits.hits.slice(0, remaining)
-          ];
-          currentScrollId = response._scroll_id;
+          if (response?.hits?.hits?.length) {
+            const remaining = pageSize - pageResults.length;
+            pageResults = [
+              ...pageResults,
+              ...response.hits.hits.slice(0, remaining)
+            ];
+          }
         } catch (scrollError) {
           console.error('Additional scroll operation failed:', scrollError);
-          break;
         }
       }
 
@@ -214,7 +228,6 @@ export class OpenSearchClient {
       console.error('Paginated scroll search error:', error);
       throw error;
     } finally {
-      // 스크롤 컨텍스트 정리
       if (currentScrollId) {
         try {
           await this.clearScroll(currentScrollId);
