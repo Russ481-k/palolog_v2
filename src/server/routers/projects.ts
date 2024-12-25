@@ -83,23 +83,9 @@ export async function searchOpenSearchWithScroll(
   scrollResponse: OpenSearchHit[];
 }> {
   const client = OpenSearchClient.getInstance();
-  const scrollSize = 10000;
-  const start = (page - 1) * size;
-  const scrollsNeeded = Math.floor(start / scrollSize);
-
-  console.log('Search parameters:', {
-    page,
-    size,
-    start,
-    scrollsNeeded,
-    scrollSize,
-  });
 
   try {
-    const searchPath = '/*vision-seoul-fw-seoulfw*/_search?scroll=1m';
-
     const modifiedSearchBody = {
-      size: scrollSize,
       track_total_hits: true,
       query: {
         bool: {
@@ -107,18 +93,7 @@ export async function searchOpenSearchWithScroll(
             {
               range: {
                 '@timestamp': {
-                  ...(
-                    searchBody.query.bool?.must?.[0] as {
-                      range: {
-                        '@timestamp': {
-                          gte: string;
-                          lte: string;
-                          format: string;
-                          time_zone: string;
-                        };
-                      };
-                    }
-                  )?.range?.['@timestamp'],
+                  ...(searchBody.query.bool?.must?.[0] as any)?.range?.['@timestamp'],
                 },
               },
             },
@@ -134,150 +109,35 @@ export async function searchOpenSearchWithScroll(
       sort: [{ '@timestamp': { order: 'desc' } }],
     };
 
-    console.log('Initial search body:', JSON.stringify(modifiedSearchBody, null, 2));
-    console.log('Modified search body with search term:', JSON.stringify(modifiedSearchBody, null, 2));
-
-    // 초기 검색 요청
-    const initialResponse = await client.request<OpenSearchResponse>({
-      path: searchPath,
-      method: 'POST',
+    const result = await client.scrollWithPagination({
+      index: '*vision-seoul-fw-seoulfw*',
       body: modifiedSearchBody,
+      page,
+      pageSize: size,
+      scrollTime: '2m',
+      size: 1000
     });
 
-    console.log('Initial response total hits:', initialResponse.hits.total.value);
-    console.log('Initial response hits length:', initialResponse.hits.hits.length);
-
-    if (!initialResponse?.hits?.hits) {
-      console.error('Invalid response format:', initialResponse);
-      throw new Error('Invalid response format from OpenSearch');
-    }
-
-    let scrollId = initialResponse._scroll_id;
-    let currentScrolls = 0;
-    let targetHits: OpenSearchHit[] = [];
-    let allScrollResponses: OpenSearchHit[] = [...initialResponse.hits.hits];
-
-    console.log('Starting scroll operations. ScrollId:', scrollId);
-
-    // 목표 페이지까지 스크롤
-    while (currentScrolls < scrollsNeeded && scrollId) {
-      console.log(`Executing scroll ${currentScrolls + 1}/${scrollsNeeded}`);
-
-      const scrollResponse = await client.request<OpenSearchResponse>({
-        path: `/_search/scroll?scroll=1m&scroll_id=${encodeURIComponent(scrollId)}`,
-        method: 'GET',
-      });
-
-      console.log(`Scroll ${currentScrolls + 1} response hits:`, scrollResponse.hits.hits.length);
-
-      if (!scrollResponse?.hits?.hits) {
-        console.error('Invalid scroll response format:', scrollResponse);
-        break;
-      }
-
-      if (scrollResponse.hits.hits.length === 0) {
-        console.log('No more hits in scroll response, breaking loop');
-        break;
-      }
-
-      // 스크롤 응답 데이터 누적
-      allScrollResponses = [...allScrollResponses, ...scrollResponse.hits.hits];
-
-      scrollId = scrollResponse._scroll_id;
-      currentScrolls++;
-
-      if (onProgress) {
-        onProgress({
-          current: (currentScrolls + 1) * scrollSize,
-          total: initialResponse.hits.total.value,
-          status: 'loading',
-        });
-      }
-    }
-
-    // 목표 페이지의 데이터 수집
-    if (scrollId && scrollsNeeded > 0) {
-      console.log('Fetching final page data with scroll');
-      const finalScrollResponse = await client.request<OpenSearchResponse>({
-        path: `/_search/scroll?scroll=1m&scroll_id=${encodeURIComponent(scrollId)}`,
-        method: 'GET',
-      });
-      // 목표 페이지의 데이터 수집 부분 수정
-      console.log('Total accumulated hits:', allScrollResponses.length);
-      console.log('Final scroll response hits:', finalScrollResponse.hits.hits.length);
-
-      if (!finalScrollResponse?.hits?.hits) {
-        console.error('Invalid final scroll response format:', finalScrollResponse);
-        throw new Error('Invalid response format from OpenSearch scroll');
-      }
-
-      const offsetInLastBatch = start % scrollSize;
-      console.log('Calculating final slice:', {
-        offsetInLastBatch,
-        sliceStart: offsetInLastBatch,
-        sliceEnd: offsetInLastBatch + size,
-      });
-
-      targetHits = finalScrollResponse.hits.hits.slice(
-        offsetInLastBatch,
-        offsetInLastBatch + size
-      );
-    } else {
-      console.log('Using initial response for data');
-      const sliceStart = start % scrollSize;
-      const sliceEnd = Math.min(sliceStart + size, initialResponse.hits.hits.length);
-      console.log('Calculating initial slice:', {
-        sliceStart,
-        sliceEnd,
-        totalHits: initialResponse.hits.hits.length
-      });
-
-      targetHits = initialResponse.hits.hits.slice(sliceStart, sliceEnd);
-      console.log('Calculating final slice:', {
-        sliceStart,
-        sliceEnd,
-        totalAccumulatedHits: allScrollResponses.length
-      });
-    }
-
-    console.log('Final target hits length:', targetHits.length);
-
-    // 데이터 조회 완료 후 상태 업데이트
     if (onProgress) {
       onProgress({
-        current: initialResponse.hits.total.value,
-        total: initialResponse.hits.total.value,
-        status: 'complete',
+        current: result.total,
+        total: result.total,
+        status: 'complete'
       });
-    }
-
-    // scroll 컨텍스트 정리
-    if (scrollId) {
-      try {
-        await client.request({
-          path: `/_search/scroll?scroll_id=${encodeURIComponent(scrollId)}`,
-          method: 'DELETE',
-        });
-      } catch (clearError) {
-        console.error('Error clearing scroll context:', clearError);
-      }
     }
 
     return {
       initialResponse: {
-        ...initialResponse,
         hits: {
-          ...initialResponse.hits,
-          hits: targetHits,
+          total: { value: result.total },
+          hits: result.hits
         },
+        _scroll_id: result.scrollId || ''
       },
-      scrollResponse: targetHits,
+      scrollResponse: result.hits
     };
   } catch (error) {
-    console.error('Detailed OpenSearch Error:', error);
-    if (error instanceof Error) {
-      console.error('Error stack:', error.stack);
-    }
+    console.error('Search error:', error);
     throw error;
   }
 }
