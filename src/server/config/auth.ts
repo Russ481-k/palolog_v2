@@ -63,8 +63,9 @@ export const setAuthCookie = (token: string) => {
     name: AUTH_COOKIE_NAME,
     value: token,
     httpOnly: true,
-    secure: false,
-    expires: dayjs().add(1, 'day').toDate(),
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
   });
 };
 

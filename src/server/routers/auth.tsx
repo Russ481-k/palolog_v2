@@ -68,7 +68,6 @@ export const authRouter = createTRPCRouter({
         verificationToken: z.object({
           userId: z.string(),
           token: z.string(),
-          expires: z.date(),
           lastAttemptAt: z.date(),
           attempts: z.number(),
         }),

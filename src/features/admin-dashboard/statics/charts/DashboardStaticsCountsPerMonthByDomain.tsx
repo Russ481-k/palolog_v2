@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 
 import { GridItem, useColorMode } from '@chakra-ui/react';
 import { AgChartOptions } from 'ag-charts-community';
@@ -60,6 +60,7 @@ export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
       ],
       height: 270,
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, domains, colorMode]
   );
 
