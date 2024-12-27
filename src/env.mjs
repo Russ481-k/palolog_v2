@@ -13,7 +13,6 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
-    DOMAINS: z.string().min(1),
     OPENSEARCH_URL: z.string().url(),
     OPENSEARCH_PORT: z.string(),
     OPENSEARCH_USERNAME: z.string(),
@@ -47,7 +46,6 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    NEXT_PUBLIC_DOMAINS: z.string().min(1),
     NEXT_PUBLIC_IS_DEMO: z
       .enum(['true', 'false'])
       .optional()
@@ -86,8 +84,6 @@ export const env = createEnv({
    * middlewares) or client-side so we need to destruct manually.
    */
   runtimeEnv: {
-    DOMAINS: process.env.DOMAINS,
-    NEXT_PUBLIC_DOMAINS: process.env.NEXT_PUBLIC_DOMAINS,
     OPENSEARCH_URL: process.env.OPENSEARCH_URL,
     OPENSEARCH_PORT: process.env.OPENSEARCH_PORT,
     OPENSEARCH_USERNAME: process.env.OPENSEARCH_USERNAME,

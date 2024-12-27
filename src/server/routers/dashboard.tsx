@@ -134,7 +134,7 @@ async function makeOpenSearchRequest<T>(
 
 // 매일 자정과 매월 1일에 전체 로그 수를 측정하는 함수
 async function measureTotalLogs(type: 'daily' | 'monthly') {
-  const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
+  const domains = await getDomainIndexContents();
 
   for (const domain of domains) {
     try {
@@ -282,7 +282,30 @@ async function getMemoryUsage(): Promise<number> {
   });
 }
 
+// Function to query the device_name_index
+export const getDomainIndexContents = async (): Promise<string[]> => {
+  try {
+    const result = await makeOpenSearchRequest<{
+      hits: { hits: Array<{ _source: { domains: string[] } }> };
+    }>('/domain_index/_search', 'POST', {
+      size: 1000,
+      query: { match_all: {} },
+    });
+
+    return result.hits.hits[0]?._source.domains ?? [];
+  } catch (error) {
+    console.error('Error querying domain_index:', error);
+    return [];
+  }
+};
+
 export const dashboardRouter = createTRPCRouter({
+  getDomains: protectedProcedure()
+    .output(z.object({ domains: z.array(z.string()) }))
+    .query(async () => {
+      const domains = await getDomainIndexContents();
+      return { domains };
+    }),
   // 시스템 메트릭스 조회
   getSystemMetrics: protectedProcedure()
     .output(
@@ -327,7 +350,7 @@ export const dashboardRouter = createTRPCRouter({
     .query(async () => {
       const now = dayjs().tz('Asia/Seoul');
       const oneSecondAgo = now.subtract(5, 'second');
-      const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
+      const domains = await getDomainIndexContents();
       const currentHour = now.format('YYYY.MM.DD.HH');
 
       // 초당 로그 수 계산
@@ -393,7 +416,7 @@ export const dashboardRouter = createTRPCRouter({
 
   getChartMetrics: protectedProcedure().query(async () => {
     const now = dayjs().tz('Asia/Seoul');
-    const domains = env.DOMAINS?.split(',').filter(Boolean) ?? [];
+    const domains = await getDomainIndexContents();
 
     // 시간별 데이터 (최근 24시간)
     const hourlyLogsPromises = domains.map(async (domain) => {
@@ -431,7 +454,7 @@ export const dashboardRouter = createTRPCRouter({
       };
     });
 
-    // 일별 데이�� (최근 10일)
+    // 일별 데이터 (최근 10일)
     const dailyLogsPromises = domains.map(async (domain) => {
       const domainPattern = domain
         .toLowerCase()

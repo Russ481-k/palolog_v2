@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { GridItem, useColorMode } from '@chakra-ui/react';
 import { AgChartOptions } from 'ag-charts-community';
@@ -6,7 +6,7 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
 import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
-import { env } from '@/env.mjs';
+import { trpc } from '@/lib/trpc/client';
 
 interface Props {
   data: Record<string, string | number>[];
@@ -14,8 +14,8 @@ interface Props {
 
 export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
   const { colorMode } = useColorMode();
-
-  const domains = env.NEXT_PUBLIC_DOMAINS?.split(',') ?? [];
+  const { data: domains = { domains: [] } } =
+    trpc.dashboard.getDomains.useQuery();
 
   const countsPerDay = useMemo<AgChartOptions>(
     () => ({
@@ -23,7 +23,7 @@ export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
         text: '장비별 월간 로그 총 수집량',
       },
       data,
-      series: domains.map((domain: string) => ({
+      series: domains.domains.map((domain: string) => ({
         type: 'bar',
         xKey: 'time',
         yKey: domain,
@@ -37,21 +37,21 @@ export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
           position: 'bottom',
         },
         {
-          position: 'left',
           type: 'number',
+          position: 'left',
           label: {
             formatter: (params) => {
               return `${(params.value / 1000000).toFixed(1)}M`;
             },
           },
-          keys: domains,
+          keys: domains.domains,
           title: {
             text: 'Total',
           },
         },
         {
-          position: 'right',
           type: 'number',
+          position: 'right',
           keys: ['countsPerMonthByDomain'],
           title: {
             text: 'Counts Per Month By Domain',
@@ -60,8 +60,7 @@ export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
       ],
       height: 270,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, colorMode]
+    [data, domains, colorMode]
   );
 
   return (

@@ -31,9 +31,6 @@
     npm install -g pm2
     pnpm install;
 
-    sudo lsof -i :8000
-    sudo kill -9 $(sudo lsof -t -i:8000)
-
     docker stop $(docker ps -aq); docker rm $(docker ps -aq);
 
     pm2 delete palolog ;

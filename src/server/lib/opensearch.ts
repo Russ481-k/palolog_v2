@@ -123,13 +123,21 @@ export class OpenSearchClient {
 
   // 스크롤 종료
   async clearScroll(scrollId: string): Promise<{ succeeded: boolean }> {
-    return this.request<{ succeeded: boolean }>({
-      path: '/_search/scroll',
-      method: 'DELETE',
-      body: {
-        "scroll_id": scrollId
+    try {
+      if (!scrollId) {
+        return { succeeded: false };
       }
-    });
+
+      await this.request({
+        path: `/_search/scroll/${scrollId}`,
+        method: 'DELETE',
+      });
+
+      return { succeeded: true };
+    } catch (error) {
+      console.error('Failed to clear scroll context:', error);
+      return { succeeded: false };
+    }
   }
 
   // 전체 결과를 가져오는 헬퍼 메서드
