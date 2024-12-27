@@ -45,9 +45,11 @@ export const downloadRouter = createTRPCRouter({
             downloadManager.createDownload(downloadId, input.totalRows);
 
             try {
+                const BATCH_SIZE = 10000;  // 50만 건 단위로 조정
+
                 // 초기 검색 수행
                 const initialSearch = await makeOpenSearchRequest<{
-                    hits: { hits: Array<{ _source: OpenSearchHit }> };
+                    hits: { hits: OpenSearchHit[] };
                     _scroll_id: string;
                 }>('/_search', 'POST', {
                     query: {
@@ -75,7 +77,8 @@ export const downloadRouter = createTRPCRouter({
                         }
                     },
                     sort: [{ '@timestamp': { order: 'desc' } }],
-                    size: 1000,
+                    size: BATCH_SIZE,
+
                 });
                 console.log("initialSearch", JSON.stringify(initialSearch, null, 2));
                 console.log('Initial search request:', {
@@ -94,6 +97,11 @@ export const downloadRouter = createTRPCRouter({
                     error: !initialSearch?.hits ? 'No hits object' : null
                 });
 
+                console.log('Scroll ID check:', {
+                    initial: initialSearch._scroll_id,
+                    raw: initialSearch
+                });
+
                 currentScrollId = initialSearch._scroll_id;
                 console.log('Initial search completed:', {
                     scrollId: currentScrollId,
@@ -102,14 +110,20 @@ export const downloadRouter = createTRPCRouter({
 
                 // 첫 번째 배치 처리
                 if (initialSearch.hits.hits.length > 0) {
-                    const logs = initialSearch.hits.hits.map((hit: { _source: OpenSearchHit }) => hit._source);
-                    const chunkId = `${downloadId}_${processedRows}.csv`;
+                    const logs = initialSearch.hits.hits.map(hit => hit._source);
+                    const firstTimestamp = logs[0]?.[1] ?? '';
+                    const lastTimestamp = logs[logs.length - 1]?.[1] ?? '';
+                    const startDate = dayjs(lastTimestamp).format('YYYYMMDD_HHmmss');
+                    const endDate = dayjs(firstTimestamp).format('YYYYMMDD_HHmmss');
+                    const chunkId = `${startDate}_${endDate}_${downloadId}_part1.csv`;
                     const filePath = await createCsvFile(logs, chunkId);
                     processedRows += logs.length;
                     downloadManager.updateProgress(downloadId, processedRows, filePath);
+                    console.log('First batch processed:', { processedRows, filePath });  // 로깅 추가
                 }
 
                 // 나머지 스크롤 검색 수행
+                let partNumber = 2;
                 while (processedRows < input.totalRows) {
                     try {
                         console.log('Fetching next batch:', {
@@ -123,58 +137,53 @@ export const downloadRouter = createTRPCRouter({
                                 const result = await makeOpenSearchRequest<{
                                     hits: { hits: OpenSearchHit[] };
                                     _scroll_id: string;
-                                }>('/_search/scroll=1m', 'POST', {
-                                    scroll_id: currentScrollId,
-                                    size: 10000
+                                }>('/_search/scroll=5m', 'POST', {
+                                    scroll_id: currentScrollId
                                 });
 
-                                console.log('Search result:', {
-                                    hitsLength: result?.hits?.hits?.length,
-                                    scrollId: result?._scroll_id,
-                                    error: !result?.hits ? 'No hits object' : null
+                                console.log('Scroll search result:', {
+                                    scrollId: result._scroll_id,
+                                    hitsLength: result?.hits?.hits?.length
                                 });
+
+                                if (!result?.hits?.hits) {
+                                    throw new Error('Invalid search response');
+                                }
 
                                 return result;
                             },
                             {
                                 retries: MAX_RETRIES,
-                                onRetry: (error: Error, attempt: number) => {
-                                    console.error('Retry error:', {
-                                        attempt,
-                                        error: error.message,
-                                        stack: error.stack
-                                    });
-                                }
+                                minTimeout: 2000,
+                                maxTimeout: 10000
                             }
                         );
 
                         if (!searchResult.hits.hits.length) break;
 
-                        // CSV 파일 생성 재도 로직
-                        const logs = searchResult.hits.hits.map((hit: OpenSearchHit) => hit._source);
-                        const chunkId = `${downloadId}_${processedRows}.csv`;
-
-                        const filePath = await retry(
-                            () => createCsvFile(logs, chunkId),
-                            {
-                                retries: MAX_RETRIES,
-                                onRetry: (error: Error, attempt: number) => {
-                                    console.warn(`CSV creation retry ${attempt} due to: ${error.message}`);
-                                }
-                            }
-                        );
+                        // 각 배치 처리
+                        const logs = searchResult.hits.hits.map(hit => hit._source);
+                        const firstTimestamp = logs[0]?.['@timestamp'] ?? '';
+                        const lastTimestamp = logs[logs.length - 1]?.['@timestamp'] ?? '';
+                        const startDate = dayjs(lastTimestamp).format('YYYYMMDD_HHmmss');
+                        const endDate = dayjs(firstTimestamp).format('YYYYMMDD_HHmmss');
+                        const chunkId = `${startDate}_${endDate}_${downloadId}_part${partNumber}.csv`;
+                        const filePath = await createCsvFile(logs, chunkId);
 
                         processedRows += logs.length;
                         downloadManager.updateProgress(downloadId, processedRows, filePath);
+                        console.log('Batch processed:', { partNumber, processedRows, filePath });  // 로깅 추가
+
                         currentScrollId = searchResult._scroll_id;
+                        partNumber++;
 
                         // 메모리 정리
                         searchResult.hits.hits.length = 0;
-
                         await new Promise(resolve => setTimeout(resolve, 100));
                         retryCount = 0;  // 공 시 재시도 카운트 리셋
 
                     } catch (chunkError: unknown) {
+                        console.error('Chunk error:', chunkError);  // 에러 로깅 추가
                         retryCount++;
                         if (retryCount > MAX_RETRIES) {
                             throw new Error(`Failed after ${MAX_RETRIES} retries: ${chunkError instanceof Error ? chunkError.message : String(chunkError)

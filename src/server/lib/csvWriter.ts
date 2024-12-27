@@ -8,7 +8,7 @@ export async function createCsvFile(logs: any[], chunkId: string): Promise<strin
         fs.mkdirSync(csvDir, { recursive: true });
     }
 
-    const filePath = path.join(csvDir, `chunk_${chunkId}.csv`);
+    const filePath = path.join(csvDir, `${chunkId}.csv`);
     const csvContent = stringify(logs, {
         header: true,
         columns: Object.keys(logs[0] || {})

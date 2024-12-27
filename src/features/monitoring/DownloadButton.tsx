@@ -22,6 +22,7 @@ import {
   useColorMode,
   useDisclosure,
   useToast,
+  Spinner,
 } from '@chakra-ui/react';
 import { AgGridReact } from 'ag-grid-react';
 
@@ -75,37 +76,50 @@ export const DownloadButton = ({
     { downloadId: downloadId ?? '' },
     {
       enabled: !!downloadId,
-      refetchInterval: (data) =>
-        data?.status === 'completed' || data?.status === 'failed'
-          ? false
-          : 1000,
+      refetchInterval: 1000,
+      staleTime: 0,
+      cacheTime: 0,
     }
   );
 
   const { data: files } = trpc.download.getFiles.useQuery(
     { downloadId: downloadId ?? '' },
-    { enabled: !!downloadId }
+    { 
+      enabled: !!downloadId && downloadStatus?.status === 'completed',
+      refetchOnMount: true,
+      staleTime: Infinity,
+    }
   );
 
   const downloadFile = trpc.download.downloadFile.useMutation();
   const cleanup = trpc.download.cleanup.useMutation();
 
+  const [isFilesLoading, setIsFilesLoading] = useState(false);
+
+  useEffect(() => {
+    if (downloadStatus?.status === 'completed') {
+      setIsFilesLoading(true);
+    } else {
+      setIsFilesLoading(false);
+    }
+  }, [downloadStatus?.status]);
+
+  useEffect(() => {
+    if (files) {
+      setIsFilesLoading(false);
+    }
+  }, [files]);
+
   // 진행 상황 업데이트 개선
   useEffect(() => {
     if (progress) {
       setDownloadStatus(progress);
-      if (progress.status === 'failed') {
-        setError(progress.error);
-        toast({
-          title: 'Download Failed',
-          description: progress.error,
-          status: 'error',
-          duration: null,
-          isClosable: true,
-        });
+      if (progress.status === 'completed') {
+        // 완료 또는 실패 시에도 마지막 상태 유지
+        setIsFilesLoading(false);
       }
     }
-  }, [progress, toast]);
+  }, [progress]);
 
   const handleFileDownload = async (fileName: string) => {
     try {
@@ -231,40 +245,48 @@ export const DownloadButton = ({
 
               {/* 파일 목록 */}
               {downloadStatus?.status === 'completed' && (
-                <div
-                  className={
-                    colorMode === 'light'
-                      ? 'ag-theme-quartz'
-                      : 'ag-theme-quartz-dark'
-                  }
-                  style={{ width: '100%', height: '65vh' }}
-                >
-                  <AgGridReact
-                    ref={gridRef}
-                    rowData={files?.map((file: string, index: number) => ({
-                      no: index + 1,
-                      file,
-                      actions: file,
-                    }))}
-                    columnDefs={[
-                      { field: 'no', headerName: 'No', width: 80 },
-                      { field: 'file', headerName: 'File', flex: 1 },
-                      {
-                        field: 'actions',
-                        headerName: 'Actions',
-                        width: 120,
-                        cellRenderer: (params: { value: string }) => (
-                          <Button
-                            size="sm"
-                            colorScheme="blue"
-                            onClick={() => handleFileDownload(params.value)}
-                          >
-                            Download
-                          </Button>
-                        ),
-                      },
-                    ]}
-                  />
+                <div>
+                  {isFilesLoading ? (
+                    <Flex justify="center" align="center" h="65vh">
+                      <Spinner />
+                    </Flex>
+                  ) : (
+                    <div
+                      className={
+                        colorMode === 'light'
+                          ? 'ag-theme-quartz'
+                          : 'ag-theme-quartz-dark'
+                      }
+                      style={{ width: '100%', height: '65vh' }}
+                    >
+                      <AgGridReact
+                        ref={gridRef}
+                        rowData={files?.map((file: string, index: number) => ({
+                          no: index + 1,
+                          file,
+                          actions: file,
+                        }))}
+                        columnDefs={[
+                          { field: 'no', headerName: 'No', width: 80 },
+                          { field: 'file', headerName: 'File', flex: 1 },
+                          {
+                            field: 'actions',
+                            headerName: 'Actions',
+                            width: 120,
+                            cellRenderer: (params: { value: string }) => (
+                              <Button
+                                size="sm"
+                                colorScheme="blue"
+                                onClick={() => handleFileDownload(params.value)}
+                              >
+                                Download
+                              </Button>
+                            ),
+                          },
+                        ]}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </Flex>
