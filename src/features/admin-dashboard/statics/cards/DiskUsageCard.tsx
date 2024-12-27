@@ -47,7 +47,7 @@ export const DiskUsageCard = ({
             {
               text: String(diskUsage.usage.toFixed(1)) + '%',
               spacing: 0,
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: 'bold',
             },
           ],
@@ -56,8 +56,8 @@ export const DiskUsageCard = ({
       legend: {
         enabled: false,
       },
-      height: 170,
-      width: 160,
+      height: 180,
+      width: 200,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [diskUsage, colorMode]
@@ -88,13 +88,16 @@ export const DiskUsageCard = ({
         justifyContent="center"
         height="220px"
       >
-        <Box>
+        <Box zIndex={100}>
           <Text fontSize="lg" fontWeight="bold">
             Disk 사용량
           </Text>
+          <Text fontSize="sm" fontWeight="regular">
+            Disk Usage
+          </Text>
         </Box>
         <Flex justifyContent="center" alignItems="center" w="100%" h="100px">
-          <Table size="xs" variant="simple" w="100%" zIndex={100}>
+          <Table size="xs" variant="simple" w="30%" zIndex={100} mt="-40px">
             <Thead>
               <Tr>
                 <Th fontSize="xs">Total</Th>
@@ -103,7 +106,11 @@ export const DiskUsageCard = ({
             <Tbody>
               <Tr>
                 <Td fontSize="xs" textAlign="right">
-                  {diskUsage.total} GB
+                  {diskUsage.total >= 1048576
+                    ? `${(diskUsage.total / 1048576).toFixed(1)} PB`
+                    : diskUsage.total >= 1024
+                      ? `${(diskUsage.total / 1024).toFixed(1)} TB`
+                      : `${diskUsage.total.toFixed(1)} GB`}
                 </Td>
               </Tr>
             </Tbody>
@@ -115,12 +122,16 @@ export const DiskUsageCard = ({
             <Tbody>
               <Tr>
                 <Td fontSize="xs" textAlign="right">
-                  {diskUsage.used} GB
+                  {diskUsage.used >= 1048576
+                    ? `${(diskUsage.used / 1048576).toFixed(1)} PB`
+                    : diskUsage.used >= 1024
+                      ? `${(diskUsage.used / 1024).toFixed(1)} TB`
+                      : `${diskUsage.used.toFixed(1)} GB`}
                 </Td>
               </Tr>
             </Tbody>
           </Table>
-          <Box w="70%">
+          <Box w="70%" ml="-10px" mr="-10px" py="50px" zIndex={1}>
             <AgChartsThemeChanged
               colorMode={colorMode}
               options={cpuUsageDataDonut}

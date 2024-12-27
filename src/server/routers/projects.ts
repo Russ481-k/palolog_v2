@@ -110,7 +110,7 @@ export async function searchOpenSearchWithScroll(
     };
 
     const result = await client.scrollWithPagination({
-      index: '*vision-seoul-fw-seoulfw*',
+      index: '*',
       body: modifiedSearchBody,
       page,
       pageSize: size,

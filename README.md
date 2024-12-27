@@ -4,7 +4,7 @@
 2. 설치 명령어
     ```jsx
     sudo apt-get update;
-    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common jq;
+    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent sysstat software-properties-common jq;
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -;
     sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable";
     sudo apt-get update;
@@ -31,11 +31,19 @@
     npm install -g pm2
     pnpm install;
 
+    sudo lsof -i :8000
+    sudo kill -9 $(sudo lsof -t -i:8000)
+
     docker stop $(docker ps -aq); docker rm $(docker ps -aq);
 
     pm2 delete palolog ;
+    sudo lsof -i :8000
+    sudo kill -9 $(sudo lsof -t -i:8000)
+
     pnpm build;
     pnpm dk:init;
+    sudo chown -R vtek:vtek /home/vtek/palolog_v2/.next
+    sudo chmod -R 755 /home/vtek/palolog_v2/.next
     pm2 start pnpm --name 'palolog' --log '/home/vtek/palolog_v2/log.txt' -- start;
     ```
 

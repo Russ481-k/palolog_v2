@@ -258,10 +258,18 @@ setInterval(async () => {
 // 시스템 메트릭스 관련 함수
 async function getCpuUsage(): Promise<number> {
   return new Promise((resolve) => {
-    exec("top -bn1 | grep '%Cpu(s)' | awk '{print $2 + $4 + $6}'", (_, stdout) => {
-      const cpuUsage = parseFloat(stdout.trim());
-      resolve(isNaN(cpuUsage) ? 0 : cpuUsage);
-    });
+    exec(
+      // 모든 활성 상태의 CPU 사용률을 합산
+      "mpstat 1 1 | grep 'Average:' | awk '{print $3 + $4 + $5 + $6 + $7 + $8 + $9}'",
+      (_, stdout) => {
+        const cpuUsage = parseFloat(stdout.trim());
+        if (isNaN(cpuUsage) || cpuUsage < 0 || cpuUsage > 100) {
+          resolve(0);
+        } else {
+          resolve(Number(cpuUsage.toFixed(1)));
+        }
+      }
+    );
   });
 }
 
@@ -423,7 +431,7 @@ export const dashboardRouter = createTRPCRouter({
       };
     });
 
-    // 일별 데이터 (최근 10일)
+    // 일별 데이�� (최근 10일)
     const dailyLogsPromises = domains.map(async (domain) => {
       const domainPattern = domain
         .toLowerCase()
