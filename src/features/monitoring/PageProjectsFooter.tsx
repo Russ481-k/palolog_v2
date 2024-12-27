@@ -22,6 +22,8 @@ export const PageProjectsFooter = ({
   onChangeLimit,
   onCurrentPageChange,
   isLoading,
+  searchId,
+  searchParams,
   loadingProgress = {
     current: 0,
     total: totalCnt,
@@ -34,6 +36,13 @@ export const PageProjectsFooter = ({
   totalCnt: number;
   onChangeLimit: (e: ChangeEvent<HTMLSelectElement>) => void;
   onCurrentPageChange: (page: number) => void;
+  searchId: string;
+  searchParams: {
+    timeFrom: string;
+    timeTo: string;
+    menu: string;
+    searchTerm: string;
+  };
   loadingProgress?: {
     current: number;
     total: number;
@@ -148,7 +157,11 @@ export const PageProjectsFooter = ({
           />
         </InputGroup>
       </Flex>
-      <DownloadButton />
+      <DownloadButton
+        searchId={searchId}
+        totalRows={totalCnt}
+        searchParams={searchParams}
+      />
     </Flex>
   );
 };

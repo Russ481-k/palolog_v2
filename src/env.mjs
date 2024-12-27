@@ -13,7 +13,7 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
-    DOWNLOAD_CHUNK_SIZE: z.string().transform(Number),
+    DOWNLOAD_CHUNK_SIZE: z.string().transform((val) => parseInt(val, 10)),
     OPENSEARCH_URL: z.string().url(),
     OPENSEARCH_PORT: z.string(),
     OPENSEARCH_USERNAME: z.string(),
@@ -78,7 +78,7 @@ export const env = createEnv({
           (process.env.NODE_ENV === 'development' ? 'warning' : 'success')
       ),
     NEXT_PUBLIC_NODE_ENV: zNodeEnv,
-    NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: z.string().transform(Number),
+    NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: z.string().default('500000'),
   },
 
   /**

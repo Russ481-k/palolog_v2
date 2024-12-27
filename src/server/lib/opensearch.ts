@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as https from 'https';
+import dayjs from 'dayjs';
 
 import { env } from '@/env.mjs';
 import { OpenSearchHit } from '@/types/project';
@@ -279,7 +280,7 @@ export async function makeOpenSearchRequest<T>(
   const options: OpenSearchOptions = {
     hostname: env.OPENSEARCH_URL.replace('https://', ''),
     port: Number(env.OPENSEARCH_PORT),
-    path,
+    path: path.startsWith('/_') ? path : `/${dayjs().format('YYYY.MM.DD')}*${path}`,
     method,
     headers: {
       'Content-Type': 'application/json',

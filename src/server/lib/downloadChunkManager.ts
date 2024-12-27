@@ -7,11 +7,11 @@ export class DownloadChunkManager {
 
     async createChunks(totalRows: number): Promise<DownloadChunk[]> {
         const chunks: DownloadChunk[] = [];
-        const totalChunks = Math.ceil(totalRows / DownloadChunkManager.CHUNK_SIZE);
+        const totalChunks = Math.ceil(totalRows / Number(DownloadChunkManager.CHUNK_SIZE));
 
         for (let i = 0; i < totalChunks; i++) {
-            const startRow = i * DownloadChunkManager.CHUNK_SIZE;
-            const endRow = Math.min((i + 1) * DownloadChunkManager.CHUNK_SIZE, totalRows);
+            const startRow = i * Number(DownloadChunkManager.CHUNK_SIZE);
+            const endRow = Math.min((i + 1) * Number(DownloadChunkManager.CHUNK_SIZE), totalRows);
 
             chunks.push({
                 id: randomUUID(),

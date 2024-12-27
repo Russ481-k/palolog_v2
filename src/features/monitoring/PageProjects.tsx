@@ -71,6 +71,7 @@ export default function PageProjects() {
     total: 0,
     status: 'complete',
   });
+  const [searchId, setSearchId] = useState<string>('');
 
   const gridRef = useRef<AgGridReact<zLogs>>(null);
   const toast = useToast();
@@ -127,6 +128,10 @@ export default function PageProjects() {
           total: 0,
           status: 'error',
         });
+      },
+      onSuccess: (data) => {
+        const scrollId = data.pages[0]?.logs[0]?._scroll_id;
+        setSearchId(scrollId ?? '');
       },
     }
   );
@@ -258,6 +263,13 @@ export default function PageProjects() {
     }
   }, [isLoading]);
 
+  const searchParams = {
+    timeFrom: selectedFromDate,
+    timeTo: selectedToDate,
+    menu,
+    searchTerm: form.getValues('searchTerm') || '',
+  };
+
   return (
     <AdminLayoutPage>
       <AdminLayoutPageContent>
@@ -358,6 +370,8 @@ export default function PageProjects() {
               totalCnt={totalCnt}
               onChangeLimit={onRowLoadLimitChange}
               onCurrentPageChange={onCurrentPageChange}
+              searchId={searchId}
+              searchParams={searchParams}
               // scrollProgress={progress}
             />
           </Stack>
