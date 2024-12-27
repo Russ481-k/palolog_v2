@@ -74,6 +74,9 @@ importers:
       '@trpc/server':
         specifier: 10.45.2
         version: 10.45.2
+      '@types/csv-stringify':
+        specifier: ^3.1.3
+        version: 3.1.3
       ag-charts-community:
         specifier: ^10.0.0
         version: 10.0.0
@@ -98,6 +101,9 @@ importers:
       colorette:
         specifier: 2.0.20
         version: 2.0.20
+      csv-stringify:
+        specifier: ^6.5.2
+        version: 6.5.2
       dayjs:
         specifier: 1.11.10
         version: 1.11.10
@@ -3740,6 +3746,10 @@ packages:
   '@types/cross-spawn@6.0.6':
     resolution: {integrity: sha512-fXRhhUkG4H3TQk5dBhQ7m/JDdSNHKwR2BBia62lhwEIq9xGiQKLxd6LymNhn47SjXhsUEPmxi+PKw2OkW4LLjA==}
 
+  '@types/csv-stringify@3.1.3':
+    resolution: {integrity: sha512-zPwb2fuO0JCF6T3gJyGtUbFNDBX/MUC6Z4idZZZRrkXDGHHQKS4vImMrFu85/gE+K0y2mTp11ktuY8VzaQi7Hg==}
+    deprecated: This is a stub types definition. csv-stringify provides its own type definitions, so you do not need this installed.
+
   '@types/detect-port@1.3.5':
     resolution: {integrity: sha512-Rf3/lB9WkDfIL9eEKaSYKc+1L/rNVYBjThk22JTqQw0YozXarX8YljFAz+HCoC6h4B4KwCMsBPZHaFezwT4BNA==}
 
@@ -5439,6 +5449,9 @@ packages:
 
   csstype@3.1.3:
     resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
+
+  csv-stringify@6.5.2:
+    resolution: {integrity: sha512-RFPahj0sXcmUyjrObAK+DOWtMvMIFV328n4qZJhgX3x2RqkQgOTU2mCUmiFR0CzM6AzChlRSUErjiJeEt8BaQA==}
 
   damerau-levenshtein@1.0.8:
     resolution: {integrity: sha512-sdQSFB7+llfUcQHUQO3+B8ERRj0Oa4w9POWMI/puGtuf7gFywGmkaLCElnudfTiKZV+NvHqL0ifzdrI8Ro7ESA==}
@@ -14538,7 +14551,7 @@ snapshots:
       get-npm-tarball-url: 2.1.0
       giget: 1.2.3
       globby: 14.0.1
-      jscodeshift: 0.15.2(@babel/preset-env@7.24.7(@babel/core@7.24.7))
+      jscodeshift: 0.15.2(@babel/preset-env@7.24.7(@babel/core@7.24.1))
       leven: 3.1.0
       ora: 5.4.1
       prettier: 3.2.5
@@ -14578,7 +14591,7 @@ snapshots:
       '@types/cross-spawn': 6.0.6
       cross-spawn: 7.0.3
       globby: 14.0.1
-      jscodeshift: 0.15.2(@babel/preset-env@7.24.7(@babel/core@7.24.7))
+      jscodeshift: 0.15.2(@babel/preset-env@7.24.7(@babel/core@7.24.1))
       lodash: 4.17.21
       prettier: 3.2.5
       recast: 0.23.9
@@ -15380,6 +15393,10 @@ snapshots:
   '@types/cross-spawn@6.0.6':
     dependencies:
       '@types/node': 20.11.30
+
+  '@types/csv-stringify@3.1.3':
+    dependencies:
+      csv-stringify: 6.5.2
 
   '@types/detect-port@1.3.5': {}
 
@@ -17697,6 +17714,8 @@ snapshots:
 
   csstype@3.1.3: {}
 
+  csv-stringify@6.5.2: {}
+
   damerau-levenshtein@1.0.8: {}
 
   dashify@2.0.0: {}
@@ -19674,7 +19693,7 @@ snapshots:
     dependencies:
       argparse: 2.0.1
 
-  jscodeshift@0.15.2(@babel/preset-env@7.24.7(@babel/core@7.24.7)):
+  jscodeshift@0.15.2(@babel/preset-env@7.24.7(@babel/core@7.24.1)):
     dependencies:
       '@babel/core': 7.24.1
       '@babel/parser': 7.24.1

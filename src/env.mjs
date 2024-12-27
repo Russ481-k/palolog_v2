@@ -13,6 +13,7 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
+    DOWNLOAD_CHUNK_SIZE: z.string().transform(Number),
     OPENSEARCH_URL: z.string().url(),
     OPENSEARCH_PORT: z.string(),
     OPENSEARCH_USERNAME: z.string(),
@@ -77,6 +78,7 @@ export const env = createEnv({
           (process.env.NODE_ENV === 'development' ? 'warning' : 'success')
       ),
     NEXT_PUBLIC_NODE_ENV: zNodeEnv,
+    NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: z.string().transform(Number),
   },
 
   /**
@@ -84,6 +86,7 @@ export const env = createEnv({
    * middlewares) or client-side so we need to destruct manually.
    */
   runtimeEnv: {
+    DOWNLOAD_CHUNK_SIZE: process.env.DOWNLOAD_CHUNK_SIZE,
     OPENSEARCH_URL: process.env.OPENSEARCH_URL,
     OPENSEARCH_PORT: process.env.OPENSEARCH_PORT,
     OPENSEARCH_USERNAME: process.env.OPENSEARCH_USERNAME,
@@ -103,6 +106,7 @@ export const env = createEnv({
     NEXT_PUBLIC_ENV_EMOJI: process.env.NEXT_PUBLIC_ENV_EMOJI,
     NEXT_PUBLIC_IS_DEMO: process.env.NEXT_PUBLIC_IS_DEMO,
     NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: process.env.DOWNLOAD_CHUNK_SIZE,
     X_H: process.env.X_H,
     X_P: process.env.X_P,
     X_K: process.env.X_K,

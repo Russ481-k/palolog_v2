@@ -12,6 +12,13 @@ import { z } from 'zod';
 import { env } from '@/env.mjs';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
+import {
+  OpenSearchCountResponse,
+  OpenSearchIndicesResponse,
+  OpenSearchOptions,
+  makeOpenSearchRequest,
+} from '../lib/opensearch';
+
 // Dayjs 설정
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -19,32 +26,6 @@ dayjs.tz.setDefault('Asia/Seoul');
 
 // 전역 상수
 export const prisma = new PrismaClient();
-
-interface OpenSearchOptions {
-  hostname: string;
-  port: number;
-  path: string;
-  method: string;
-  headers: {
-    'Content-Type': string;
-    Authorization: string;
-  };
-  ca: Buffer;
-  rejectUnauthorized: boolean;
-}
-
-interface OpenSearchCountResponse {
-  count?: number;
-  index?: string;
-  [key: string]: string | number | undefined;
-}
-
-interface OpenSearchIndicesResponse {
-  index: string;
-  health: string;
-  status: string;
-  [key: string]: string | number | undefined;
-}
 
 // 시스템 터링 관련 함수
 async function getDiskUsage(): Promise<{
@@ -88,47 +69,6 @@ async function checkDaemonStatus(): Promise<{
         );
       }
     );
-  });
-}
-
-// 로그 수집 관련 함수
-async function makeOpenSearchRequest<T>(
-  path: string,
-  method: string,
-  body?: object
-): Promise<T> {
-  const options: OpenSearchOptions = {
-    hostname: env.OPENSEARCH_URL.replace('https://', ''),
-    port: Number(env.OPENSEARCH_PORT),
-    path,
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
-    },
-    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
-    rejectUnauthorized: true,
-  };
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(e);
-        }
-      });
-    });
-    req.on('error', reject);
-    if (body) {
-      req.write(JSON.stringify(body));
-    }
-    req.end();
   });
 }
 

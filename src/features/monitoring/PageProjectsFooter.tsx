@@ -12,6 +12,7 @@ import {
   useColorMode,
 } from '@chakra-ui/react';
 
+import { DownloadButton } from './DownloadButton';
 import PaginationButtons from './PaginationButtons';
 
 export const PageProjectsFooter = ({
@@ -147,6 +148,7 @@ export const PageProjectsFooter = ({
           />
         </InputGroup>
       </Flex>
+      <DownloadButton />
     </Flex>
   );
 };

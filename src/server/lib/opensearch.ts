@@ -5,10 +5,32 @@ import { env } from '@/env.mjs';
 import { OpenSearchHit } from '@/types/project';
 
 export interface OpenSearchOptions {
+  hostname?: string;
+  port?: number;
   path: string;
   method: string;
   body?: object;
+  headers?: {
+    'Content-Type': string;
+    Authorization: string;
+  };
+  ca?: Buffer;
+  rejectUnauthorized?: boolean;
 }
+
+export interface OpenSearchCountResponse {
+  count?: number;
+  index?: string;
+  [key: string]: string | number | undefined;
+}
+
+export interface OpenSearchIndicesResponse {
+  index: string;
+  health: string;
+  status: string;
+  [key: string]: string | number | undefined;
+}
+
 
 export interface ScrollSearchOptions {
   index: string;
@@ -245,4 +267,46 @@ export class OpenSearchClient {
       }
     }
   }
+}
+
+
+// 로그 수집 관련 함수
+export async function makeOpenSearchRequest<T>(
+  path: string,
+  method: string,
+  body?: object
+): Promise<T> {
+  const options: OpenSearchOptions = {
+    hostname: env.OPENSEARCH_URL.replace('https://', ''),
+    port: Number(env.OPENSEARCH_PORT),
+    path,
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
+    },
+    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+    rejectUnauthorized: true,
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    if (body) {
+      req.write(JSON.stringify(body));
+    }
+    req.end();
+  });
 }

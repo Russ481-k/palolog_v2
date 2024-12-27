@@ -6,6 +6,7 @@ import { dashboardRouter } from '@/server/routers/dashboard';
 import { usersRouter } from '@/server/routers/users';
 
 import { projectsRouter } from './routers/projects';
+import { downloadRouter } from './routers/download';
 
 /**
  * This is the primary router for your server.
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   auth: authRouter,
   projects: projectsRouter,
   users: usersRouter,
+  download: downloadRouter,
   // menus: menusRouter,
 });
 
