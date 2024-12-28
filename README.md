@@ -14,10 +14,10 @@
     newgrp docker;
     sudo chown $USER /var/run/docker.sock;
     sudo chmod 666 /var/run/docker.sock;
-    sudo chown vtek:vtek /home/vtek/palolog_v2/logstash/pipeline;
-    ls -ld /home/vtek/palolog_v2/logstash/pipeline/;
-    sudo chown -R vtek:vtek /home/vtek/palolog_v2/logstash/pipeline/;
-    sudo chmod -R u+w /home/vtek/palolog_v2/logstash/pipeline/;
+    sudo chown vtek:vtek ./logstash/pipeline;
+    ls -ld ./logstash/pipeline/;
+    sudo chown -R vtek:vtek ./logstash/pipeline/;
+    sudo chmod -R u+w ./logstash/pipeline/;
     ```
     
     ```jsx
@@ -31,6 +31,9 @@
     npm install -g pm2
     pnpm install;
 
+    sudo chown -R $USER:$USER ./.next
+    sudo chmod -R 755 ./.next
+
     docker stop $(docker ps -aq); docker rm $(docker ps -aq);
 
     pm2 delete palolog ;
@@ -39,9 +42,9 @@
 
     pnpm build;
     pnpm dk:init;
-    sudo chown -R vtek:vtek /home/vtek/palolog_v2/.next
-    sudo chmod -R 755 /home/vtek/palolog_v2/.next
-    pm2 start pnpm --name 'palolog' --log '/home/vtek/palolog_v2/log.txt' -- start;
+    sudo chown -R vtek:vtek ./.next
+    sudo chmod -R 755 ./.next
+    pm2 start pnpm --name 'palolog' --log './log.txt' -- start;
     ```
 
 명령어를 2번 나눠 입력해 주시면 됩니다.
