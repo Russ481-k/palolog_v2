@@ -21,52 +21,71 @@ export const AUTH_COOKIE_NAME = 'auth';
  * getServerAuthSession
  */
 export const getServerAuthSession = async () => {
-  const token =
-    // Get from Headers
-    headers().get('Authorization')?.split('Bearer ')[1] ??
-    // Get from Cookies
-    cookies().get(AUTH_COOKIE_NAME)?.value;
+  try {
+    const token =
+      headers().get('Authorization')?.split('Bearer ')[1] ??
+      cookies().get(AUTH_COOKIE_NAME)?.value;
 
-  if (!token) {
+    if (!token) {
+      return null;
+    }
+
+    const jwtDecoded = decodeJwt(token);
+
+    if (!jwtDecoded?.id) {
+      return null;
+    }
+
+    const userPick = {
+      id: true,
+      name: true,
+      email: true,
+      authorizations: true,
+      language: true,
+      accountStatus: true,
+    } as const;
+
+    const user = await db.user.findUnique({
+      where: {
+        id: jwtDecoded.id,
+        accountStatus: 'ENABLED'
+      },
+      select: userPick,
+    });
+
+    if (!user) {
+      cookies().delete(AUTH_COOKIE_NAME);
+      return null;
+    }
+
+    return zUser().pick(userPick).parse(user);
+  } catch (error) {
+    cookies().delete(AUTH_COOKIE_NAME);
     return null;
   }
-
-  const jwtDecoded = decodeJwt(token);
-
-  if (!jwtDecoded?.id) {
-    return null;
-  }
-
-  const userPick = {
-    id: true,
-    name: true,
-    email: true,
-    authorizations: true,
-    language: true,
-    accountStatus: true,
-  } as const;
-
-  const user = await db.user.findUnique({
-    where: { id: jwtDecoded.id, accountStatus: 'ENABLED' },
-    select: userPick,
-  });
-
-  if (!user) {
-    return null;
-  }
-
-  return zUser().pick(userPick).parse(user);
 };
 
 export const setAuthCookie = (token: string) => {
-  cookies().set({
-    name: AUTH_COOKIE_NAME,
-    value: token,
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/'
-  });
+  try {
+    cookies().delete(AUTH_COOKIE_NAME);
+
+    const cookieOptions = {
+      name: AUTH_COOKIE_NAME,
+      value: token,
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax' as const,
+      path: '/',
+    };
+
+    cookies().set(cookieOptions);
+  } catch (error) {
+    // Silent fail
+  }
+};
+
+export const removeAuthCookie = () => {
+  cookies().delete(AUTH_COOKIE_NAME);
 };
 
 export const decodeJwt = (token: string) => {
@@ -202,6 +221,14 @@ export async function validate({
       code: 'INTERNAL_SERVER_ERROR',
     });
   }
+
+  ctx.logger.info('About to set auth cookie with JWT:', userJwt.substring(0, 10) + '...');
+  setAuthCookie(userJwt);
+  ctx.logger.info('Auth cookie has been set');
+
+  // 쿠키가 실제로 설정되었는지 확인
+  const verificationCookie = cookies().get(AUTH_COOKIE_NAME);
+  ctx.logger.info('Verification - Cookie exists:', !!verificationCookie);
 
   return { verificationToken, userJwt };
 }
