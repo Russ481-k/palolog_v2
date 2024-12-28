@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { columnNames } from './colNameList';
+import { columnNames } from './11.0/colNameList_11.0';
 
 // Logs 스키마
 export type zLogs = z.infer<ReturnType<typeof zPaloLogs>>;
