@@ -168,6 +168,7 @@ export const projectsRouter = createTRPCRouter({
           total: z.number(),
           status: z.enum(['ready', 'loading', 'complete', 'error']),
         }),
+        scrollId: z.string(),
       })
     )
     .query(async ({ input }) => {
@@ -297,6 +298,13 @@ export const projectsRouter = createTRPCRouter({
         const columnNames = getColumnNames(currentVersion);
 
         return {
+          pagination: {
+            currentPage: input.currentPage,
+            pageLength: Math.ceil(
+              (result.initialResponse.hits.total.value || 0) / input.limit
+            ),
+            totalCnt: result.initialResponse.hits.total.value || 0,
+          },
           logs: result.scrollResponse.map((hit) => ({
             ...columnNames.reduce((acc, col) => {
               let value = hit._source?.[col] || null;
@@ -308,14 +316,8 @@ export const projectsRouter = createTRPCRouter({
               return { ...acc, [col]: value };
             }, {}),
           })),
-          pagination: {
-            currentPage: input.currentPage,
-            pageLength: Math.ceil(
-              (result.initialResponse.hits.total.value || 0) / input.limit
-            ),
-            totalCnt: result.initialResponse.hits.total.value || 0,
-          },
           loadingStatus,
+          scrollId: result.initialResponse._scroll_id
         };
       } catch (error) {
         console.error('Query Error:', error);
@@ -332,6 +334,7 @@ export const projectsRouter = createTRPCRouter({
             totalCnt: 0,
           },
           loadingStatus,
+          scrollId: ''
         };
       }
     }),
