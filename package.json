@@ -37,7 +37,9 @@
     "db:init": "pnpm db:push && pnpm db:seed",
     "db:push": "prisma db push",
     "db:ui": "prisma studio",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "setup:version": "tsx scripts/setup-version.ts",
+    "prebuild": "pnpm setup:version"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json}": "prettier --write"

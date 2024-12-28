@@ -38,6 +38,9 @@ export const env = createEnv({
     X_V: z.string(),
     X_T: z.string().transform(Number),
     X_U: z.string().regex(/^[0-9a-f]+$/i, 'Must be a hex string'),
+
+    CONFIG_PATH: z.string().optional(),
+    LOGSTASH_PATH: z.string().optional(),
   },
 
   /**
@@ -109,6 +112,9 @@ export const env = createEnv({
     X_V: process.env.X_V,
     X_T: process.env.X_T,
     X_U: process.env.X_U,
+
+    CONFIG_PATH: process.env.CONFIG_PATH,
+    LOGSTASH_PATH: process.env.LOGSTASH_PATH,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
