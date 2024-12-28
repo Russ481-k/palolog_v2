@@ -3,7 +3,7 @@ import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
 
-import { columnNames } from '@/features/monitoring/11.0/colNameList_11.0';
+import { getColumnNames } from '@/features/monitoring/columns';
 import { zPaloLogs, zPaloLogsParams } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 import { OpenSearchClient, OpenSearchResponse } from '@/server/lib/opensearch';
@@ -12,6 +12,7 @@ import {
   parseWhereClause,
 } from '@/server/lib/queryParser';
 import { OpenSearchHit } from '@/types/project';
+import { getCurrentVersion } from '@/utils/version';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -291,6 +292,9 @@ export const projectsRouter = createTRPCRouter({
         });
 
         loadingStatus.status = 'complete';
+
+        const currentVersion = getCurrentVersion();
+        const columnNames = getColumnNames(currentVersion);
 
         return {
           logs: result.scrollResponse.map((hit) => ({

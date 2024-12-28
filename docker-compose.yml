@@ -42,7 +42,7 @@ services:
       TZ: Asia/Seoul
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline
-    command: logstash -f /usr/share/logstash/pipeline/logstash_11.0.conf
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
 
 networks:
   palolog:
