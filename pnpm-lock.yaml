@@ -228,7 +228,7 @@ importers:
         version: 8.1.1(react@18.2.0)
       '@storybook/nextjs':
         specifier: 8.1.1
-        version: 8.1.1(@types/webpack@5.28.5(esbuild@0.20.2))(encoding@0.1.13)(esbuild@0.20.2)(next@14.1.4(@babel/core@7.24.1)(@opentelemetry/api@1.9.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0))(prettier@3.2.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(type-fest@2.19.0)(typescript@5.4.2)(vitest@1.5.0)(webpack-hot-middleware@2.26.1)(webpack@5.92.1(esbuild@0.20.2))
+        version: 8.1.1(@types/webpack@5.28.5(esbuild@0.20.2))(encoding@0.1.13)(esbuild@0.20.2)(next@14.1.4(@babel/core@7.24.1)(@opentelemetry/api@1.9.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0))(prettier@3.2.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(type-fest@2.19.0)(typescript@5.4.2)(webpack-hot-middleware@2.26.1)(webpack@5.92.1(esbuild@0.20.2))
       '@storybook/react':
         specifier: 8.1.1
         version: 8.1.1(encoding@0.1.13)(prettier@3.2.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.4.2)
@@ -238,6 +238,9 @@ importers:
       '@svgr/cli':
         specifier: 8.1.0
         version: 8.1.0(typescript@5.4.2)
+      '@testing-library/jest-dom':
+        specifier: ^6.6.3
+        version: 6.6.3
       '@testing-library/react':
         specifier: 14.3.0
         version: 14.3.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -271,6 +274,9 @@ importers:
       '@types/react-dom':
         specifier: 18.2.22
         version: 18.2.22
+      '@types/testing-library__jest-dom':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@typescript-eslint/eslint-plugin':
         specifier: 7.3.1
         version: 7.3.1(@typescript-eslint/parser@7.14.1(eslint@8.57.0)(typescript@5.4.2))(eslint@8.57.0)(typescript@5.4.2)
@@ -343,6 +349,9 @@ importers:
       typescript:
         specifier: 5.4.2
         version: 5.4.2
+      vite-tsconfig-paths:
+        specifier: ^5.1.4
+        version: 5.1.4(typescript@5.4.2)(vite@5.3.1(@types/node@20.11.30)(terser@5.31.1))
       vitest:
         specifier: 1.5.0
         version: 1.5.0(@types/node@20.11.30)(@vitest/ui@1.5.0)(jsdom@24.0.0)(terser@5.31.1)
@@ -3725,26 +3734,9 @@ packages:
     resolution: {integrity: sha512-FlS4ZWlp97iiNWig0Muq8p+3rVDjRiYE+YKGbAqXOu9nwJFFOdL00kFpz42M+4huzYi86vAK1sOOfyOG45muIQ==}
     engines: {node: '>=14'}
 
-  '@testing-library/jest-dom@6.4.6':
-    resolution: {integrity: sha512-8qpnGVincVDLEcQXWaHOf6zmlbwTKc6Us6PPu4CRnPXCzo2OGBS5cwgMMOWdxDpEz1mkbvXHpEy99M5Yvt682w==}
+  '@testing-library/jest-dom@6.6.3':
+    resolution: {integrity: sha512-IteBhl4XqYNkM54f4ejhLRJiZNqcSCoXUOG2CPK7qbD322KjQozM4kHQOfkG2oln9b9HTYqs+Sae8vBATubxxA==}
     engines: {node: '>=14', npm: '>=6', yarn: '>=1'}
-    peerDependencies:
-      '@jest/globals': '>= 28'
-      '@types/bun': latest
-      '@types/jest': '>= 28'
-      jest: '>= 28'
-      vitest: '>= 0.32'
-    peerDependenciesMeta:
-      '@jest/globals':
-        optional: true
-      '@types/bun':
-        optional: true
-      '@types/jest':
-        optional: true
-      jest:
-        optional: true
-      vitest:
-        optional: true
 
   '@testing-library/react@14.3.0':
     resolution: {integrity: sha512-AYJGvNFMbCa5vt1UtDCa/dcaABrXq8gph6VN+cffIx0UeA0qiGqS+sT60+sb+Gjc8tGXdECWYQgaF0khf8b+Lg==}
@@ -4011,6 +4003,10 @@ packages:
 
   '@types/swagger-schema-official@2.0.25':
     resolution: {integrity: sha512-T92Xav+Gf/Ik1uPW581nA+JftmjWPgskw/WBf4TJzxRG/SJ+DfNnNE+WuZ4mrXuzflQMqMkm1LSYjzYW7MB1Cg==}
+
+  '@types/testing-library__jest-dom@6.0.0':
+    resolution: {integrity: sha512-bnreXCgus6IIadyHNlN/oI5FfX4dWgvGhOPvpr7zzCYDGAPIfvyIoAozMBINmhmsVuqV0cncejF2y5KC7ScqOg==}
+    deprecated: This is a stub types definition. @testing-library/jest-dom provides its own type definitions, so you do not need this installed.
 
   '@types/through@0.0.33':
     resolution: {integrity: sha512-HsJ+z3QuETzP3cswwtzt2vEIiHBk/dCcHGhbmG5X3ecnwFD/lPrMpliGXxSCg03L9AhrdwA4Oz/qfspkDW+xGQ==}
@@ -6575,6 +6571,9 @@ packages:
   globby@6.1.0:
     resolution: {integrity: sha512-KVbFv2TQtbzCoxAnfD6JcHZTYCzyliEaaeM/gH8qQdkKr5s0OP9scEgvdcngyk7AVdY6YVW/TJHd+lQ/Df3Daw==}
     engines: {node: '>=0.10.0'}
+
+  globrex@0.1.2:
+    resolution: {integrity: sha512-uHJgbwAMwNFf5mLst7IWLNg14x1CkeqglJb/K3doi4dw6q2IvAAmM/Y81kevy83wP+Sst+nutFTYOGg3d1lsxg==}
 
   gopd@1.0.1:
     resolution: {integrity: sha512-d65bNlIadxvpb/A2abVdlqKqV563juRnZ1Wtk6s1sIR8uNsXR70xqIzVqxVf1eTqDunwT2MkczEeaezCKTZhwA==}
@@ -9727,6 +9726,16 @@ packages:
       typescript:
         optional: true
 
+  tsconfck@3.1.4:
+    resolution: {integrity: sha512-kdqWFGVJqe+KGYvlSO9NIaWn9jT1Ny4oKVzAJsKii5eoE9snzTJzL4+MMVOMn+fikWGFmKEylcXL710V/kIPJQ==}
+    engines: {node: ^18 || >=20}
+    hasBin: true
+    peerDependencies:
+      typescript: ^5.0.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   tsconfig-paths-webpack-plugin@4.1.0:
     resolution: {integrity: sha512-xWFISjviPydmtmgeUAuXp4N1fky+VCtfhOkDUFIv5ea7p4wuTomI4QTrXvFBX2S4jZsmyTSrStQl+E+4w+RzxA==}
     engines: {node: '>=10.13.0'}
@@ -10103,6 +10112,14 @@ packages:
     resolution: {integrity: sha512-tV8h6gMj6vPzVCa7l+VGq9lwoJjW8Y79vst8QZZGiuRAfijU+EEWuc0kFpmndQrWhMMhet1jdSF+40KSZUqIIw==}
     engines: {node: ^18.0.0 || >=20.0.0}
     hasBin: true
+
+  vite-tsconfig-paths@5.1.4:
+    resolution: {integrity: sha512-cYj0LRuLV2c2sMqhqhGpaO3LretdtMn/BVX4cPLanIZuwwrkVl+lK84E/miEXkCHWXuq65rhNN4rXsBcOB3S4w==}
+    peerDependencies:
+      vite: '*'
+    peerDependenciesMeta:
+      vite:
+        optional: true
 
   vite@5.3.1:
     resolution: {integrity: sha512-XBmSKRLXLxiaPYamLv3/hnP/KXDai1NDexN0FpkTaZXTfycHvkRHoenpgl/fvuK/kPbB6xAgoyiryAhQNxYmAQ==}
@@ -10700,7 +10717,7 @@ snapshots:
       '@babel/core': 7.24.1
       '@babel/helper-compilation-targets': 7.24.7
       '@babel/helper-plugin-utils': 7.24.7
-      debug: 4.3.7
+      debug: 4.4.0
       lodash.debounce: 4.0.8
       resolve: 1.22.8
     transitivePeerDependencies:
@@ -10711,7 +10728,7 @@ snapshots:
       '@babel/core': 7.24.7
       '@babel/helper-compilation-targets': 7.24.7
       '@babel/helper-plugin-utils': 7.24.7
-      debug: 4.3.7
+      debug: 4.4.0
       lodash.debounce: 4.0.8
       resolve: 1.22.8
     transitivePeerDependencies:
@@ -15106,7 +15123,7 @@ snapshots:
 
   '@storybook/manager@8.1.1': {}
 
-  '@storybook/nextjs@8.1.1(@types/webpack@5.28.5(esbuild@0.20.2))(encoding@0.1.13)(esbuild@0.20.2)(next@14.1.4(@babel/core@7.24.1)(@opentelemetry/api@1.9.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0))(prettier@3.2.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(type-fest@2.19.0)(typescript@5.4.2)(vitest@1.5.0)(webpack-hot-middleware@2.26.1)(webpack@5.92.1(esbuild@0.20.2))':
+  '@storybook/nextjs@8.1.1(@types/webpack@5.28.5(esbuild@0.20.2))(encoding@0.1.13)(esbuild@0.20.2)(next@14.1.4(@babel/core@7.24.1)(@opentelemetry/api@1.9.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0))(prettier@3.2.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(type-fest@2.19.0)(typescript@5.4.2)(webpack-hot-middleware@2.26.1)(webpack@5.92.1(esbuild@0.20.2))':
     dependencies:
       '@babel/core': 7.24.7
       '@babel/plugin-syntax-bigint': 7.8.3(@babel/core@7.24.7)
@@ -15129,7 +15146,7 @@ snapshots:
       '@storybook/preset-react-webpack': 8.1.1(encoding@0.1.13)(esbuild@0.20.2)(prettier@3.2.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.4.2)
       '@storybook/preview-api': 8.1.1
       '@storybook/react': 8.1.1(encoding@0.1.13)(prettier@3.2.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.4.2)
-      '@storybook/test': 8.1.1(vitest@1.5.0)
+      '@storybook/test': 8.1.1
       '@storybook/types': 8.1.1
       '@types/node': 18.19.39
       '@types/semver': 7.5.8
@@ -15160,17 +15177,13 @@ snapshots:
       typescript: 5.4.2
       webpack: 5.92.1(esbuild@0.20.2)
     transitivePeerDependencies:
-      - '@jest/globals'
       - '@rspack/core'
       - '@swc/core'
-      - '@types/bun'
-      - '@types/jest'
       - '@types/webpack'
       - babel-plugin-macros
       - encoding
       - esbuild
       - fibers
-      - jest
       - node-sass
       - prettier
       - sass
@@ -15179,7 +15192,6 @@ snapshots:
       - supports-color
       - type-fest
       - uglify-js
-      - vitest
       - webpack-cli
       - webpack-dev-server
       - webpack-hot-middleware
@@ -15238,7 +15250,7 @@ snapshots:
 
   '@storybook/react-docgen-typescript-plugin@1.0.6--canary.9.0c3f3b7.0(typescript@5.4.2)(webpack@5.92.1(esbuild@0.20.2))':
     dependencies:
-      debug: 4.3.7
+      debug: 4.4.0
       endent: 2.1.0
       find-cache-dir: 3.3.2
       flat-cache: 3.2.0
@@ -15314,24 +15326,18 @@ snapshots:
       - prettier
       - supports-color
 
-  '@storybook/test@8.1.1(vitest@1.5.0)':
+  '@storybook/test@8.1.1':
     dependencies:
       '@storybook/client-logger': 8.1.1
       '@storybook/core-events': 8.1.1
       '@storybook/instrumenter': 8.1.1
       '@storybook/preview-api': 8.1.1
       '@testing-library/dom': 9.3.4
-      '@testing-library/jest-dom': 6.4.6(vitest@1.5.0)
+      '@testing-library/jest-dom': 6.6.3
       '@testing-library/user-event': 14.5.2(@testing-library/dom@9.3.4)
       '@vitest/expect': 1.3.1
       '@vitest/spy': 1.6.0
       util: 0.12.5
-    transitivePeerDependencies:
-      - '@jest/globals'
-      - '@types/bun'
-      - '@types/jest'
-      - jest
-      - vitest
 
   '@storybook/theming@8.1.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
@@ -15537,18 +15543,15 @@ snapshots:
       lz-string: 1.5.0
       pretty-format: 27.5.1
 
-  '@testing-library/jest-dom@6.4.6(vitest@1.5.0)':
+  '@testing-library/jest-dom@6.6.3':
     dependencies:
       '@adobe/css-tools': 4.4.0
-      '@babel/runtime': 7.24.7
       aria-query: 5.3.0
       chalk: 3.0.0
       css.escape: 1.5.1
       dom-accessibility-api: 0.6.3
       lodash: 4.17.21
       redent: 3.0.0
-    optionalDependencies:
-      vitest: 1.5.0(@types/node@20.11.30)(@vitest/ui@1.5.0)(jsdom@24.0.0)(terser@5.31.1)
 
   '@testing-library/react@14.3.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
@@ -15831,6 +15834,10 @@ snapshots:
 
   '@types/swagger-schema-official@2.0.25': {}
 
+  '@types/testing-library__jest-dom@6.0.0':
+    dependencies:
+      '@testing-library/jest-dom': 6.6.3
+
   '@types/through@0.0.33':
     dependencies:
       '@types/node': 20.11.30
@@ -15949,7 +15956,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 5.62.0
       '@typescript-eslint/visitor-keys': 5.62.0
-      debug: 4.3.7
+      debug: 4.4.0
       globby: 11.1.0
       is-glob: 4.0.3
       semver: 7.6.2
@@ -15963,7 +15970,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 6.21.0
       '@typescript-eslint/visitor-keys': 6.21.0
-      debug: 4.3.7
+      debug: 4.4.0
       globby: 11.1.0
       is-glob: 4.0.3
       minimatch: 9.0.3
@@ -15993,7 +16000,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 7.3.1
       '@typescript-eslint/visitor-keys': 7.3.1
-      debug: 4.3.7
+      debug: 4.4.0
       globby: 11.1.0
       is-glob: 4.0.3
       minimatch: 9.0.3
@@ -16411,13 +16418,13 @@ snapshots:
 
   agent-base@6.0.2:
     dependencies:
-      debug: 4.3.7
+      debug: 4.4.0
     transitivePeerDependencies:
       - supports-color
 
   agent-base@7.1.1:
     dependencies:
-      debug: 4.3.7
+      debug: 4.4.0
     transitivePeerDependencies:
       - supports-color
 
@@ -18168,7 +18175,7 @@ snapshots:
   detect-port@1.6.1:
     dependencies:
       address: 1.2.2
-      debug: 4.3.7
+      debug: 4.4.0
     transitivePeerDependencies:
       - supports-color
 
@@ -18489,7 +18496,7 @@ snapshots:
 
   esbuild-register@3.5.0(esbuild@0.20.2):
     dependencies:
-      debug: 4.3.7
+      debug: 4.4.0
       esbuild: 0.20.2
     transitivePeerDependencies:
       - supports-color
@@ -19330,6 +19337,8 @@ snapshots:
       pify: 2.3.0
       pinkie-promise: 2.0.1
 
+  globrex@0.1.2: {}
+
   gopd@1.0.1:
     dependencies:
       get-intrinsic: 1.2.4
@@ -19581,7 +19590,7 @@ snapshots:
     dependencies:
       '@tootallnate/once': 2.0.0
       agent-base: 6.0.2
-      debug: 4.3.7
+      debug: 4.4.0
     transitivePeerDependencies:
       - supports-color
 
@@ -19599,7 +19608,7 @@ snapshots:
   https-proxy-agent@5.0.1:
     dependencies:
       agent-base: 6.0.2
-      debug: 4.3.7
+      debug: 4.4.0
     transitivePeerDependencies:
       - supports-color
 
@@ -20550,7 +20559,7 @@ snapshots:
 
   micromark@2.11.4:
     dependencies:
-      debug: 4.3.7
+      debug: 4.4.0
       parse-entities: 2.0.0
     transitivePeerDependencies:
       - supports-color
@@ -22825,6 +22834,10 @@ snapshots:
     optionalDependencies:
       typescript: 5.4.2
 
+  tsconfck@3.1.4(typescript@5.4.2):
+    optionalDependencies:
+      typescript: 5.4.2
+
   tsconfig-paths-webpack-plugin@4.1.0:
     dependencies:
       chalk: 4.1.2
@@ -23239,6 +23252,17 @@ snapshots:
       - sugarss
       - supports-color
       - terser
+
+  vite-tsconfig-paths@5.1.4(typescript@5.4.2)(vite@5.3.1(@types/node@20.11.30)(terser@5.31.1)):
+    dependencies:
+      debug: 4.4.0
+      globrex: 0.1.2
+      tsconfck: 3.1.4(typescript@5.4.2)
+    optionalDependencies:
+      vite: 5.3.1(@types/node@20.11.30)(terser@5.31.1)
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
 
   vite@5.3.1(@types/node@20.11.30)(terser@5.31.1):
     dependencies:
