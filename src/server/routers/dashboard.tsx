@@ -3,19 +3,15 @@ import { exec } from 'child_process';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import * as fs from 'fs';
-import * as https from 'https';
 import { NextResponse } from 'next/server';
 import os from 'os';
 import { z } from 'zod';
 
-import { env } from '@/env.mjs';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 
 import {
   OpenSearchCountResponse,
   OpenSearchIndicesResponse,
-  OpenSearchOptions,
   makeOpenSearchRequest,
 } from '../lib/opensearch';
 

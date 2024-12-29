@@ -18,16 +18,16 @@ import {
   ModalHeader,
   ModalOverlay,
   Progress,
+  Spinner,
   Text,
   useColorMode,
   useDisclosure,
   useToast,
-  Spinner,
 } from '@chakra-ui/react';
 import { AgGridReact } from 'ag-grid-react';
 
 import { trpc } from '@/lib/trpc/client';
-import { DownloadProgress, DownloadStatus } from '@/types/download';
+import { DownloadProgress } from '@/types/download';
 
 interface DownloadButtonProps {
   searchId: string;
@@ -84,7 +84,7 @@ export const DownloadButton = ({
 
   const { data: files } = trpc.download.getFiles.useQuery(
     { downloadId: downloadId ?? '' },
-    { 
+    {
       enabled: !!downloadId && downloadStatus?.status === 'completed',
       refetchOnMount: true,
       staleTime: Infinity,
@@ -162,7 +162,7 @@ export const DownloadButton = ({
 
       return () => clearTimeout(timer);
     }
-  }, [downloadStatus?.status, downloadId]);
+  }, [downloadStatus?.status, downloadId, cleanup]);
 
   return (
     <>

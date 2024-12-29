@@ -3,14 +3,10 @@
 import { ReactNode } from 'react';
 
 import { ColorModeScript } from '@chakra-ui/react';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 import { Providers } from '@/app/Providers';
-import { Viewport } from '@/components/Viewport';
-import { EnvHint } from '@/features/devtools/EnvHint';
 import i18n from '@/lib/i18n/client';
 import { AVAILABLE_LANGUAGES } from '@/lib/i18n/constants';
-import { TrpcProvider } from '@/lib/trpc/TrpcProvider';
 import theme, { COLOR_MODE_STORAGE_KEY } from '@/theme';
 
 export const Document = ({ children }: { children: ReactNode }) => {
@@ -67,13 +63,7 @@ export const Document = ({ children }: { children: ReactNode }) => {
           initialColorMode={theme.config.initialColorMode}
           storageKey={COLOR_MODE_STORAGE_KEY}
         />
-        <Providers>
-          <TrpcProvider>
-            <Viewport>{children}</Viewport>
-            <EnvHint />
-            <ReactQueryDevtools initialIsOpen={false} />
-          </TrpcProvider>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

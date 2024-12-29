@@ -28,7 +28,6 @@ const config = withPWA({
     ];
   },
   webpack: (config) => {
-    // `undici` 모듈을 Babel로 처리
     config.module.rules.push({
       test: /\.js$/,
       include: /node_modules\/undici/,
@@ -39,9 +38,13 @@ const config = withPWA({
         },
       },
     });
-
     return config;
   },
+  output: 'standalone',
+  trailingSlash: false,
+  pageExtensions: ['tsx', 'ts'],
+  swcMinify: true,
+  poweredByHeader: false,
 });
 
 export default config;
