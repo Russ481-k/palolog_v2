@@ -1,13 +1,13 @@
 'use client';
 
-import { Suspense } from 'react';
-
 import { ErrorPage } from '@/components/ErrorPage';
 
-export default function GlobalError() {
+import { Providers } from './Providers';
+
+export default function Error() {
   return (
-    <Suspense>
-      <ErrorPage />
-    </Suspense>
+    <Providers>
+      <ErrorPage errorCode={500} />
+    </Providers>
   );
 }

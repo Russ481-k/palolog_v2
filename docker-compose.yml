@@ -14,15 +14,15 @@ services:
     networks:
       - palolog
     ports:
-      - "9200:9200"
-      - "9600:9600"
+      - '9200:9200'
+      - '9600:9600'
     environment:
       - discovery.type=single-node
-      - "OPENSEARCH_JAVA_OPTS=-Xms8g -Xmx8g" # JVM 메모리 설정
+      - 'OPENSEARCH_JAVA_OPTS=-Xms8g -Xmx8g' # JVM 메모리 설정
       - TZ=Asia/Seoul
-      - "search.max_open_scroll_context=1000"
+      - 'search.max_open_scroll_context=1000'
     healthcheck:
-      test: ["CMD", "curl", "-s", "-k", "https://localhost:9200"]
+      test: ['CMD', 'curl', '-s', '-k', 'https://localhost:9200']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -33,11 +33,11 @@ services:
     networks:
       - palolog
     ports:
-      - "514:514/udp"
+      - '514:514/udp'
     environment:
-      LS_JAVA_OPTS: "-Xms8g -Xmx8g"
-      pipeline.batch.size: "15000"
-      pipeline.workers: "8"
+      LS_JAVA_OPTS: '-Xms8g -Xmx8g'
+      pipeline.batch.size: '15000'
+      pipeline.workers: '8'
       pipeline.ecs_compatibility: disabled
       TZ: Asia/Seoul
     volumes:

@@ -3,12 +3,16 @@ import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
 
-import { columnNames } from '@/features/monitoring/colNameList';
+import { getColumnNames } from '@/features/monitoring/columns';
 import { zPaloLogs, zPaloLogsParams } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 import { OpenSearchClient, OpenSearchResponse } from '@/server/lib/opensearch';
-import { parseWhereClause, buildOpenSearchQuery } from '@/server/lib/queryParser';
+import {
+  buildOpenSearchQuery,
+  parseWhereClause,
+} from '@/server/lib/queryParser';
 import { OpenSearchHit } from '@/types/project';
+import { getCurrentVersion } from '@/utils/version';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -17,16 +21,16 @@ export type QueryCondition =
   | { match: Record<string, string | number> }
   | { multi_match: { query: string; fields: string[]; type: string } }
   | {
-    range: Record<
-      string,
-      {
-        gte?: string | number;
-        lte?: string | number;
-        format: string;
-        time_zone: string;
-      }
-    >;
-  }
+      range: Record<
+        string,
+        {
+          gte?: string | number;
+          lte?: string | number;
+          format: string;
+          time_zone: string;
+        }
+      >;
+    }
   | { term: Record<string, string | number> }
   | { exists: { field: string } }
   | BoolQueryCondition;
@@ -71,16 +75,18 @@ export async function searchOpenSearchWithScroll(
   const client = OpenSearchClient.getInstance();
 
   try {
-    const rangeQuery = (searchBody.query.bool?.must?.[0] as {
-      range: {
-        '@timestamp': {
-          gte: string;
-          lte: string;
-          format: string;
-          time_zone: string;
-        }
+    const rangeQuery = (
+      searchBody.query.bool?.must?.[0] as {
+        range: {
+          '@timestamp': {
+            gte: string;
+            lte: string;
+            format: string;
+            time_zone: string;
+          };
+        };
       }
-    })?.range?.['@timestamp'];
+    )?.range?.['@timestamp'];
 
     const modifiedSearchBody = {
       track_total_hits: true,
@@ -115,14 +121,14 @@ export async function searchOpenSearchWithScroll(
       page,
       pageSize: size,
       scrollTime: '2m',
-      size: 1000
+      size: 1000,
     });
 
     if (onProgress) {
       onProgress({
         current: result.total,
         total: result.total,
-        status: 'complete'
+        status: 'complete',
       });
     }
 
@@ -130,11 +136,11 @@ export async function searchOpenSearchWithScroll(
       initialResponse: {
         hits: {
           total: { value: result.total },
-          hits: result.hits as OpenSearchHit[] // Ensure type compatibility
+          hits: result.hits as OpenSearchHit[], // Ensure type compatibility
         },
-        _scroll_id: result.scrollId || ''
+        _scroll_id: result.scrollId || '',
       },
-      scrollResponse: result.hits as OpenSearchHit[] // Ensure type compatibility
+      scrollResponse: result.hits as OpenSearchHit[], // Ensure type compatibility
     };
   } catch (error) {
     console.error('Search error:', error);
@@ -184,7 +190,7 @@ export const projectsRouter = createTRPCRouter({
           timeFrom: timeFrom.format(),
           timeTo: timeTo.format(),
           searchTerm: input.searchTerm,
-          menu: input.menu
+          menu: input.menu,
         });
 
         const searchBody: SearchBody = {
@@ -221,7 +227,10 @@ export const projectsRouter = createTRPCRouter({
               const parsedQuery = parseWhereClause(whereClause);
               const opensearchQueries = buildOpenSearchQuery(parsedQuery);
 
-              console.log('Parsed OpenSearch queries:', JSON.stringify(opensearchQueries, null, 2));
+              console.log(
+                'Parsed OpenSearch queries:',
+                JSON.stringify(opensearchQueries, null, 2)
+              );
 
               if (searchBody.query.bool?.must) {
                 searchBody.query.bool.must.push(...opensearchQueries);
@@ -232,11 +241,14 @@ export const projectsRouter = createTRPCRouter({
                 multi_match: {
                   query: input.searchTerm,
                   fields: ['*'],
-                  type: 'phrase'
-                }
+                  type: 'phrase',
+                },
               };
 
-              console.log('Using multi_match query:', JSON.stringify(searchTermQuery, null, 2));
+              console.log(
+                'Using multi_match query:',
+                JSON.stringify(searchTermQuery, null, 2)
+              );
 
               if (searchBody.query.bool?.must) {
                 searchBody.query.bool.must.push(searchTermQuery);
@@ -249,8 +261,8 @@ export const projectsRouter = createTRPCRouter({
               multi_match: {
                 query: input.searchTerm,
                 fields: ['*'],
-                type: 'phrase'
-              }
+                type: 'phrase',
+              },
             };
             if (searchBody.query.bool?.must) {
               searchBody.query.bool.must.push(searchTermQuery);
@@ -277,10 +289,13 @@ export const projectsRouter = createTRPCRouter({
 
         console.log('Search results:', {
           totalHits: result.initialResponse.hits.total.value,
-          returnedHits: result.scrollResponse.length
+          returnedHits: result.scrollResponse.length,
         });
 
         loadingStatus.status = 'complete';
+
+        const currentVersion = getCurrentVersion();
+        const columnNames = getColumnNames(currentVersion);
 
         return {
           pagination: {

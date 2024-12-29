@@ -9,7 +9,7 @@ import {
 
 import { MenuType } from '@/types/project';
 
-import { columnNames } from './colNameList';
+import { columnNames } from './11.0/colNameList_11.0';
 import { zLogs } from './schemas';
 
 // 컬럼 설정 함수

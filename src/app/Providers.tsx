@@ -1,34 +1,33 @@
-import React, { FC } from 'react';
+'use client';
+
+import { PropsWithChildren } from 'react';
 
 import { CacheProvider } from '@chakra-ui/next-js';
-import { ChakraProvider, createLocalStorageManager } from '@chakra-ui/react';
-import { useTranslation } from 'react-i18next';
+import { ChakraProvider, createStandaloneToast } from '@chakra-ui/react';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { I18nextProvider } from 'react-i18next';
 
-import '@/lib/dayjs/config';
-import '@/lib/i18n/client';
-import { AVAILABLE_LANGUAGES } from '@/lib/i18n/constants';
-import theme, { COLOR_MODE_STORAGE_KEY } from '@/theme';
+import { Viewport } from '@/components/Viewport';
+import { EnvHint } from '@/features/devtools/EnvHint';
+import i18n from '@/lib/i18n/client';
+import { TrpcProvider } from '@/lib/trpc/TrpcProvider';
+import theme from '@/theme';
 
-const localStorageManager = createLocalStorageManager(COLOR_MODE_STORAGE_KEY);
+const { ToastContainer } = createStandaloneToast();
 
-export const Providers: FC<React.PropsWithChildren<unknown>> = ({
-  children,
-}) => {
-  const { i18n } = useTranslation();
-
+export function Providers({ children }: PropsWithChildren) {
   return (
-    <CacheProvider>
-      <ChakraProvider
-        colorModeManager={localStorageManager}
-        theme={{
-          ...theme,
-          direction:
-            AVAILABLE_LANGUAGES.find(({ key }) => key === i18n.language)?.dir ??
-            'ltr',
-        }}
-      >
-        {children}
-      </ChakraProvider>
-    </CacheProvider>
+    <I18nextProvider i18n={i18n}>
+      <CacheProvider>
+        <ChakraProvider theme={theme} resetCSS>
+          <TrpcProvider>
+            <Viewport>{children}</Viewport>
+            <EnvHint />
+            <ReactQueryDevtools initialIsOpen={false} />
+            <ToastContainer />
+          </TrpcProvider>
+        </ChakraProvider>
+      </CacheProvider>
+    </I18nextProvider>
   );
-};
+}

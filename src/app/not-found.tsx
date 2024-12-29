@@ -1,13 +1,13 @@
 'use client';
 
-import { Suspense } from 'react';
-
 import { ErrorPage } from '@/components/ErrorPage';
 
-export default function PageNotFound() {
+import { Providers } from './Providers';
+
+export default function NotFound() {
   return (
-    <Suspense>
+    <Providers>
       <ErrorPage errorCode={404} />
-    </Suspense>
+    </Providers>
   );
 }
