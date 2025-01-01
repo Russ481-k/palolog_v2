@@ -302,7 +302,7 @@ export async function makeOpenSearchRequest<T>(
   const options: OpenSearchOptions = {
     hostname: env.OPENSEARCH_URL.replace('https://', ''),
     port: Number(env.OPENSEARCH_PORT),
-    path: path.startsWith('/_')
+    path: path.startsWith('/')
       ? path
       : `/${dayjs().format('YYYY.MM.DD')}*${path}`,
     method,
@@ -313,7 +313,6 @@ export async function makeOpenSearchRequest<T>(
     ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
     rejectUnauthorized: true,
   };
-
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       let data = '';

@@ -157,11 +157,11 @@ export const PageProjectsFooter = ({
           />
         </InputGroup>
       </Flex>
-      <DownloadButton
+      {/* <DownloadButton
         searchId={searchId}
         totalRows={totalCnt}
         searchParams={searchParams}
-      />
+      /> */}
     </Flex>
   );
 };
