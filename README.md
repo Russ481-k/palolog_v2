@@ -35,18 +35,47 @@
     sudo chmod -R 755 ./.next
 
     docker stop $(docker ps -aq); docker rm $(docker ps -aq);
+    pnpm dk:init;
+
+    # 시스템 레벨의 UDP 버퍼 크기 확인/조정
+    sudo tee /etc/sysctl.d/99-network-tune.conf << EOF
+    # Network Buffer Sizes
+    net.core.rmem_max=268435456
+    net.core.rmem_default=268435456
+    net.core.wmem_max=268435456
+    net.core.wmem_default=268435456
+
+    # Network Backlog
+    net.core.netdev_max_backlog=320000
+
+    # UDP Memory
+    net.ipv4.udp_mem=268435456 268435456 268435456
+
+    # TCP Memory
+    net.ipv4.tcp_rmem=4096 87380 268435456
+    net.ipv4.tcp_wmem=4096 87380 268435456
+    EOF
+
+    # 설정 적용
+    sudo sysctl -p /etc/sysctl.d/99-network-tune.conf
+
 
     pm2 delete palolog ;
     sudo lsof -i :8000
     sudo kill -9 $(sudo lsof -t -i:8000)
 
     pnpm build;
-    pnpm dk:init;
-    sudo chown -R vtek:vtek ./.next
-    sudo chmod -R 755 ./.next
-    pm2 start pnpm --name 'palolog' --log './log.txt' -- start;
+    sudo chown -R vtek:vtek /home/vtek/palolog_v2/.next
+    sudo chmod -R 755 /home/vtek/palolog_v2/.next
+    pm2 start pnpm --name 'palolog' --log '/home/vtek/palolog_v2/log.txt' -- start;
     ```
 
+
+    ```jsx
+    # 514 포트 실시간 수신 패킷 수 확인
+    while true; do echo -ne "\r$(date +%H:%M:%S) Packets/sec: $(sudo timeout 1s tcpdump -i any 'udp port 514' 2>/dev/null | wc -l)     \b\b\b\b\b"; sleep 0.1; done 
+    
+    ```
 명령어를 2번 나눠 입력해 주시면 됩니다.
 중간중간에 엔터 눌러주셔야하고, 시간초가 흐르면 제가 메시지 드리는 코드 입력해 주시면 되겠습니다. 
 그리고 종종 빌드가 되지 않는 경우가 있는데, 그 때는 마지막 명령어를 한 번 씩 더 입력해 주시면 되겠습니다.

@@ -75,7 +75,7 @@
     "bcrypt": "5.1.1",
     "chakra-react-select": "4.7.6",
     "colorette": "2.0.20",
-    "csv-stringify": "^6.5.2",
+    "csv-stringify": "^6.4.4",
     "dayjs": "1.11.10",
     "framer-motion": "11.0.15",
     "holy-loader": "2.2.10",

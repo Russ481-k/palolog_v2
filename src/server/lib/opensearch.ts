@@ -1,6 +1,6 @@
+import dayjs from 'dayjs';
 import * as fs from 'fs';
 import * as https from 'https';
-import dayjs from 'dayjs';
 
 import { env } from '@/env.mjs';
 import { OpenSearchHit } from '@/types/project';
@@ -31,7 +31,6 @@ export interface OpenSearchIndicesResponse {
   status: string;
   [key: string]: string | number | undefined;
 }
-
 
 export interface ScrollSearchOptions {
   index: string;
@@ -92,6 +91,17 @@ export class OpenSearchClient {
     return OpenSearchClient.instance;
   }
 
+  public async count(params: {
+    index: string;
+    body: any;
+  }): Promise<{ count: number }> {
+    return this.request<{ count: number }>({
+      path: `/${params.index}/_count`,
+      method: 'POST',
+      body: params.body,
+    });
+  }
+
   async request<T>({ path, method, body }: OpenSearchOptions): Promise<T> {
     const options: https.RequestOptions = {
       ...this.baseOptions,
@@ -106,7 +116,11 @@ export class OpenSearchClient {
         res.on('end', () => {
           try {
             if (res.statusCode && res.statusCode >= 400) {
-              reject(new Error(`OpenSearch request failed with status ${res.statusCode}: ${data}`));
+              reject(
+                new Error(
+                  `OpenSearch request failed with status ${res.statusCode}: ${data}`
+                )
+              );
               return;
             }
             resolve(JSON.parse(data));
@@ -116,14 +130,21 @@ export class OpenSearchClient {
         });
       });
 
-      req.on('error', (e) => reject(new Error(`OpenSearch request failed: ${e.message}`)));
+      req.on('error', (e) =>
+        reject(new Error(`OpenSearch request failed: ${e.message}`))
+      );
       if (body) req.write(JSON.stringify(body));
       req.end();
     });
   }
 
   // 스크롤 검색 초기화
-  async initScroll({ index, body, scrollTime = '1m', size = 1000 }: ScrollSearchOptions): Promise<OpenSearchResponse> {
+  async initScroll({
+    index,
+    body,
+    scrollTime = '1m',
+    size = 1000,
+  }: ScrollSearchOptions): Promise<OpenSearchResponse> {
     const path = `/${index}/_search?scroll=${scrollTime}&size=${size}`;
     return this.request<OpenSearchResponse>({
       path,
@@ -133,14 +154,17 @@ export class OpenSearchClient {
   }
 
   // 스크롤 계속
-  async scroll(scrollId: string, scrollTime = '1m'): Promise<OpenSearchResponse> {
+  async scroll(
+    scrollId: string,
+    scrollTime = '1m'
+  ): Promise<OpenSearchResponse> {
     return this.request<OpenSearchResponse>({
       path: '/_search/scroll',
       method: 'POST',
       body: {
         scroll: scrollTime,
-        scroll_id: scrollId
-      }
+        scroll_id: scrollId,
+      },
     });
   }
 
@@ -193,7 +217,7 @@ export class OpenSearchClient {
     page,
     pageSize,
     scrollTime = '1m',
-    size = 1000
+    size = 1000,
   }: PaginatedScrollOptions): Promise<ScrollResponse> {
     let currentScrollId: string | undefined;
 
@@ -206,10 +230,10 @@ export class OpenSearchClient {
         body: {
           ...body,
           size,
-          track_total_hits: true
+          track_total_hits: true,
         },
         scrollTime,
-        size
+        size,
       });
 
       let results = [...initialResponse.hits.hits];
@@ -241,7 +265,7 @@ export class OpenSearchClient {
             const remaining = pageSize - pageResults.length;
             pageResults = [
               ...pageResults,
-              ...response.hits.hits.slice(0, remaining)
+              ...response.hits.hits.slice(0, remaining),
             ];
           }
         } catch (scrollError) {
@@ -252,9 +276,8 @@ export class OpenSearchClient {
       return {
         hits: pageResults,
         total: initialResponse.hits.total.value,
-        scrollId: currentScrollId
+        scrollId: currentScrollId,
       };
-
     } catch (error) {
       console.error('Paginated scroll search error:', error);
       throw error;
@@ -270,7 +293,6 @@ export class OpenSearchClient {
   }
 }
 
-
 // 로그 수집 관련 함수
 export async function makeOpenSearchRequest<T>(
   path: string,
@@ -280,7 +302,9 @@ export async function makeOpenSearchRequest<T>(
   const options: OpenSearchOptions = {
     hostname: env.OPENSEARCH_URL.replace('https://', ''),
     port: Number(env.OPENSEARCH_PORT),
-    path: path.startsWith('/_') ? path : `/${dayjs().format('YYYY.MM.DD')}*${path}`,
+    path: path.startsWith('/_')
+      ? path
+      : `/${dayjs().format('YYYY.MM.DD')}*${path}`,
     method,
     headers: {
       'Content-Type': 'application/json',

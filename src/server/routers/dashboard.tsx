@@ -223,17 +223,23 @@ export const getDomainIndexContents = async (): Promise<string[]> => {
   try {
     const result = await makeOpenSearchRequest<{
       hits: { hits: Array<{ _source: { domains: string[] } }> };
-    }>('/domain_index/_search', 'POST', {
+    }>(`/domain_index/_search`, 'POST', {
       size: 1000,
       query: { match_all: {} },
     });
-
-    return result.hits.hits[0]?._source.domains ?? [];
+    if (result.hits?.hits?.[0]?._source?.domains) {
+      return result.hits.hits[0]._source.domains;
+    }
+    return [];
   } catch (error) {
     console.error('Error querying domain_index:', error);
     return [];
   }
 };
+
+// 초당 로그량 버퍼 (최근 3개 값 저장)
+let logsPerSecondBuffer: number[] = [];
+const BUFFER_SIZE = 3;
 
 export const dashboardRouter = createTRPCRouter({
   getDomains: protectedProcedure()
@@ -285,7 +291,8 @@ export const dashboardRouter = createTRPCRouter({
     )
     .query(async () => {
       const now = dayjs().tz('Asia/Seoul');
-      const oneSecondAgo = now.subtract(5, 'second');
+      const thirtySecondsAgo = now.subtract(30, 'second');
+      const oneMinuteAgo = thirtySecondsAgo.subtract(60, 'second');
       const domains = await getDomainIndexContents();
       const currentHour = now.format('YYYY.MM.DD.HH');
 
@@ -296,7 +303,7 @@ export const dashboardRouter = createTRPCRouter({
           .replace(/\./g, '-')
           .replace(/[^a-z0-9\-]/g, '_');
         const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
-          `/${currentHour}_${domainPattern}/_count`,
+          `/${currentHour}*_${domainPattern}/_count`,
           'POST',
           {
             query: {
@@ -305,8 +312,8 @@ export const dashboardRouter = createTRPCRouter({
                   {
                     range: {
                       '@timestamp': {
-                        gte: oneSecondAgo.toISOString(),
-                        lt: now.toISOString(),
+                        gte: oneMinuteAgo.toISOString(),
+                        lt: thirtySecondsAgo.toISOString(),
                       },
                     },
                   },
@@ -316,9 +323,8 @@ export const dashboardRouter = createTRPCRouter({
           }
         );
         console.log(domainPattern, result.count);
-        return result.count ?? 0;
+        return !!result.count ? result.count / 60 : 0; // 60초 동안의 로그를 초당 평균으로 변환
       });
-
       // 일간 로그 수 계산
       const currentDate = now.format('YYYY.MM.DD');
       const logsPerDayPromises = domains.map(async (domain) => {
@@ -326,11 +332,7 @@ export const dashboardRouter = createTRPCRouter({
           .toLowerCase()
           .replace(/\./g, '-')
           .replace(/[^a-z0-9\-]/g, '_');
-        const indices = Array.from(
-          { length: 24 },
-          (_, i) =>
-            `${currentDate}.${i.toString().padStart(2, '0')}_${domainPattern.slice(0, -1)}*`
-        ).join(',');
+        const indices = `${currentDate}*_${domainPattern}`;
 
         const result = await makeOpenSearchRequest<OpenSearchCountResponse>(
           `/${indices}/_count`,
@@ -342,10 +344,28 @@ export const dashboardRouter = createTRPCRouter({
       const logsPerSecond = await Promise.all(logsPerSecondPromises);
       const logsPerDay = await Promise.all(logsPerDayPromises);
 
+      // 현재 초당 로그량 계산
+      const currentLogsPerSecond = Math.round(
+        logsPerSecond.reduce((a, b) => a + b, 0)
+      );
+
+      // 0이 아닌 경우에만 버퍼에 추가
+      if (currentLogsPerSecond > 0) {
+        logsPerSecondBuffer.push(currentLogsPerSecond);
+        if (logsPerSecondBuffer.length > BUFFER_SIZE) {
+          logsPerSecondBuffer.shift(); // 가장 오래된 값 제거
+        }
+      }
+
+      // 현재 값이 0이면 버퍼에서 가장 최근 유효한 값 사용
+      const finalLogsPerSecond =
+        currentLogsPerSecond ??
+        (logsPerSecondBuffer.length > 0
+          ? logsPerSecondBuffer[logsPerSecondBuffer.length - 1]
+          : 0);
+
       return {
-        logs_per_second: Math.round(
-          logsPerSecond.reduce((a, b) => a + b, 0) / 5
-        ),
+        logs_per_second: finalLogsPerSecond,
         logs_per_day: logsPerDay.reduce((a, b) => a + b, 0),
       };
     }),

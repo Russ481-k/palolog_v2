@@ -7,6 +7,50 @@ services:
       POSTGRES_DB: $DOCKER_DATABASE_NAME
       POSTGRES_USER: $DOCKER_DATABASE_USERNAME
       POSTGRES_PASSWORD: $DOCKER_DATABASE_PASSWORD
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: '24G'
+        reservations:
+          cpus: '6'
+          memory: '16G'
+    command:
+      - 'postgres'
+      - '-c'
+      - 'max_connections=2000'
+      - '-c'
+      - 'shared_buffers=6GB'
+      - '-c'
+      - 'effective_cache_size=16GB'
+      - '-c'
+      - 'maintenance_work_mem=1GB'
+      - '-c'
+      - 'work_mem=32MB'
+      - '-c'
+      - 'wal_buffers=16MB'
+      - '-c'
+      - 'random_page_cost=1.1'
+      - '-c'
+      - 'effective_io_concurrency=200'
+      - '-c'
+      - 'checkpoint_completion_target=0.9'
+      - '-c'
+      - 'synchronous_commit=off'
+      - '-c'
+      - 'max_wal_size=4GB'
+      - '-c'
+      - 'min_wal_size=2GB'
+      - '-c'
+      - 'autovacuum_max_workers=4'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    shm_size: '4gb'
 
   opensearch:
     image: opensearchproject/opensearch:1.2.0
@@ -18,14 +62,36 @@ services:
       - '9600:9600'
     environment:
       - discovery.type=single-node
-      - 'OPENSEARCH_JAVA_OPTS=-Xms8g -Xmx8g' # JVM 메모리 설정
+      - 'OPENSEARCH_JAVA_OPTS=-Xms24g -Xmx24g -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+AlwaysPreTouch'
       - TZ=Asia/Seoul
-      - 'search.max_open_scroll_context=1000'
+      - 'search.max_open_scroll_context=2000'
+      - 'indices.memory.index_buffer_size=30%'
+      - 'indices.queries.cache.size=25%'
+      - 'thread_pool.write.queue_size=1000'
+      - 'thread_pool.search.queue_size=2000'
+      - 'indices.fielddata.cache.size=25%'
+      - 'indices.recovery.max_bytes_per_sec=100mb'
+    deploy:
+      resources:
+        limits:
+          cpus: '12'
+          memory: '36G'
+        reservations:
+          cpus: '8'
+          memory: '28G'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
     healthcheck:
       test: ['CMD', 'curl', '-s', '-k', 'https://localhost:9200']
       interval: 30s
       timeout: 10s
       retries: 3
+    shm_size: '2gb'
 
   logstash:
     image: opensearchproject/logstash-oss-with-opensearch-output-plugin:7.16.2
@@ -35,14 +101,46 @@ services:
     ports:
       - '514:514/udp'
     environment:
-      LS_JAVA_OPTS: '-Xms8g -Xmx8g'
-      pipeline.batch.size: '15000'
-      pipeline.workers: '8'
+      LS_JAVA_OPTS: '-Xms32g -Xmx32g'
+      pipeline.batch.size: '100000'
+      pipeline.workers: '48' # CPU 코어 수에 따라 조정
+      pipeline.batch.delay: '3'
+      pipeline.io_threads: '24' # 증가
+      pipeline.ordered: 'false'
+      pipeline.unsafe_shutdown: 'true'
       pipeline.ecs_compatibility: disabled
+      queue.type: persisted
+      queue.max_bytes: '16gb' # 감소
+      queue.checkpoint.writes: '100000' # 감소
+      queue.checkpoint.acks: '100000' # 감소
+      queue.checkpoint.interval: '1000'
+      queue.page_capacity: '1gb' # 감소
+      queue.max_pages: 16 # 감소
+      queue.max_events: '100000' # int 범위 내로 조정
+      queue.drain: 'true'
       TZ: Asia/Seoul
+    deploy:
+      resources:
+        limits:
+          cpus: '24' # 32코어의 75%
+          memory: '80G' # 전체 메모리의 ~64%
+        reservations:
+          cpus: '16'
+          memory: '64G'
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline
-    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf --config.reload.automatic
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc:
+        soft: 65535
+        hard: 65535
+    shm_size: '4gb'
 
 networks:
   palolog:

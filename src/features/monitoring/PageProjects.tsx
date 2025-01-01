@@ -36,8 +36,8 @@ import { FormFieldsPaloLogsParams, zLogs, zPaloLogsParams } from './schemas';
 export default function PageProjects() {
   const { colorMode } = useColorMode();
 
-  const now = dayjs().subtract(10, 'second').format('YYYY-MM-DD HH:mm:ss');
-  const beforeHourTime = dayjs()
+  const now = dayjs().subtract(1, 'minute').format('YYYY-MM-DD HH:mm:ss');
+  const beforeMinuteTime = dayjs()
     .subtract(1, 'minute')
     .format('YYYY-MM-DD HH:mm:ss');
 
@@ -45,7 +45,7 @@ export default function PageProjects() {
     mode: 'onSubmit',
     resolver: zodResolver(zPaloLogsParams()),
     defaultValues: {
-      timeFrom: String(beforeHourTime),
+      timeFrom: String(beforeMinuteTime),
       timeTo: String(now),
       currentPage: 1,
       searchTerm: '',
@@ -58,7 +58,7 @@ export default function PageProjects() {
   const [nextCurrentPage, setNextCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedFromDate, setSelectedFromDate] =
-    useState<string>(beforeHourTime);
+    useState<string>(beforeMinuteTime);
   const [selectedToDate, setSelectedToDate] = useState<string>(now);
   const [progress, setProgress] = useState<{
     progress: number;

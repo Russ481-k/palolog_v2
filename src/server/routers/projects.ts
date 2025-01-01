@@ -115,6 +115,39 @@ export async function searchOpenSearchWithScroll(
       sort: [{ '@timestamp': { order: 'desc' } }],
     };
 
+    // 모든 인덱스의 총 문서 수를 가져오는 쿼리
+    const countQuery = {
+      index: '*', // 모든 인덱스 대상
+      body: {
+        query: {
+          bool: {
+            must: [
+              {
+                range: {
+                  '@timestamp': {
+                    gte: rangeQuery?.gte,
+                    lte: rangeQuery?.lte,
+                    format: 'strict_date_time',
+                    time_zone: '+09:00',
+                  },
+                },
+              },
+              {
+                match: {
+                  logType: menu ?? 'TRAFFIC',
+                },
+              },
+              ...(searchBody.query.bool?.must?.slice(1) || []),
+            ],
+          },
+        },
+      },
+    };
+
+    // 전체 문서 수 조회
+    const countResult = await client.count(countQuery);
+    const totalCount = countResult.count || 0;
+
     const result = await client.scrollWithPagination({
       index: '*',
       body: modifiedSearchBody,
@@ -127,7 +160,7 @@ export async function searchOpenSearchWithScroll(
     if (onProgress) {
       onProgress({
         current: result.total,
-        total: result.total,
+        total: totalCount,
         status: 'complete',
       });
     }
@@ -135,7 +168,7 @@ export async function searchOpenSearchWithScroll(
     return {
       initialResponse: {
         hits: {
-          total: { value: result.total },
+          total: { value: totalCount },
           hits: result.hits as OpenSearchHit[], // Ensure type compatibility
         },
         _scroll_id: result.scrollId || '',
@@ -287,11 +320,6 @@ export const projectsRouter = createTRPCRouter({
           }
         );
 
-        console.log('Search results:', {
-          totalHits: result.initialResponse.hits.total.value,
-          returnedHits: result.scrollResponse.length,
-        });
-
         loadingStatus.status = 'complete';
 
         const currentVersion = getCurrentVersion();
@@ -317,7 +345,7 @@ export const projectsRouter = createTRPCRouter({
             }, {}),
           })),
           loadingStatus,
-          scrollId: result.initialResponse._scroll_id
+          scrollId: result.initialResponse._scroll_id,
         };
       } catch (error) {
         console.error('Query Error:', error);
@@ -334,7 +362,7 @@ export const projectsRouter = createTRPCRouter({
             totalCnt: 0,
           },
           loadingStatus,
-          scrollId: ''
+          scrollId: '',
         };
       }
     }),
