@@ -237,10 +237,6 @@ export const getDomainIndexContents = async (): Promise<string[]> => {
   }
 };
 
-// 초당 로그량 버퍼 (최근 3개 값 저장)
-let logsPerSecondBuffer: number[] = [];
-const BUFFER_SIZE = 3;
-
 export const dashboardRouter = createTRPCRouter({
   getDomains: protectedProcedure()
     .output(z.object({ domains: z.array(z.string()) }))
@@ -344,28 +340,8 @@ export const dashboardRouter = createTRPCRouter({
       const logsPerSecond = await Promise.all(logsPerSecondPromises);
       const logsPerDay = await Promise.all(logsPerDayPromises);
 
-      // 현재 초당 로그량 계산
-      const currentLogsPerSecond = Math.round(
-        logsPerSecond.reduce((a, b) => a + b, 0)
-      );
-
-      // 0이 아닌 경우에만 버퍼에 추가
-      if (currentLogsPerSecond > 0) {
-        logsPerSecondBuffer.push(currentLogsPerSecond);
-        if (logsPerSecondBuffer.length > BUFFER_SIZE) {
-          logsPerSecondBuffer.shift(); // 가장 오래된 값 제거
-        }
-      }
-
-      // 현재 값이 0이면 버퍼에서 가장 최근 유효한 값 사용
-      const finalLogsPerSecond =
-        currentLogsPerSecond ??
-        (logsPerSecondBuffer.length > 0
-          ? logsPerSecondBuffer[logsPerSecondBuffer.length - 1]
-          : 0);
-
       return {
-        logs_per_second: finalLogsPerSecond,
+        logs_per_second: Math.round(logsPerSecond.reduce((a, b) => a + b, 0)),
         logs_per_day: logsPerDay.reduce((a, b) => a + b, 0),
       };
     }),

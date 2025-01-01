@@ -16,7 +16,7 @@
     "build:auth": "dotenv -e .env -- tsx src/scripts/build-auth.ts",
     "build:next": "pnpm build:info && next build",
     "build:info": "tsx scripts/build-info.ts",
-    "start": "next start -p 8003",
+    "start": "next start -p 8000",
     "pretty": "prettier -w .",
     "lint": "run-p lint:*",
     "lint:next": "cross-env SKIP_ENV_VALIDATION=true next lint",

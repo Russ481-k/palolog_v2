@@ -1,4 +1,3 @@
-import dayjs from 'dayjs';
 import * as fs from 'fs';
 import * as https from 'https';
 
@@ -93,7 +92,7 @@ export class OpenSearchClient {
 
   public async count(params: {
     index: string;
-    body: any;
+    body: object;
   }): Promise<{ count: number }> {
     return this.request<{ count: number }>({
       path: `/${params.index}/_count`,

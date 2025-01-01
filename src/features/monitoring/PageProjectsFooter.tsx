@@ -12,7 +12,6 @@ import {
   useColorMode,
 } from '@chakra-ui/react';
 
-import { DownloadButton } from './DownloadButton';
 import PaginationButtons from './PaginationButtons';
 
 export const PageProjectsFooter = ({
@@ -60,6 +59,7 @@ export const PageProjectsFooter = ({
     Math.round((loadingProgress.current / loadingProgress.total) * 100) || 0;
   const currentStatus = isLoading ? 'loading' : loadingProgress.status;
 
+  console.log('searchId searchParams', searchId, searchParams);
   return (
     <Flex justifyContent="space-between" h="24px">
       <Flex flex={1}>
