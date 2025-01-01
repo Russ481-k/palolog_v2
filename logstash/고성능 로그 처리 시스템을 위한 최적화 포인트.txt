@@ -1,0 +1,81 @@
+
+
+고성능 로그 처리 시스템을 위한 최적화 포인트
+
+1. **데이터 수집 단계**
+- UDP 버퍼 크기 최적화
+  ```bash
+  net.core.rmem_max=268435456
+  net.core.wmem_max=268435456
+  net.ipv4.udp_mem=268435456 268435456 268435456
+  ```
+- 네트워크 백로그 큐 설정
+  ```bash
+  net.core.netdev_max_backlog=320000
+  ```
+
+2. **Logstash 최적화**
+- 배치 처리 설정
+  ```yaml
+  pipeline.batch.size: 20000
+  pipeline.workers: 16
+  pipeline.batch.delay: 50
+  ```
+- 큐 설정
+  ```yaml
+  queue.type: persisted
+  queue.max_bytes: 24gb
+  queue.checkpoint.writes: 100000
+  ```
+- JVM 힙 메모리
+  ```yaml
+  LS_JAVA_OPTS: '-Xms12g -Xmx12g'
+  ```
+
+3. **OpenSearch 최적화**
+- 샤드 및 레플리카 구성
+  ```yaml
+  number_of_shards: 6
+  number_of_replicas: 1
+  ```
+- 인덱스 설정
+  ```yaml
+  refresh_interval: 30s
+  indices.memory.index_buffer_size: 30%
+  ```
+- JVM 힙 설정
+  ```yaml
+  -Xms24g -Xmx24g -XX:+UseG1GC
+  ```
+
+4. **인덱스 최적화**
+- 인덱스 템플릿 사용
+- 필드 매핑 최적화
+- 불필요한 필드 제외
+- 날짜 기반 인덱스 롤오버
+
+5. **쿼리 최적화**
+- 필터 캐시 활용
+- 스크롤 API 사용
+- 필요한 필드만 조회
+- 집계 쿼리 최적화
+
+6. **시스템 리소스**
+- CPU 코어 할당
+- 메모리 설정
+- 디스크 I/O 최적화
+- 파일 디스크립터 제한 설정
+
+7. **모니터링**
+- 성능 메트릭 수집
+- 병목 지점 모니터링
+- 리소스 사용량 추적
+- 지연 시간 모니터링
+
+8. **데이터 라이프사이클**
+- 인덱스 보관 정책
+- 오래된 데이터 아카이빙
+- 핫/웜 노드 구성
+- 인덱스 롤오버 자동화
+
+이러한 설정들을 실제 환경에 맞게 조정하면서 성능을 모니터링하고 최적화하는 것이 중요합니다. 어떤 부분부터 시작해볼까요?
