@@ -38,7 +38,7 @@ export default function PageProjects() {
 
   const now = dayjs().subtract(1, 'minute').format('YYYY-MM-DD HH:mm:ss');
   const beforeMinuteTime = dayjs()
-    .subtract(1, 'minute')
+    .subtract(2, 'minute')
     .format('YYYY-MM-DD HH:mm:ss');
 
   const form = useForm<FormFieldsPaloLogsParams>({

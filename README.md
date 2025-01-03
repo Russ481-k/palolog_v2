@@ -33,10 +33,6 @@
 
     sudo chown -R $USER:$USER ./.next
     sudo chmod -R 755 ./.next
-
-    docker stop $(docker ps -aq); docker rm $(docker ps -aq); pnpm dk:init;
-
-
     # 시스템 레벨의 UDP 버퍼 크기 확인/조정
     sudo tee /etc/sysctl.d/99-network-tune.conf << EOF
     # Network Buffer Sizes
@@ -59,12 +55,14 @@
     # 설정 적용
     sudo sysctl -p /etc/sysctl.d/99-network-tune.conf
 
-
+    
     pm2 delete palolog ;
     sudo lsof -i :8000
     sudo kill -9 $(sudo lsof -t -i:8000)
 
     pnpm build;
+    docker stop $(docker ps -aq); docker rm $(docker ps -aq); pnpm dk:init;
+
     sudo chown -R vtek:vtek /home/vtek/palolog_v2/.next
     sudo chmod -R 755 /home/vtek/palolog_v2/.next
     pm2 start pnpm --name 'palolog' --log '/home/vtek/palolog_v2/log.txt' -- start;

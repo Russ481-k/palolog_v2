@@ -2,7 +2,11 @@ import React, { FC, useEffect, useState } from 'react';
 
 import { Tooltip, TooltipProps, forwardRef } from '@chakra-ui/react';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import { useTranslation } from 'react-i18next';
+
+// relativeTime 플러그인 추가
+dayjs.extend(relativeTime);
 
 const ONE_SECOND = 1000;
 const ONE_MINUTE = ONE_SECOND * 60;
