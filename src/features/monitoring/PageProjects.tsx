@@ -372,7 +372,6 @@ export default function PageProjects() {
               onCurrentPageChange={onCurrentPageChange}
               searchId={searchId}
               searchParams={searchParams}
-              // scrollProgress={progress}
             />
           </Stack>
         </Form>

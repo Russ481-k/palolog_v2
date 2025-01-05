@@ -1,34 +1,24 @@
-import '@testing-library/jest-dom/vitest';
-import { vi } from 'vitest';
+import '@testing-library/jest-dom';
 
-// Mock matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation((query) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-});
+// Mock ResizeObserver
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
-// Mock next/router
-vi.mock('next/router', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    prefetch: vi.fn(),
-    query: {},
-  }),
-}));
+global.ResizeObserver = MockResizeObserver;
 
-// Mock environment variables
-vi.stubEnv('NEXT_PUBLIC_BASE_URL', 'http://localhost:3000');
-vi.stubEnv('NEXT_PUBLIC_ENV_NAME', 'Test Environment');
-vi.stubEnv('NEXT_PUBLIC_ENV_EMOJI', '🧪');
-vi.stubEnv('NEXT_PUBLIC_ENV_COLOR_SCHEME', 'teal');
-vi.stubEnv('NEXT_PUBLIC_IS_DEMO', 'false');
+// Mock WebSocket
+class MockWebSocket {
+  onmessage: ((event: any) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: ((error: any) => void) | null = null;
+
+  constructor(url: string) {}
+
+  close() {}
+  send(data: string) {}
+}
+
+global.WebSocket = MockWebSocket as any;

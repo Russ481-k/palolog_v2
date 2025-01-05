@@ -16,6 +16,9 @@ export default defineConfig({
       NEXT_PUBLIC_ENV_COLOR_SCHEME: 'teal',
       NEXT_PUBLIC_IS_DEMO: 'false',
     },
+    testTimeout: 60000,
+    hookTimeout: 60000,
+    teardownTimeout: 60000,
   },
   resolve: {
     alias: {

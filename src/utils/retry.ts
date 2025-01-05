@@ -1,49 +1,43 @@
-interface RetryOptions {
-    retries?: number;
-    factor?: number;
-    minTimeout?: number;
-    maxTimeout?: number;
-    onRetry?: (error: Error, attempt: number) => void;
+export interface RetryOptions {
+  retries?: number;
+  minTimeout?: number;
+  maxTimeout?: number;
+  onError?: (error: Error) => void;
 }
 
 export async function retry<T>(
-    fn: () => Promise<T>,
-    options: RetryOptions = {}
+  fn: () => Promise<T>,
+  options: RetryOptions = {}
 ): Promise<T> {
-    const {
-        retries = 3,
-        factor = 2,
-        minTimeout = 1000,
-        maxTimeout = 30000,
-        onRetry
-    } = options;
+  const {
+    retries = 3,
+    minTimeout = 1000,
+    maxTimeout = 5000,
+    onError,
+  } = options;
 
-    let lastError: Error;
-    let attempt = 0;
+  let lastError: Error | null = null;
 
-    while (attempt < retries) {
-        try {
-            return await fn();
-        } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
-            attempt++;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      if (onError) {
+        onError(lastError);
+      }
 
-            if (attempt === retries) {
-                throw lastError;
-            }
+      if (attempt === retries - 1) {
+        throw lastError;
+      }
 
-            if (onRetry) {
-                onRetry(lastError, attempt);
-            }
-
-            const timeout = Math.min(
-                maxTimeout,
-                minTimeout * Math.pow(factor, attempt - 1)
-            );
-
-            await new Promise(resolve => setTimeout(resolve, timeout));
-        }
+      const timeout = Math.min(
+        Math.max(minTimeout * Math.pow(2, attempt), minTimeout),
+        maxTimeout
+      );
+      await new Promise((resolve) => setTimeout(resolve, timeout));
     }
+  }
 
-    throw lastError!;
-} 
+  throw lastError;
+}

@@ -12,6 +12,7 @@ import {
   useColorMode,
 } from '@chakra-ui/react';
 
+import { DownloadButton } from './DownloadButton';
 import PaginationButtons from './PaginationButtons';
 
 export const PageProjectsFooter = ({
@@ -149,7 +150,7 @@ export const PageProjectsFooter = ({
           <InputLeftAddon borderLeftRadius={5}>Total</InputLeftAddon>
           <Input
             textAlign="right"
-            borderRightRadius={5}
+            borderRightRadius={0}
             readOnly
             value={totalCnt
               .toString()
@@ -157,11 +158,11 @@ export const PageProjectsFooter = ({
           />
         </InputGroup>
       </Flex>
-      {/* <DownloadButton
+      <DownloadButton
         searchId={searchId}
         totalRows={totalCnt}
         searchParams={searchParams}
-      /> */}
+      />
     </Flex>
   );
 };

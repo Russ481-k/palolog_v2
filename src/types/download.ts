@@ -1,21 +1,74 @@
-export interface DownloadStatus {
-    id: string;
-    processedRows: number;
-    totalRows: number;
-    percentage: number;
-    status: 'preparing' | 'processing' | 'completed' | 'failed';
-    message?: string;
-    error?: string;
-    createdAt: Date;
-    updatedAt: Date;
-    files: string[];
+import { SearchParams } from './search';
+
+export interface OpenSearchSource {
+  [key: string]: string | number | boolean | null;
+}
+
+export type DownloadStatus =
+  | 'pending'
+  | 'downloading'
+  | 'completed'
+  | 'failed'
+  | 'paused';
+
+export interface ChunkProgress {
+  fileName: string;
+  downloadId: string;
+  progress: number;
+  status: DownloadStatus;
+  processedRows: number;
+  totalRows: number;
+  startTime: Date;
+  endTime?: Date;
+  error?: string;
+  message?: string;
+  searchParams?: SearchParams;
 }
 
 export interface DownloadProgress {
+  fileName: string;
+  downloadId: string;
+  processedRows: number;
+  totalRows: number;
+  progress: number;
+  status: DownloadStatus;
+  message?: string;
+  error?: string;
+  startTime: Date;
+  endTime?: Date;
+  lastUpdateTime: number;
+  lastProcessedCount: number;
+  processingSpeed: number;
+  estimatedTimeRemaining: number;
+  totalChunks: number;
+  completedChunks: number;
+  failedChunks: number;
+  processingChunks: number;
+  chunks: Array<{
+    fileName: string;
+    progress: number;
+    status: DownloadStatus;
+    message?: string;
     processedRows: number;
     totalRows: number;
-    percentage: number;
-    status: DownloadStatus['status'];
-    message?: string;
-    error?: string;
-} 
+  }>;
+}
+
+export interface ChunkConfig {
+  downloadId: string;
+  chunkIndex: number;
+  fileName: string;
+  searchParams: SearchParams;
+}
+
+export interface DownloadProgressState {
+  fileName?: string;
+  processedRows: number;
+  totalRows: number;
+  progress: number;
+  status: DownloadStatus;
+  processingSpeed: number;
+  estimatedTimeRemaining: number;
+  lastUpdateTime: number;
+  lastProcessedCount: number;
+}
