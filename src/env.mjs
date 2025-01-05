@@ -63,7 +63,9 @@ export const env = createEnv({
       .transform(
         (value) =>
           value ??
-          (process.env.NODE_ENV === 'development' ? 'LOCAL' : undefined)
+          (process.env.NODE_ENV === 'production'
+            ? process.env.NEXT_PUBLIC_ENV_NAME
+            : 'LOCAL')
       ),
     NEXT_PUBLIC_ENV_EMOJI: z
       .string()
@@ -71,7 +73,7 @@ export const env = createEnv({
       .optional()
       .transform(
         (value) =>
-          value ?? (process.env.NODE_ENV === 'development' ? '🚧' : undefined)
+          value ?? (process.env.NODE_ENV === 'production' ? undefined : '🚧')
       ),
     NEXT_PUBLIC_ENV_COLOR_SCHEME: z
       .string()
@@ -79,10 +81,10 @@ export const env = createEnv({
       .transform(
         (value) =>
           value ??
-          (process.env.NODE_ENV === 'development' ? 'warning' : 'success')
+          (process.env.NODE_ENV === 'production' ? 'success' : 'warning')
       ),
     NEXT_PUBLIC_NODE_ENV: zNodeEnv,
-    NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: z.string().default('500000'),
+    NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: z.string().default('100000'),
   },
 
   /**

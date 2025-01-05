@@ -44,6 +44,10 @@ export interface PaginatedScrollOptions extends ScrollSearchOptions {
 }
 
 export interface OpenSearchResponse {
+  data?: string | null;
+  firstReceiveTime?: string;
+  lastReceiveTime?: string;
+  searchAfter?: string[];
   hits: {
     total: {
       value: number;
@@ -93,7 +97,7 @@ export class OpenSearchClient {
       ca: fs.existsSync(env.CA_CERT_PATH)
         ? fs.readFileSync(env.CA_CERT_PATH)
         : undefined,
-      rejectUnauthorized: env.NODE_ENV === 'production',
+      rejectUnauthorized: false,
     };
   }
 

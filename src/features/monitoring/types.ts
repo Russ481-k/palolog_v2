@@ -33,17 +33,19 @@ export interface FileData {
   fileName: string;
   size: number;
   lastModified: string;
-  selected?: boolean;
+  selected: boolean;
   status: DownloadStatus;
   progress: number;
   message?: string;
   processedRows: number;
   totalRows: number;
-  timeRange?: string;
+  timeRange: string;
   searchParams?: {
     timeFrom: string;
     timeTo: string;
   };
+  processingSpeed?: number;
+  estimatedTimeRemaining?: number;
 }
 
 export interface WebSocketMessage {
@@ -66,8 +68,9 @@ export interface WebSocketMessage {
 export interface SearchParams {
   timeFrom: string;
   timeTo: string;
-  menu?: string;
+  menu: string;
   searchTerm?: string;
+  searchAfter?: string[];
 }
 
 export interface ChunkData
