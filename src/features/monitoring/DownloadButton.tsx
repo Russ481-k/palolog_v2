@@ -288,56 +288,49 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
 
           const handleMessage = (event: MessageEvent) => {
             try {
-              const data = JSON.parse(event.data);
-              console.log('[WebSocket] Message received:', data);
+              const message = JSON.parse(event.data);
+              console.log('[WebSocket] Message received:', message);
 
-              if (isProgressMessage(data)) {
-                // Update download progress
-                setDownloadProgress({
-                  progress: data.progress,
-                  status: data.status,
-                  message: data.message,
-                  processedRows: data.processedRows,
-                  totalRows: data.totalRows,
-                  size: data.size,
-                  fileName: data.fileName,
-                  searchParams: data.searchParams,
+              if (isProgressMessage(message)) {
+                // Clear initializing status when actual download starts
+                setFileStatuses((prev) => {
+                  const newStatuses = { ...prev };
+                  delete newStatuses['initializing'];
+
+                  // Only update the status for the current download
+                  if (message.fileName) {
+                    newStatuses[message.fileName] = {
+                      fileName: message.fileName,
+                      progress: message.progress || 0,
+                      status: message.status || 'downloading',
+                      message: message.message || '',
+                      processedRows: message.processedRows || 0,
+                      totalRows: message.totalRows || 0,
+                      size: message.size || 0,
+                      processingSpeed: message.processingSpeed || 0,
+                      estimatedTimeRemaining:
+                        message.estimatedTimeRemaining || 0,
+                      searchParams: message.searchParams,
+                    };
+                  }
+
+                  return newStatuses;
                 });
 
-                // Update file statuses
-                if (data.chunks && data.chunks.length > 0) {
-                  data.chunks.forEach((chunk: ChunkData) => {
-                    const newStatus: FileStatus = {
-                      ...chunk,
-                      processingSpeed: data.processingSpeed ?? 0,
-                      estimatedTimeRemaining: data.estimatedTimeRemaining ?? 0,
-                      fileName: chunk.fileName,
-                      progress: chunk.progress,
-                      status: chunk.status,
-                      message: chunk.message,
-                      processedRows: chunk.processedRows,
-                      totalRows: chunk.totalRows,
-                      size: chunk.size,
-                      searchParams: chunk.searchParams,
-                    };
-                    setFileStatuses((prev) => ({
-                      ...prev,
-                      [chunk.fileName]: newStatus,
-                    }));
-                  });
-                }
-
-                // Update overall progress
-                setOverallProgress((prev) => ({
-                  ...prev,
-                  processedRows: data.processedRows,
-                  totalRows: data.totalRows,
-                  percentage: data.progress,
-                  status: data.status,
-                }));
+                // Update download progress
+                setDownloadProgress({
+                  progress: message.progress || 0,
+                  status: message.status || 'downloading',
+                  message: message.message || '',
+                  processedRows: message.processedRows || 0,
+                  totalRows: message.totalRows || 0,
+                  size: message.size || 0,
+                  fileName: message.fileName || '',
+                  searchParams: message.searchParams,
+                });
               }
             } catch (error) {
-              console.error('[WebSocket] Failed to process message:', error);
+              console.error('[WebSocket] Failed to parse message:', error);
             }
           };
 
@@ -721,6 +714,9 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
                 status={data.status}
                 processedRows={data.processedRows}
                 totalRows={data.totalRows}
+                processingSpeed={data.processingSpeed}
+                estimatedTimeRemaining={data.estimatedTimeRemaining}
+                message={data.message}
                 size="sm"
               />
             </Flex>
@@ -734,7 +730,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           const { fileName, status } = params.data;
 
           return (
-            <HStack spacing={2}>
+            <Flex alignItems="center" height="40px">
               <IconButton
                 aria-label="Download"
                 icon={<FaDownload />}
@@ -744,7 +740,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
                 isDisabled={status !== 'completed'}
                 onClick={() => handleFileDownload(fileName)}
               />
-            </HStack>
+            </Flex>
           );
         },
       },

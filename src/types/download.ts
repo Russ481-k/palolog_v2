@@ -1,4 +1,4 @@
-import { SearchParams } from '@/features/monitoring/types';
+import { MenuType } from './project';
 
 export interface OpenSearchSource {
   [key: string]: string | number | boolean | null;
@@ -13,7 +13,14 @@ export type DownloadStatus =
 
 export type SortType = string | number | null;
 
-export type { SearchParams };
+export interface SearchParams {
+  timeFrom: string;
+  timeTo: string;
+  searchTerm: string;
+  menu: MenuType;
+  from?: number;
+  size?: number;
+}
 
 export interface ChunkProgress {
   fileName: string;
@@ -26,7 +33,7 @@ export interface ChunkProgress {
   endTime?: Date;
   error?: string;
   message?: string;
-  searchParams?: SearchParams;
+  searchParams: SearchParams;
 }
 
 export interface DownloadProgress {
@@ -60,7 +67,6 @@ export interface DownloadProgress {
 
 export interface ChunkConfig {
   downloadId: string;
-  chunkIndex?: number;
   fileName: string;
   searchParams: SearchParams;
 }

@@ -1,354 +1,176 @@
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import fs from 'fs';
+import * as fs from 'fs';
+import { createWriteStream } from 'fs';
 import { join } from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 
-import {
-  ChunkConfig,
-  ChunkProgress,
-  DownloadProgress,
-  OpenSearchSource,
-} from '@/types/download';
-import { SearchParams } from '@/types/search';
-import { retry } from '@/utils/retry';
+import { env } from '@/env.mjs';
+import { ChunkProgress, SearchParams } from '@/types/download';
 
-import { downloadManager } from './downloadManager';
 import { OpenSearchClient } from './opensearch';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-export class DownloadChunkManager {
-  private chunks: Map<string, ChunkProgress> = new Map();
-  private activeDownloads: Set<string> = new Set();
-  private paused: Set<string> = new Set();
-  private chunkSize = 1000;
+const CHUNK_SIZE = 500000;
 
-  async createChunks(
-    downloadId: string,
-    searchParams: SearchParams
-  ): Promise<void> {
+interface ChunkConfig {
+  downloadId: string;
+  fileName: string;
+  searchParams: SearchParams;
+}
+
+interface OpenSearchSource {
+  message?: string;
+  [key: string]: unknown;
+}
+
+interface OpenSearchHit {
+  _source: OpenSearchSource;
+}
+
+interface ScrollResponse {
+  _scroll_id: string;
+  hits: {
+    hits: OpenSearchHit[];
+  };
+}
+
+class DownloadChunkManager {
+  private chunks: Map<string, ChunkProgress>;
+  private downloadId: string;
+  private totalRows: number;
+  private processedRows: number;
+  private searchParams: SearchParams;
+
+  constructor(downloadId: string, searchParams: SearchParams) {
+    this.downloadId = downloadId;
+    this.chunks = new Map();
+    this.totalRows = 0;
+    this.processedRows = 0;
+    this.searchParams = searchParams;
+  }
+
+  public async createChunks(): Promise<void> {
     try {
-      console.log(
-        '[DownloadChunkManager] Creating chunks for download:',
-        downloadId
-      );
+      const totalCount = await this.getTotalCount();
+      this.totalRows = totalCount;
 
-      // Get total count from search params
-      const totalCount = await this.getTotalCount(searchParams);
-      console.log('[DownloadChunkManager] Total count:', totalCount);
+      const numChunks = Math.ceil(totalCount / CHUNK_SIZE);
+      console.log(`[DownloadChunkManager] Total count: ${totalCount}`);
 
-      // Calculate number of chunks
-      const numChunks = Math.ceil(totalCount / this.chunkSize);
-      console.log('[DownloadChunkManager] Number of chunks:', numChunks);
-
-      // Initialize download in active downloads
-      this.activeDownloads.add(downloadId);
-
-      // Create chunks and start processing
       for (let i = 0; i < numChunks; i++) {
-        const offset = i * this.chunkSize;
-        const limit = Math.min(this.chunkSize, totalCount - offset);
-        const chunkFileName = `${downloadId}_chunk${i}`;
-
-        // Initialize chunk progress
-        const chunkProgress: ChunkProgress = {
-          fileName: chunkFileName,
-          downloadId,
+        const fileName = `${this.searchParams.menu}_${dayjs().format('YYYYMMDD_HHmmss')}_${i + 1}of${numChunks}.csv`;
+        this.chunks.set(fileName, {
+          fileName,
+          downloadId: this.downloadId,
           progress: 0,
           status: 'pending',
           processedRows: 0,
-          totalRows: limit,
+          totalRows: Math.min(CHUNK_SIZE, totalCount - i * CHUNK_SIZE),
           startTime: new Date(),
-          searchParams,
-        };
-
-        // Add chunk to chunks map
-        this.chunks.set(chunkFileName, chunkProgress);
-
-        console.log(
-          `[DownloadChunkManager] Processing chunk ${i + 1}/${numChunks}`
-        );
-
-        // Update download manager with chunk creation
-        this.updateDownloadProgress(downloadId);
-
-        // Process the chunk
-        await this.processChunk({
-          downloadId,
-          fileName: chunkFileName,
-          chunkIndex: i,
-          searchParams: {
-            ...searchParams,
-            startRow: offset,
-            endRow: offset + limit - 1,
-          },
+          searchParams: this.searchParams,
         });
       }
 
-      // Update final progress
-      this.updateDownloadProgress(downloadId);
+      const chunkConfigs = Array.from(this.chunks.entries()).map(
+        ([fileName, chunk]) => ({
+          downloadId: this.downloadId,
+          fileName,
+          searchParams: {
+            ...this.searchParams,
+            from: 0,
+            size: chunk.totalRows,
+          },
+        })
+      );
 
-      // Remove from active downloads
-      this.activeDownloads.delete(downloadId);
-    } catch (error: unknown) {
+      await Promise.all(
+        chunkConfigs.map((config) => this.downloadChunk(config))
+      );
+    } catch (error) {
       console.error('[DownloadChunkManager] Error creating chunks:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Failed to process download chunks';
-      downloadManager.setError(downloadId, errorMessage);
-      this.activeDownloads.delete(downloadId);
       throw error;
     }
   }
 
-  private updateDownloadProgress(downloadId: string): void {
-    // Get all chunks for this download
-    const downloadChunks = Array.from(this.chunks.entries())
-      .filter(([fileName]) => fileName.startsWith(downloadId))
-      .map(([_, chunk]) => ({
-        fileName: chunk.fileName,
-        progress: chunk.progress,
-        status: chunk.status,
-        message: chunk.message,
-        processedRows: chunk.processedRows,
-        totalRows: chunk.totalRows,
-      }));
+  private async getTotalCount(): Promise<number> {
+    const client = OpenSearchClient.getInstance();
+    const timeFrom = dayjs(this.searchParams.timeFrom)
+      .tz('Asia/Seoul')
+      .format();
+    const timeTo = dayjs(this.searchParams.timeTo).tz('Asia/Seoul').format();
 
-    // Calculate total processed rows and total rows
-    const totalProcessed = downloadChunks.reduce(
-      (sum, chunk) => sum + chunk.processedRows,
-      0
-    );
-    const totalRows = downloadChunks.reduce(
-      (sum, chunk) => sum + chunk.totalRows,
-      0
-    );
-
-    // Calculate chunk statistics
-    const completedChunks = downloadChunks.filter(
-      (chunk) => chunk.status === 'completed'
-    ).length;
-    const failedChunks = downloadChunks.filter(
-      (chunk) => chunk.status === 'failed'
-    ).length;
-    const processingChunks = downloadChunks.filter(
-      (chunk) => chunk.status === 'downloading'
-    ).length;
-
-    // Calculate overall progress
-    const totalProgress = downloadChunks.reduce(
-      (sum, chunk) => sum + chunk.progress,
-      0
-    );
-    const percentage =
-      downloadChunks.length > 0 ? totalProgress / downloadChunks.length : 0;
-
-    // Update download manager
-    downloadManager.updateProgress(downloadId, {
-      processedRows: totalProcessed,
-      totalRows,
-      progress: percentage,
-      completedChunks,
-      failedChunks,
-      processingChunks,
-      chunks: downloadChunks,
-    });
-  }
-
-  private async processChunk(config: ChunkConfig): Promise<void> {
-    const { downloadId, fileName } = config;
-    const chunk = this.chunks.get(fileName);
-    if (!chunk) return;
-
-    try {
-      chunk.status = 'downloading';
-      this.updateChunkProgress(chunk);
-
-      await retry(
-        async () => {
-          await this.downloadChunk(config);
+    const countQuery = {
+      track_total_hits: true,
+      query: {
+        bool: {
+          must: [
+            {
+              range: {
+                '@timestamp': {
+                  gte: timeFrom,
+                  lte: timeTo,
+                  format: 'strict_date_time',
+                  time_zone: '+09:00',
+                },
+              },
+            },
+            {
+              match: {
+                logType: this.searchParams.menu,
+              },
+            },
+            {
+              exists: {
+                field: 'message',
+              },
+            },
+          ],
         },
-        {
-          retries: 3,
-          onError: (error: Error) => {
-            if (chunk) {
-              chunk.status = 'failed';
-              chunk.error =
-                error instanceof Error ? error.message : String(error);
-              this.updateChunkProgress(chunk);
-            }
-          },
-        }
-      );
+      },
+      _source: false,
+      size: 0,
+    };
 
-      chunk.status = 'completed';
-      chunk.endTime = new Date();
-      this.updateChunkProgress(chunk);
-    } catch (error) {
-      chunk.status = 'failed';
-      chunk.error = error instanceof Error ? error.message : String(error);
-      this.updateChunkProgress(chunk);
-    }
-  }
+    console.log('OpenSearch count query:', countQuery);
 
-  private updateChunkProgress(chunk: ChunkProgress): void {
-    this.chunks.set(chunk.fileName, chunk);
-    this.updateDownloadProgress(chunk.downloadId);
-  }
+    const response = await client.request<{
+      hits: {
+        total: {
+          value: number;
+          relation?: string;
+        };
+      };
+    }>({
+      path: '/_search',
+      method: 'POST',
+      body: countQuery,
+    });
 
-  private async getTotalCount(searchParams: SearchParams): Promise<number> {
-    // TODO: Implement actual count query
-    return 10000; // Temporary mock value
+    console.log('OpenSearch count response:', response);
+    return response.hits.total.value;
   }
 
   private async downloadChunk(config: ChunkConfig): Promise<void> {
     const { downloadId, fileName, searchParams } = config;
+    if (!searchParams) throw new Error('Search parameters are required');
+
     const chunk = this.chunks.get(fileName);
-
-    if (!chunk) {
-      throw new Error('Chunk not found');
-    }
-
-    if (
-      searchParams.startRow === undefined ||
-      searchParams.endRow === undefined
-    ) {
-      throw new Error('Invalid search parameters: missing startRow or endRow');
-    }
+    if (!chunk) throw new Error('Chunk not found');
 
     try {
-      // Update chunk status to downloading
-      chunk.status = 'downloading';
-      this.updateChunkProgress(chunk);
-
-      // Get total rows for this chunk
-      const totalRows = searchParams.endRow - searchParams.startRow + 1;
-      const batchSize = 10000; // Process 10k rows at a time
-
-      // Create the downloads directory if it doesn't exist
       const downloadDir = join(process.cwd(), 'downloads');
       await fs.promises.mkdir(downloadDir, { recursive: true });
 
-      let processedRows = 0;
-      let firstReceiveTime: string | undefined;
-      let lastReceiveTime: string | undefined;
-
-      // Process first batch to get the time range
-      const firstBatch = await this.fetchData({
-        ...searchParams,
-        startRow: searchParams.startRow,
-        endRow: Math.min(
-          searchParams.startRow + batchSize - 1,
-          searchParams.endRow
-        ),
-      });
-
-      if (firstBatch.firstReceiveTime && firstBatch.lastReceiveTime) {
-        firstReceiveTime = firstBatch.firstReceiveTime;
-        lastReceiveTime = firstBatch.lastReceiveTime;
-      }
-
-      // Generate file name with time range
-      const finalFileName =
-        firstReceiveTime && lastReceiveTime
-          ? `${searchParams.menu}_${firstReceiveTime}-${lastReceiveTime}.csv`
-          : fileName;
-
-      const filePath = join(downloadDir, finalFileName);
-      const writeStream = fs.createWriteStream(filePath);
-
-      // Write first batch data
-      if (firstBatch.data) {
-        writeStream.write(firstBatch.data);
-        processedRows += batchSize;
-
-        // Update chunk progress
-        chunk.processedRows = processedRows;
-        chunk.progress = (processedRows / totalRows) * 100;
-        chunk.fileName = finalFileName;
-        this.updateChunkProgress(chunk);
-      }
-
-      // Process remaining batches
-      while (processedRows < totalRows) {
-        // Check if download is paused
-        if (this.paused.has(downloadId)) {
-          chunk.status = 'paused';
-          this.updateChunkProgress(chunk);
-          writeStream.end();
-          return;
-        }
-
-        // Calculate the current batch size
-        const currentBatchSize = Math.min(batchSize, totalRows - processedRows);
-        const startRow = searchParams.startRow + processedRows;
-        const endRow = startRow + currentBatchSize - 1;
-
-        try {
-          // Fetch data for the current batch
-          const { data } = await this.fetchData({
-            ...searchParams,
-            startRow,
-            endRow,
-          });
-
-          // Write data to file
-          if (data) {
-            writeStream.write(data);
-            processedRows += currentBatchSize;
-
-            // Update chunk progress
-            chunk.processedRows = processedRows;
-            chunk.progress = (processedRows / totalRows) * 100;
-            chunk.fileName = finalFileName;
-            this.updateChunkProgress(chunk);
-          }
-        } catch (error) {
-          console.error(`Error processing batch: ${error}`);
-          throw error;
-        }
-      }
-
-      // Close the write stream
-      writeStream.end();
-
-      // Mark as completed
-      chunk.processedRows = totalRows;
-      chunk.progress = 100;
-      chunk.status = 'completed';
-      chunk.fileName = finalFileName;
-      this.updateChunkProgress(chunk);
-    } catch (error) {
-      chunk.status = 'failed';
-      chunk.error = error instanceof Error ? error.message : String(error);
-      this.updateChunkProgress(chunk);
-      throw error;
-    }
-  }
-
-  private async fetchData(params: SearchParams): Promise<{
-    data: string | null;
-    firstReceiveTime?: string;
-    lastReceiveTime?: string;
-  }> {
-    if (params.startRow === undefined || params.endRow === undefined) {
-      throw new Error('Invalid search parameters: missing startRow or endRow');
-    }
-
-    const { startRow, endRow } = params;
-
-    try {
       const client = OpenSearchClient.getInstance();
-
-      // Convert dates to ISO8601 format
-      const timeFrom = dayjs(params.timeFrom).tz('Asia/Seoul').format();
-      const timeTo = dayjs(params.timeTo).tz('Asia/Seoul').format();
+      const timeFrom = dayjs(searchParams.timeFrom).tz('Asia/Seoul').format();
+      const timeTo = dayjs(searchParams.timeTo).tz('Asia/Seoul').format();
 
       const searchBody = {
-        track_total_hits: true,
         query: {
           bool: {
             must: [
@@ -364,14 +186,14 @@ export class DownloadChunkManager {
               },
               {
                 match: {
-                  logType: params.menu,
+                  logType: searchParams.menu,
                 },
               },
-              ...(params.searchTerm
+              ...(searchParams.searchTerm
                 ? [
                     {
                       multi_match: {
-                        query: params.searchTerm,
+                        query: searchParams.searchTerm,
                         fields: ['*'],
                         type: 'phrase',
                       },
@@ -381,162 +203,138 @@ export class DownloadChunkManager {
             ],
           },
         },
+        _source: ['message'],
         sort: [{ '@timestamp': { order: 'desc' } }],
-        from: startRow,
-        size: endRow - startRow + 1,
+        size: 10000,
       };
 
-      const response = await client.request<{
-        hits: {
-          hits: Array<{
-            _source: OpenSearchSource;
-          }>;
-        };
-      }>({
-        path: '/_search',
-        method: 'POST',
-        body: searchBody,
-      });
+      const filePath = join(downloadDir, fileName);
+      const writeStream = createWriteStream(filePath);
 
-      // Convert the response to CSV
-      const hits = response.hits.hits;
-      if (!hits || hits.length === 0) return { data: null };
+      let processedRows = 0;
+      let scrollId: string | undefined;
 
-      // Get first and last hits
-      const lastHit = hits[0];
-      const firstHit = hits[hits.length - 1];
-
-      if (!lastHit?._source || !firstHit?._source) {
-        console.warn('Missing source data in search results');
-        return { data: null };
-      }
-
-      const firstReceiveTime = firstHit._source.receiveTime as
-        | string
-        | undefined;
-      const lastReceiveTime = lastHit._source.receiveTime as string | undefined;
-
-      // Format receiveTime values for file name
-      const formattedFirstTime = firstReceiveTime
-        ? dayjs(firstReceiveTime).format('YYYYMMDDHHmmss')
-        : undefined;
-      const formattedLastTime = lastReceiveTime
-        ? dayjs(lastReceiveTime).format('YYYYMMDDHHmmss')
-        : undefined;
-
-      // Get fields for CSV from the last hit (most recent)
-      const fields = Object.keys(lastHit._source).sort();
-
-      // Create CSV header
-      let csv = fields.join(',') + '\n';
-
-      // Add data rows
-      hits.forEach((hit) => {
-        if (!hit._source) return;
-        const row = fields.map((field) => {
-          const value = hit._source[field];
-          // Handle special cases and escaping
-          if (value === null || value === undefined) return '';
-          if (typeof value === 'string') {
-            // Escape quotes and wrap in quotes if contains comma or newline
-            if (
-              value.includes('"') ||
-              value.includes(',') ||
-              value.includes('\n')
-            ) {
-              return `"${value.replace(/"/g, '""')}"`;
-            }
-            return value;
-          }
-          return String(value);
+      try {
+        // Initialize scroll
+        const initialResponse = await client.request<ScrollResponse>({
+          path: '/*/_search?scroll=2m&size=10000',
+          method: 'POST',
+          body: searchBody,
         });
-        csv += row.join(',') + '\n';
+
+        scrollId = initialResponse._scroll_id;
+
+        // Process initial batch
+        const initialBatch = initialResponse.hits.hits;
+        if (initialBatch.length > 0) {
+          const header = 'message\n';
+          await pipeline(Readable.from([header]), writeStream);
+
+          const rows = initialBatch
+            .map((hit: OpenSearchHit) => hit._source.message)
+            .filter(
+              (message: unknown): message is string =>
+                typeof message === 'string'
+            )
+            .map((message: string) => `${message}\n`);
+
+          await pipeline(Readable.from(rows), writeStream);
+
+          processedRows += rows.length;
+          this.updateProgress(chunk, processedRows);
+        }
+
+        // Continue scrolling
+        while (scrollId && processedRows < chunk.totalRows) {
+          const scrollResponse: ScrollResponse =
+            await client.request<ScrollResponse>({
+              path: '/_search/scroll',
+              method: 'POST',
+              body: {
+                scroll: '2m',
+                scroll_id: scrollId,
+              },
+            });
+
+          scrollId = scrollResponse._scroll_id;
+          const batch = scrollResponse.hits.hits;
+
+          if (batch.length === 0) break;
+
+          const rows = batch
+            .map((hit: OpenSearchHit) => hit._source.message)
+            .filter(
+              (message: unknown): message is string =>
+                typeof message === 'string'
+            )
+            .map((message: string) => `${message}\n`);
+
+          await pipeline(Readable.from(rows), writeStream);
+
+          processedRows += rows.length;
+          this.updateProgress(chunk, processedRows);
+        }
+      } finally {
+        if (scrollId) {
+          try {
+            await client.request({
+              path: `/_search/scroll/${scrollId}`,
+              method: 'DELETE',
+            });
+          } catch (error) {
+            console.warn('Failed to clear scroll context:', error);
+          }
+        }
+        writeStream.end();
+      }
+
+      const stats = await fs.promises.stat(filePath);
+      console.log('Batch processed:', {
+        batchSize: `${(stats.size / (1024 * 1024)).toFixed(2)}MB`,
+        processedRows,
+        totalRows: chunk.totalRows,
+        progress: `${((processedRows / chunk.totalRows) * 100).toFixed(2)}%`,
       });
 
-      if (!formattedFirstTime || !formattedLastTime) {
-        console.warn('Missing receiveTime in search results');
-        return { data: csv };
-      }
-
-      return {
-        data: csv,
-        firstReceiveTime: formattedFirstTime,
-        lastReceiveTime: formattedLastTime,
-      };
+      chunk.status = 'completed';
+      chunk.endTime = new Date();
+      chunk.processedRows = processedRows;
+      chunk.progress = 100;
     } catch (error) {
-      console.error('Error fetching data from OpenSearch:', error);
-      return { data: null };
+      console.error('Error downloading chunk:', error);
+      chunk.status = 'failed';
+      chunk.error = error instanceof Error ? error.message : 'Unknown error';
+      throw error;
     }
   }
 
-  async getFilePath(fileName: string): Promise<string> {
-    const chunk = this.chunks.get(fileName);
-    if (!chunk || chunk.status !== 'completed') {
-      throw new Error('File not found or not completed');
-    }
-    return join(process.cwd(), 'downloads', fileName);
+  private updateProgress(chunk: ChunkProgress, processedRows: number): void {
+    chunk.processedRows = processedRows;
+    chunk.progress = (processedRows / chunk.totalRows) * 100;
   }
 
-  updateProgress(progress: Partial<DownloadProgress>): void {
-    if (!progress.fileName) return;
-
-    const existingProgress = this.chunks.get(progress.fileName);
-    if (!existingProgress) return;
-
-    this.chunks.set(progress.fileName, {
-      ...existingProgress,
-      ...progress,
-    });
+  public getProgress(): ChunkProgress[] {
+    return Array.from(this.chunks.values());
   }
 
-  pauseDownload(downloadId: string): void {
-    this.paused.add(downloadId);
+  public getChunk(fileName: string): ChunkProgress | undefined {
+    return this.chunks.get(fileName);
   }
 
-  resumeDownload(downloadId: string): void {
-    this.paused.delete(downloadId);
-    // 일시 중지된 청크들을 다시 처리
-    for (const [fileName, chunk] of this.chunks.entries()) {
-      if (fileName.startsWith(downloadId) && chunk.status === 'paused') {
-        const [searchId, chunkIndexStr] = fileName.split('_');
-        if (searchId && chunkIndexStr) {
-          const chunkIndex = parseInt(chunkIndexStr);
-          const CHUNK_SIZE = 1_000_000;
-          const startRow = chunkIndex * CHUNK_SIZE;
-          const endRow = startRow + CHUNK_SIZE - 1;
-
-          // Get the original search parameters from the chunk
-          const originalParams = chunk.searchParams;
-          if (!originalParams) {
-            console.error('Missing search parameters for chunk:', fileName);
-            continue;
-          }
-
-          const config: ChunkConfig = {
-            downloadId,
-            chunkIndex,
-            fileName,
-            searchParams: {
-              ...originalParams,
-              startRow,
-              endRow,
-            } as SearchParams,
-          };
-          this.processChunk(config);
-        }
-      }
-    }
-  }
-
-  cancelDownload(downloadId: string): void {
-    for (const [fileName, chunk] of this.chunks.entries()) {
-      if (fileName.startsWith(downloadId)) {
-        chunk.status = 'failed';
-        chunk.message = 'Download cancelled';
-        this.updateProgress(chunk);
+  public async cleanup(): Promise<void> {
+    const downloadDir = join(process.cwd(), 'downloads');
+    for (const [fileName] of this.chunks) {
+      try {
+        await fs.promises.unlink(join(downloadDir, fileName));
+      } catch (error) {
+        console.warn(`Failed to delete file ${fileName}:`, error);
       }
     }
   }
 }
 
-export const downloadChunkManager = new DownloadChunkManager();
+export const downloadChunkManager = {
+  createManager: (downloadId: string, searchParams: SearchParams) => {
+    return new DownloadChunkManager(downloadId, searchParams);
+  },
+};
