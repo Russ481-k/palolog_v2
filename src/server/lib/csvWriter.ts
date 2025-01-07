@@ -3,7 +3,7 @@ import { mkdir } from 'fs/promises';
 import { join } from 'path';
 
 export async function createCsvFile(
-  data: Record<string, any>[],
+  data: Record<string, string | number | boolean | null>[],
   fileName: string,
   append = false
 ): Promise<string> {

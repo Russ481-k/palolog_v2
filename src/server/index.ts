@@ -1,11 +1,6 @@
-import { createHTTPHandler } from '@trpc/server/adapters/standalone';
 import { createServer } from 'http';
 
 import { env } from '@/env.mjs';
-
-import { createContext } from './context';
-import { appRouter } from './routers/_app';
-import createWebSocketServer from './ws/downloadProgress';
 
 console.log('[Server] Starting WebSocket server initialization...');
 console.log('NEXT_PUBLIC_ENV_NAME : ', env.NEXT_PUBLIC_ENV_NAME);
@@ -19,7 +14,6 @@ console.log('[Server] WebSocket HTTP server instance created');
 
 // Create WebSocket server
 console.log('[Server] Creating WebSocket server...');
-const wss = createWebSocketServer({ server: wsServer });
 console.log('[Server] WebSocket server created');
 
 console.log(`[Server] Starting WebSocket server on port ${WS_PORT}...`);

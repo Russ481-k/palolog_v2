@@ -5,7 +5,6 @@ import {
   Button,
   Checkbox,
   Flex,
-  HStack,
   IconButton,
   Modal,
   ModalBody,
@@ -17,7 +16,6 @@ import {
   Text,
   VStack,
   useColorMode,
-  useToast,
 } from '@chakra-ui/react';
 import {
   ColDef as GridColDef,
@@ -35,10 +33,8 @@ import { DownloadStatus } from '@/types/download';
 
 import { DownloadProgress } from './components/DownloadProgress';
 import {
-  ChunkData,
   DownloadButtonProps,
   FileData,
-  FileStatus,
   FileStatuses,
   isProgressMessage,
 } from './types';
@@ -58,35 +54,6 @@ const statusDisplayMap = new Map([
 
 const defaultStatusDisplay: StatusDisplay = { text: 'pending', color: 'gray' };
 
-const updateFileStatuses = (
-  prev: Record<string, FileStatus>,
-  fileName: string,
-  newStatus: Partial<Omit<FileStatus, 'fileName'>>
-): Record<string, FileStatus> => {
-  const updatedStatuses = { ...prev };
-
-  const baseStatus: FileStatus = {
-    fileName,
-    progress: 0,
-    status: 'downloading',
-    message: '',
-    processedRows: 0,
-    totalRows: 0,
-    size: 0,
-    processingSpeed: 0,
-    estimatedTimeRemaining: 0,
-    searchParams: { timeFrom: '', timeTo: '' },
-  };
-
-  updatedStatuses[fileName] = {
-    ...(updatedStatuses[fileName] || baseStatus),
-    ...newStatus,
-    fileName,
-  } as FileStatus;
-
-  return updatedStatuses;
-};
-
 interface OverallProgress {
   totalFiles: number;
   completedFiles: number;
@@ -97,8 +64,21 @@ interface OverallProgress {
 }
 
 export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
-  ({ searchId: initialSearchId, totalRows, searchParams }, ref) => {
-    const toast = useToast();
+  (
+    {
+      searchId: totalRows,
+      searchParams,
+    }: {
+      searchId: string;
+      searchParams: {
+        menu: 'TRAFFIC';
+        timeFrom: string;
+        timeTo: string;
+        searchTerm: string;
+      };
+    },
+    ref
+  ) => {
     const { colorMode } = useColorMode();
     const gridTheme =
       colorMode === 'light' ? 'ag-theme-quartz' : 'ag-theme-quartz-dark';
@@ -111,15 +91,15 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     const gridRef = useRef<AgGridReact>(null);
     const isConnectingRef = useRef<boolean>(false);
     const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const [overallProgress, setOverallProgress] = useState<OverallProgress>({
+    const [, setOverallProgress] = useState<OverallProgress>({
       totalFiles: 0,
       completedFiles: 0,
-      totalRows,
+      totalRows: Number(totalRows),
       processedRows: 0,
       percentage: 0,
       status: 'pending',
     });
-    const [downloadProgress, setDownloadProgress] = useState<{
+    const [, setDownloadProgress] = useState<{
       progress: number;
       status: DownloadStatus;
       message: string;
@@ -146,9 +126,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         console.error('Failed to download file:', error);
       },
     });
-
-    const pauseDownload = trpc.download.pauseDownload.useMutation();
-    const resumeDownload = trpc.download.resumeDownload.useMutation();
     const cancelDownload = trpc.download.cancelDownload.useMutation();
     const cleanup = trpc.download.cleanup.useMutation();
 
@@ -463,7 +440,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         const result = await startDownload.mutateAsync({
           searchId,
           searchParams,
-          totalRows,
+          totalRows: Number(totalRows),
         });
 
         console.log('[Download] Server response received:', result);
@@ -543,14 +520,18 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         console.log('[Download] Mutation settled');
         setIsConnecting(false);
         setFileStatuses((prev) => {
-          const { initializing, ...rest } = prev;
+          const { ...rest } = prev;
           return Object.keys(rest).length > 0 ? rest : prev;
         });
       },
     });
 
     const handleFileDownload = (fileName: string) => {
-      downloadFile.mutate({ fileName });
+      downloadFile.mutate({
+        fileName,
+        searchId: totalRows,
+        searchParams: { ...searchParams, menu: 'TRAFFIC' as const },
+      });
     };
 
     const handleCancel = () => {
@@ -601,6 +582,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           cleanupDownload(downloadId);
         }
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [downloadId]);
 
     useEffect(() => {
@@ -614,9 +596,12 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       setOverallProgress({
         totalFiles: allFiles.length || 1,
         completedFiles: completed,
-        totalRows,
+        totalRows: Number(totalRows),
         processedRows: totalProcessed,
-        percentage: totalRows > 0 ? (totalProcessed / totalRows) * 100 : 0,
+        percentage:
+          Number(totalRows) > 0
+            ? (totalProcessed / Number(totalRows)) * 100
+            : 0,
         status: completed === allFiles.length ? 'completed' : 'downloading',
       });
     }, [fileStatuses, totalRows]);
@@ -814,7 +799,8 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
                   <Text fontSize="sm" color="gray.600">
                     {activeDownloads.length} / {completedFiles.length} /{' '}
                     {Math.ceil(
-                      totalRows / Number(env.NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE)
+                      Number(totalRows) /
+                        Number(env.NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE)
                     )}
                     files completed
                   </Text>

@@ -3,7 +3,7 @@ import { ReactNode } from 'react';
 import { Metadata } from 'next';
 
 import { Document } from '@/app/Document';
-import { NextLoader } from '@/app/NextLoader';
+import { Providers } from '@/app/Providers';
 import { getEnvHintTitlePrefix } from '@/features/devtools/EnvHint';
 import '@/styles/globals.css';
 
@@ -16,15 +16,10 @@ export const metadata: Metadata = {
   description: 'Opinionated UI starter',
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <Document>
-      <NextLoader />
-      {children}
+      <Providers>{children}</Providers>
     </Document>
   );
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DownloadManager } from '../downloadManager';
 
@@ -37,7 +37,7 @@ describe('DownloadManager', () => {
 
     downloadManager.updateProgress(id, {
       processedRows: 500000,
-      status: 'processing',
+      status: 'downloading',
       message: 'Processing...',
       totalChunks: 20,
       completedChunks: 10,
@@ -49,7 +49,7 @@ describe('DownloadManager', () => {
     expect(progress).toMatchObject({
       processedRows: 500000,
       totalRows: 1000000,
-      status: 'processing',
+      status: 'downloading',
       message: 'Processing...',
       totalChunks: 20,
       completedChunks: 10,
@@ -57,7 +57,7 @@ describe('DownloadManager', () => {
       processingChunks: 1,
       files: [],
     });
-    expect(progress?.percentage).toBeGreaterThanOrEqual(0);
+    expect(progress?.progress).toBeGreaterThanOrEqual(0);
   });
 
   it('handles download failure', () => {
@@ -82,7 +82,7 @@ describe('DownloadManager', () => {
     expect(downloadManager.getProgress(id)?.message).toBe('Download paused');
 
     downloadManager.resumeDownload(id);
-    expect(downloadManager.getProgress(id)?.status).toBe('processing');
+    expect(downloadManager.getProgress(id)?.status).toBe('downloading');
     expect(downloadManager.getProgress(id)?.message).toBe('Download resumed');
   });
 

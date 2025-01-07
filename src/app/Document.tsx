@@ -1,24 +1,19 @@
-'use client';
-
 import { ReactNode } from 'react';
 
 import { ColorModeScript } from '@chakra-ui/react';
 
-import { Providers } from '@/app/Providers';
-import i18n from '@/lib/i18n/client';
 import { AVAILABLE_LANGUAGES } from '@/lib/i18n/constants';
-import theme, { COLOR_MODE_STORAGE_KEY } from '@/theme';
+import theme from '@/theme';
 
 export const Document = ({ children }: { children: ReactNode }) => {
+  // 서버에서 기본 언어를 'ko'로 설정
+  const defaultLanguage = 'ko';
+  const defaultDir =
+    AVAILABLE_LANGUAGES.find(({ key }) => key === defaultLanguage)?.dir ??
+    'ltr';
+
   return (
-    <html
-      lang={i18n.language}
-      dir={
-        AVAILABLE_LANGUAGES.find(({ key }) => key === i18n.language)?.dir ??
-        'ltr'
-      }
-      suppressHydrationWarning
-    >
+    <html lang={defaultLanguage} dir={defaultDir} suppressHydrationWarning>
       <head>
         <meta
           name="viewport"
@@ -28,7 +23,7 @@ export const Document = ({ children }: { children: ReactNode }) => {
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <meta name="apple-mobile-web-app-capable" content="yes"></meta>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
         <link
           rel="apple-touch-icon"
           sizes="180x180"
@@ -52,18 +47,10 @@ export const Document = ({ children }: { children: ReactNode }) => {
           href="/safari-pinned-tab.svg"
           color={theme.colors.gray?.['800']}
         />
-        <meta
-          name="msapplication-TileColor"
-          content={theme.colors.gray?.['800']}
-        />
-        <meta name="theme-color" content={theme.colors.gray?.['800']} />
       </head>
-      <body suppressHydrationWarning>
-        <ColorModeScript
-          initialColorMode={theme.config.initialColorMode}
-          storageKey={COLOR_MODE_STORAGE_KEY}
-        />
-        <Providers>{children}</Providers>
+      <body>
+        <ColorModeScript type="cookie" />
+        <main>{children}</main>
       </body>
     </html>
   );

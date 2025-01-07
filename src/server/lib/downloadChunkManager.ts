@@ -7,7 +7,6 @@ import { join } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 
-import { env } from '@/env.mjs';
 import { ChunkProgress, SearchParams } from '@/types/download';
 
 import { OpenSearchClient } from './opensearch';
@@ -156,7 +155,7 @@ class DownloadChunkManager {
   }
 
   private async downloadChunk(config: ChunkConfig): Promise<void> {
-    const { downloadId, fileName, searchParams } = config;
+    const { fileName, searchParams } = config;
     if (!searchParams) throw new Error('Search parameters are required');
 
     const chunk = this.chunks.get(fileName);

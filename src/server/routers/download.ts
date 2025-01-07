@@ -4,12 +4,14 @@ import { downloadChunkManager } from '../lib/downloadChunkManager';
 import { downloadManager } from '../lib/downloadManager';
 import { protectedProcedure, router } from '../trpc';
 
-const searchParamsSchema = z.object({
-  menu: z.string(),
-  timeFrom: z.string(),
-  timeTo: z.string(),
-  searchTerm: z.string(),
-});
+const searchParamsSchema = z
+  .object({
+    menu: z.enum(['TRAFFIC']),
+    timeFrom: z.string(),
+    timeTo: z.string(),
+    searchTerm: z.string(),
+  })
+  .required();
 
 export const downloadRouter = router({
   startDownload: protectedProcedure
@@ -23,16 +25,31 @@ export const downloadRouter = router({
     .mutation(async ({ input }) => {
       const { searchId, totalRows, searchParams } = input;
       const download = downloadManager.createDownload(searchId, totalRows);
-      await downloadChunkManager.createChunks(searchId, searchParams);
+      const manager = downloadChunkManager.createManager(
+        searchId,
+        searchParams
+      );
+      await manager.createChunks();
       return { downloadId: download.id };
     }),
 
   downloadFile: protectedProcedure
-    .input(z.object({ fileName: z.string() }))
+    .input(
+      z.object({
+        fileName: z.string(),
+        searchId: z.string(),
+        searchParams: searchParamsSchema,
+      })
+    )
     .mutation(async ({ input }) => {
-      const { fileName } = input;
-      const filePath = await downloadChunkManager.getFilePath(fileName);
-      return { filePath };
+      const { fileName, searchId, searchParams } = input;
+      const manager = downloadChunkManager.createManager(
+        searchId,
+        searchParams
+      );
+      const chunk = manager['chunks'].get(fileName);
+      if (!chunk) throw new Error('File not found');
+      return { filePath: fileName };
     }),
 
   pauseDownload: protectedProcedure

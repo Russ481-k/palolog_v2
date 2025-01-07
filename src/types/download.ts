@@ -16,10 +16,9 @@ export type SortType = string | number | null;
 export interface SearchParams {
   timeFrom: string;
   timeTo: string;
-  searchTerm: string;
   menu: MenuType;
-  from?: number;
-  size?: number;
+  searchTerm?: string;
+  searchAfter?: string[];
 }
 
 export interface ChunkProgress {
@@ -81,4 +80,15 @@ export interface DownloadProgressState {
   estimatedTimeRemaining: number;
   lastUpdateTime: number;
   lastProcessedCount: number;
+}
+
+export interface DownloadButtonProps {
+  searchId: string;
+  totalRows: number;
+  searchParams: {
+    menu: 'TRAFFIC';
+    timeFrom: string;
+    timeTo: string;
+    searchTerm: string;
+  };
 }

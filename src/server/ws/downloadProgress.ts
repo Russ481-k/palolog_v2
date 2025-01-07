@@ -55,9 +55,10 @@ export function createWebSocketServer(
           // Create new download
           const { id } = downloadManager.createDownload(downloadId, totalRows);
 
-          // Start the download process
-          downloadChunkManager
-            .createChunks(id, searchParams)
+          // Create manager and start the download process
+          const manager = downloadChunkManager.createManager(id, searchParams);
+          manager
+            .createChunks()
             .then(() => {
               console.log('[WebSocket] Download chunks created successfully');
             })
@@ -75,14 +76,16 @@ export function createWebSocketServer(
 
         // Subscribe to download progress updates
         if (message.type === 'subscribe') {
+          const manager = downloadChunkManager.createManager(
+            message.downloadId,
+            message.searchParams
+          );
           const unsubscribe = downloadManager.onProgressUpdate(
             message.downloadId,
             (_downloadId: string, progress: DownloadProgress) => {
               if (ws.readyState === WebSocket.OPEN) {
                 // Get all chunks for this download
-                const chunks = Array.from(
-                  downloadChunkManager['chunks'].entries()
-                )
+                const chunks = Array.from(manager['chunks'].entries())
                   .filter(([fileName]) =>
                     fileName.startsWith(message.downloadId)
                   )

@@ -9,6 +9,7 @@ import { vi } from 'vitest';
 import { trpc } from '@/lib/trpc/client';
 
 import { DownloadButton } from '../DownloadButton';
+import { WebSocketMessage } from '../types';
 
 const mockStartDownload = vi.fn().mockResolvedValue({ downloadId: 'test-id' });
 const mockDownloadFile = vi.fn();
@@ -17,52 +18,46 @@ const mockPauseDownload = vi.fn();
 const mockResumeDownload = vi.fn();
 const mockCancelDownload = vi.fn().mockResolvedValue(undefined);
 
-vi.mock(
-  '@/lib/trpc/client',
-  () =>
-    ({
-      trpc: {
-        download: {
-          startDownload: {
-            useMutation: () => ({
-              mutateAsync: mockStartDownload,
-              isLoading: false,
-            }),
-          },
-          downloadFile: {
-            useMutation: () => ({
-              mutate: mockDownloadFile,
-            }),
-          },
-          cleanup: {
-            useMutation: () => ({
-              mutate: mockCleanup,
-              mutateAsync: mockCleanup,
-            }),
-          },
-          pauseDownload: {
-            useMutation: () => ({
-              mutate: mockPauseDownload,
-            }),
-          },
-          resumeDownload: {
-            useMutation: () => ({
-              mutate: mockResumeDownload,
-            }),
-          },
-          cancelDownload: {
-            useMutation: () => ({
-              mutate: mockCancelDownload,
-              mutateAsync: mockCancelDownload,
-            }),
-          },
-        },
-        Provider: ({ children }: { children: React.ReactNode }) => (
-          <>{children}</>
-        ),
+vi.mock('@/lib/trpc/client', () => ({
+  trpc: {
+    download: {
+      startDownload: {
+        useMutation: () => ({
+          mutateAsync: mockStartDownload,
+          isLoading: false,
+        }),
       },
-    }) as any
-);
+      downloadFile: {
+        useMutation: () => ({
+          mutate: mockDownloadFile,
+        }),
+      },
+      cleanup: {
+        useMutation: () => ({
+          mutate: mockCleanup,
+          mutateAsync: mockCleanup,
+        }),
+      },
+      pauseDownload: {
+        useMutation: () => ({
+          mutate: mockPauseDownload,
+        }),
+      },
+      resumeDownload: {
+        useMutation: () => ({
+          mutate: mockResumeDownload,
+        }),
+      },
+      cancelDownload: {
+        useMutation: () => ({
+          mutate: mockCancelDownload,
+          mutateAsync: mockCancelDownload,
+        }),
+      },
+    },
+    Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  },
+}));
 
 class MockWebSocket implements WebSocket {
   static readonly CONNECTING = 0;
@@ -81,10 +76,10 @@ class MockWebSocket implements WebSocket {
   protocol = '';
   readyState: number = WebSocket.CONNECTING;
   url = '';
-  onclose: ((this: WebSocket, ev: CloseEvent) => any) | null = null;
-  onerror: ((this: WebSocket, ev: Event) => any) | null = null;
-  onmessage: ((this: WebSocket, ev: MessageEvent) => any) | null = null;
-  onopen: ((this: WebSocket, ev: Event) => any) | null = null;
+  onclose: ((this: WebSocket, ev: CloseEvent) => void) | null = null;
+  onerror: ((this: WebSocket, ev: Event) => void) | null = null;
+  onmessage: ((this: WebSocket, ev: MessageEvent) => void) | null = null;
+  onopen: ((this: WebSocket, ev: Event) => void) | null = null;
   connectAttempts = 0;
 
   constructor() {
@@ -98,7 +93,7 @@ class MockWebSocket implements WebSocket {
     }, 0);
   }
 
-  close(code?: number, reason?: string): void {
+  close(): void {
     this.readyState = MockWebSocket.CLOSING;
     if (this.onclose) {
       this.onclose.call(this as unknown as WebSocket, new CloseEvent('close'));
@@ -106,46 +101,41 @@ class MockWebSocket implements WebSocket {
     this.readyState = MockWebSocket.CLOSED;
   }
 
-  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {}
+  send(): void {}
 
   addEventListener<K extends keyof WebSocketEventMap>(
     type: K,
-    listener: (this: WebSocket, ev: WebSocketEventMap[K]) => any,
+    listener: (this: WebSocket, ev: WebSocketEventMap[K]) => void,
     options?: boolean | AddEventListenerOptions
   ): void;
-  addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | AddEventListenerOptions
-  ): void {
+  addEventListener(): void {
     // Implementation not needed for tests
   }
 
   removeEventListener<K extends keyof WebSocketEventMap>(
     type: K,
-    listener: (this: WebSocket, ev: WebSocketEventMap[K]) => any,
+    listener: (this: WebSocket, ev: WebSocketEventMap[K]) => void,
     options?: boolean | EventListenerOptions
   ): void;
-  removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | EventListenerOptions
-  ): void {
+  removeEventListener(): void {
     // Implementation not needed for tests
   }
 
-  dispatchEvent(event: Event): boolean {
+  dispatchEvent(): boolean {
     return true;
   }
 
   emitError(error: Error): void {
     this.connectAttempts++;
     if (this.onerror) {
-      this.onerror.call(this as unknown as WebSocket, new Event('error'));
+      this.onerror.call(
+        this as unknown as WebSocket,
+        new ErrorEvent('error', { error })
+      );
     }
   }
 
-  emitMessage(data: any): void {
+  emitMessage(data: WebSocketMessage): void {
     if (this.onmessage) {
       this.onmessage.call(
         this as unknown as WebSocket,
@@ -162,10 +152,17 @@ class MockWebSocket implements WebSocket {
   }
 }
 
-// Mock WebSocket globally
-global.WebSocket = vi.fn().mockImplementation(() => {
+const mockWebSocketImpl = {
+  ...MockWebSocket.prototype,
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSING: 2,
+  CLOSED: 3,
+};
+
+global.WebSocket = vi.fn().mockImplementation((_url: string | URL) => {
   const ws = new MockWebSocket();
-  // Connect after a short delay to simulate real WebSocket behavior
+  Object.setPrototypeOf(ws, mockWebSocketImpl);
   setTimeout(() => {
     ws.readyState = MockWebSocket.OPEN;
     if (ws.onopen) {
@@ -173,7 +170,7 @@ global.WebSocket = vi.fn().mockImplementation(() => {
     }
   }, 0);
   return ws;
-}) as any;
+}) as unknown as typeof WebSocket;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -224,7 +221,11 @@ const mockTrpcClient = {
       }),
     },
   },
-} as any;
+  runtime: {},
+  query: {},
+  mutation: {},
+  subscription: {},
+} as unknown as ReturnType<typeof trpc.createClient>;
 
 const renderWithProviders = (ui: React.ReactElement) => {
   return render(
@@ -245,7 +246,7 @@ describe('DownloadButton', () => {
     searchParams: {
       timeFrom: '2023-01-01',
       timeTo: '2023-12-31',
-      menu: 'test',
+      menu: 'TRAFFIC' as const,
       searchTerm: 'test',
     },
   };
@@ -256,7 +257,7 @@ describe('DownloadButton', () => {
     vi.clearAllMocks();
     queryClient.clear();
     mockWs = new MockWebSocket();
-    (global.WebSocket as any).mockImplementation(() => mockWs);
+    vi.spyOn(global, 'WebSocket').mockImplementation(() => mockWs);
   });
 
   afterEach(async () => {
@@ -279,7 +280,7 @@ describe('DownloadButton', () => {
 
       // Simulate WebSocket error and reconnection
       await act(async () => {
-        mockWs.emitError(new Error('Connection failed'));
+        mockWs.emitError(new Error('WebSocket error'));
       });
 
       await waitFor(() => {
@@ -413,20 +414,3 @@ describe('DownloadButton', () => {
     }, 70000);
   });
 });
-
-const simulateWebSocketMessage = async (
-  downloadId: string,
-  progress: number,
-  status: string
-) => {
-  const ws = (window.WebSocket as any).mock.results[0].value;
-  await act(async () => {
-    ws.emitMessage({
-      type: 'progress',
-      downloadId,
-      fileName: 'result.csv',
-      progress,
-      status,
-    });
-  });
-};
