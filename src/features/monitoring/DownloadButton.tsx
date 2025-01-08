@@ -30,6 +30,7 @@ import { FaDownload } from 'react-icons/fa';
 import { env } from '@/env.mjs';
 import { trpc } from '@/lib/trpc/client';
 import { DownloadStatus } from '@/types/download';
+import { MenuType } from '@/types/project';
 
 import { DownloadProgress } from './components/DownloadProgress';
 import {
@@ -73,7 +74,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       searchId: string;
       totalRows: number;
       searchParams: {
-        menu: 'TRAFFIC';
+        menu: MenuType;
         timeFrom: string;
         timeTo: string;
         searchTerm: string;
@@ -90,6 +91,8 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
     const [fileStatuses, setFileStatuses] = useState<FileStatuses>({});
     const [isConnecting, setIsConnecting] = useState(false);
+    const [isConnectionAcknowledged, setIsConnectionAcknowledged] =
+      useState(false);
     const gridRef = useRef<AgGridReact>(null);
     const isConnectingRef = useRef<boolean>(false);
     const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -190,67 +193,64 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       }
     };
 
-    const connectWebSocket = async (id: string) => {
+    const connectWebSocket = async (id: string): Promise<WebSocket | null> => {
       if (isConnectingRef.current) {
-        console.log('[WebSocket] Connection already in progress, skipping');
+        console.log('[WebSocket] Connection already in progress');
         return null;
       }
 
+      isConnectingRef.current = true;
+      setIsConnectionAcknowledged(false);
+      let retries = 0;
       const MAX_RETRIES = 3;
       const BASE_RETRY_DELAY = 1000;
-      const TIMEOUT = 5000;
-      let retries = 0;
-      isConnectingRef.current = true;
 
       const connect = () => {
         return new Promise<WebSocket>((resolve, reject) => {
           let isResolved = false;
           const protocol =
             window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-          const wsUrl = `${protocol}//${window.location.hostname}:${env.NEXT_PUBLIC_ENV_NAME === 'LOCAL' ? 3001 : 8001}/api/ws/download`;
+          const port =
+            env.NEXT_PUBLIC_ENV_NAME === 'LOCAL'
+              ? window.location.port
+              : ':8001';
+          const host = window.location.hostname;
+          const wsUrl = `${protocol}//${host}${port}/api/ws/download`;
 
           console.log('[WebSocket] Attempting connection:', {
             url: wsUrl,
             protocol,
-            hostname: window.location.hostname,
+            hostname: host,
+            port: port || 'default',
             downloadId: id,
             attempt: retries + 1,
             maxRetries: MAX_RETRIES,
+            env: env.NEXT_PUBLIC_ENV_NAME,
+            currentState: isConnectingRef.current,
+            windowLocation: window.location.toString(),
           });
 
           const ws = new WebSocket(wsUrl);
-          let connectionAcknowledged = false;
 
-          const timeoutId = setTimeout(() => {
-            if (!isResolved) {
-              isResolved = true;
-              console.error('[WebSocket] Connection timed out:', {
-                timeout: TIMEOUT,
-                attempt: retries + 1,
-              });
-              cleanup();
-              ws.close();
-              reject(new Error(`Connection timeout after ${TIMEOUT}ms`));
-            }
-          }, TIMEOUT);
+          ws.onopen = () => {
+            console.log('[WebSocket] Connection opened, sending subscription');
+            handleOpen();
+          };
 
-          const cleanup = () => {
-            console.log('[WebSocket] Cleaning up event listeners');
-            clearTimeout(timeoutId);
-            ws.removeEventListener('open', handleOpen);
-            ws.removeEventListener('message', handleMessage);
-            ws.removeEventListener('error', handleError);
-            ws.removeEventListener('close', handleClose);
+          ws.onerror = (error) => {
+            console.error('[WebSocket] Native error event:', error);
+            handleError(error);
           };
 
           const handleOpen = () => {
-            console.log('[WebSocket] Connection opened, sending subscription');
             try {
               const subscriptionMessage = {
-                downloadId: id,
                 type: 'subscribe',
+                searchId: searchId,
                 clientId: `client-${Date.now()}`,
                 timestamp: new Date().toISOString(),
+                searchParams,
+                totalRows,
               };
               console.log(
                 '[WebSocket] Sending subscription:',
@@ -259,7 +259,9 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
               ws.send(JSON.stringify(subscriptionMessage));
             } catch (error) {
               console.error('[WebSocket] Failed to send subscription:', error);
-              cleanup();
+              if (downloadId) {
+                cleanup.mutateAsync({ downloadId }).catch(console.error);
+              }
               ws.close();
               reject(error);
             }
@@ -268,15 +270,33 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           const handleMessage = (event: MessageEvent) => {
             try {
               const message = JSON.parse(event.data);
-              console.log('[WebSocket] Message received:', message);
+              console.log('[WebSocket] Message received:', {
+                type: message.type,
+                timestamp: new Date().toISOString(),
+                data: message,
+              });
+
+              if (message.type === 'connected') {
+                setIsConnectionAcknowledged(true);
+                console.log('[WebSocket] Connection acknowledged by server');
+                if (!isResolved) {
+                  isResolved = true;
+                  if (downloadId) {
+                    cleanup.mutateAsync({ downloadId }).catch(console.error);
+                  }
+                  resolve(ws);
+                }
+              }
 
               if (isProgressMessage(message)) {
-                // Clear initializing status when actual download starts
+                console.log(
+                  '[WebSocket] Processing progress message:',
+                  message
+                );
                 setFileStatuses((prev) => {
                   const newStatuses = { ...prev };
                   delete newStatuses['initializing'];
 
-                  // Only update the status for the current download
                   if (message.fileName) {
                     newStatuses[message.fileName] = {
                       fileName: message.fileName,
@@ -292,7 +312,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
                       searchParams: message.searchParams,
                     };
                   }
-
                   return newStatuses;
                 });
 
@@ -309,7 +328,10 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
                 });
               }
             } catch (error) {
-              console.error('[WebSocket] Failed to parse message:', error);
+              console.error('[WebSocket] Failed to process message:', {
+                error,
+                data: event.data,
+              });
             }
           };
 
@@ -318,8 +340,11 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
               event,
               timestamp: new Date().toISOString(),
               wsState: ws.readyState,
+              url: wsUrl,
             });
-            cleanup();
+            if (downloadId) {
+              cleanup.mutateAsync({ downloadId }).catch(console.error);
+            }
             if (!isResolved) {
               isResolved = true;
               reject(new Error('WebSocket connection failed'));
@@ -331,13 +356,15 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
               code: event.code,
               reason: event.reason,
               wasClean: event.wasClean,
-              acknowledged: connectionAcknowledged,
+              acknowledged: isConnectionAcknowledged,
               timestamp: new Date().toISOString(),
+              wsState: ws.readyState,
             });
-            cleanup();
+            if (downloadId) {
+              cleanup.mutateAsync({ downloadId }).catch(console.error);
+            }
 
-            if (!connectionAcknowledged && event.code === 1006) {
-              console.log('[WebSocket] Abnormal closure, attempting retry');
+            if (!isConnectionAcknowledged && !isResolved) {
               if (retries < MAX_RETRIES && isConnectingRef.current) {
                 retries++;
                 const retryDelay =
@@ -368,48 +395,20 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
                       }
                     });
                 }, retryDelay);
-              } else if (!isResolved) {
+              } else {
                 console.error('[WebSocket] Connection permanently failed');
-                isResolved = true;
                 isConnectingRef.current = false;
-                reject(new Error(`WebSocket connection closed: ${event.code}`));
-              }
-            }
-          };
-
-          ws.onopen = () => {
-            console.log('[WebSocket] Connection opened');
-            // Send initial download request
-            ws.send(
-              JSON.stringify({
-                type: 'start_download',
-                downloadId: id,
-                searchParams,
-                totalRows,
-              })
-            );
-          };
-
-          ws.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data);
-              if (data.type === 'connected' && !connectionAcknowledged) {
-                connectionAcknowledged = true;
-                console.log('[WebSocket] Connection acknowledged');
                 if (!isResolved) {
                   isResolved = true;
-                  clearTimeout(timeoutId);
-                  resolve(ws);
+                  reject(
+                    new Error(`WebSocket connection closed: ${event.code}`)
+                  );
                 }
               }
-            } catch (error) {
-              console.error('[WebSocket] Failed to parse message:', error);
             }
           };
 
-          ws.addEventListener('open', handleOpen);
           ws.addEventListener('message', handleMessage);
-          ws.addEventListener('error', handleError);
           ws.addEventListener('close', handleClose);
         });
       };
@@ -431,8 +430,20 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     };
 
     const handleDownloadClick = async () => {
+      console.log('[Download] Initializing download process', {
+        searchId,
+        searchParams,
+        totalRows,
+      });
+
       try {
-        console.log('[Download] Initializing download process', {
+        if (!searchId?.trim()) {
+          throw new Error(
+            'Search ID is missing. Please wait for the search to complete or try refreshing the page.'
+          );
+        }
+
+        console.log('[Download] Starting download mutation with params:', {
           searchId,
           searchParams,
           totalRows,
@@ -445,19 +456,22 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         });
 
         console.log('[Download] Server response received:', result);
+        setDownloadId(result.downloadId);
 
-        if (!result.downloadId) {
-          throw new Error('Download ID not received from server');
+        console.log('[Download] Attempting to establish WebSocket connection');
+        const ws = await connectWebSocket(result.downloadId);
+        if (!ws) {
+          throw new Error('WebSocket connection failed to establish');
         }
+        console.log('[Download] WebSocket connection established successfully');
       } catch (error) {
         console.error('[Download] Failed to initialize download:', error);
-        if (error instanceof Error) {
-          handleConnectionError(error);
-        } else {
-          handleConnectionError(
-            new Error('Unknown error occurred during download initialization')
-          );
-        }
+        handleConnectionError(
+          error instanceof Error
+            ? error
+            : new Error('Failed to initialize download')
+        );
+        setIsConnecting(false);
       }
     };
 
@@ -483,55 +497,37 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           },
         }));
       },
-      onSuccess: async (data) => {
-        console.log('[Download] Mutation successful, received data:', data);
-        if (!data.downloadId) {
-          throw new Error('Download ID not received from mutation');
-        }
-        setDownloadId(data.downloadId);
-        try {
-          console.log(
-            '[Download] Attempting to establish WebSocket connection'
-          );
-          const ws = await connectWebSocket(data.downloadId);
-          if (!ws) {
-            throw new Error('WebSocket connection failed to establish');
-          }
-          console.log(
-            '[Download] WebSocket connection established successfully'
-          );
-        } catch (error) {
-          console.error('[Download] WebSocket connection failed:', error);
-          if (error instanceof Error) {
-            handleConnectionError(error);
-          } else {
-            handleConnectionError(
-              new Error('Unknown error during WebSocket connection')
-            );
-          }
+      onSuccess: (result) => {
+        console.log('[Download] Mutation completed successfully:', result);
+        if (!result.downloadId) {
+          throw new Error('Download ID not received from server');
         }
       },
       onError: (error) => {
         console.error('[Download] Mutation failed:', error);
         handleConnectionError(
-          error instanceof Error ? error : new Error(String(error))
+          new Error(error.message || 'Failed to start download')
         );
+        setIsConnecting(false);
+        setFileStatuses({});
       },
       onSettled: () => {
         console.log('[Download] Mutation settled');
-        setIsConnecting(false);
-        setFileStatuses((prev) => {
-          const { ...rest } = prev;
-          return Object.keys(rest).length > 0 ? rest : prev;
-        });
       },
+      retry: 1,
     });
 
     const handleFileDownload = (fileName: string) => {
+      const downloadParams = {
+        timeFrom: searchParams.timeFrom,
+        timeTo: searchParams.timeTo,
+        menu: searchParams.menu,
+        searchTerm: searchParams.searchTerm,
+      };
       downloadFile.mutate({
         fileName,
         searchId,
-        searchParams: { ...searchParams, menu: 'TRAFFIC' as const },
+        searchParams: downloadParams,
       });
     };
 
@@ -750,7 +746,14 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         timeRange: status.searchParams
           ? `${status.searchParams.timeFrom} ~ ${status.searchParams.timeTo}`
           : '',
-        searchParams: status.searchParams,
+        searchParams: {
+          timeFrom: status.searchParams?.timeFrom || searchParams.timeFrom,
+          timeTo: status.searchParams?.timeTo || searchParams.timeTo,
+          menu: searchParams.menu,
+          searchTerm: searchParams.searchTerm,
+        },
+        processingSpeed: status.processingSpeed,
+        estimatedTimeRemaining: status.estimatedTimeRemaining,
       })
     );
 
@@ -778,6 +781,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           loadingText="Connecting..."
           disabled={isConnecting}
           width="120px"
+          className="download-button"
         >
           Download
         </Button>
@@ -805,7 +809,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
                 </Box>
                 <Box
                   height="800px"
-                  className={gridTheme}
+                  className={`download-grid ${gridTheme}`}
                   data-testid="download-grid"
                   overflow="hidden"
                 >
@@ -817,6 +821,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
                     rowSelection="multiple"
                     suppressRowClickSelection
                     domLayout="autoHeight"
+                    suppressPropertyNamesCheck
                   />
                 </Box>
               </VStack>

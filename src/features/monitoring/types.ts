@@ -1,10 +1,11 @@
 import { DownloadStatus } from '@/types/download';
+import { MenuType } from '@/types/project';
 
 export interface DownloadButtonProps {
   searchId: string;
   totalRows: number;
   searchParams: {
-    menu: 'TRAFFIC';
+    menu: MenuType;
     timeFrom: string;
     timeTo: string;
     searchTerm: string;
@@ -43,6 +44,8 @@ export interface FileData {
   searchParams?: {
     timeFrom: string;
     timeTo: string;
+    menu: MenuType;
+    searchTerm: string;
   };
   processingSpeed?: number;
   estimatedTimeRemaining?: number;

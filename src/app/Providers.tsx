@@ -21,7 +21,7 @@ export function Providers({ children }: PropsWithChildren) {
     <Suspense>
       <I18nextProvider i18n={i18n}>
         <CacheProvider>
-          <ChakraProvider theme={theme} resetCSS>
+          <ChakraProvider theme={theme} resetCSS disableGlobalStyle>
             <TrpcProvider>
               <NextLoader />
               <Viewport>{children}</Viewport>

@@ -64,7 +64,7 @@ export default function PageProjects() {
     progress: number;
     current: number;
     total: number;
-    status: string;
+    status: 'ready' | 'loading' | 'complete' | 'error';
   }>({
     progress: 0,
     current: 0,
@@ -78,22 +78,6 @@ export default function PageProjects() {
 
   useEffect(() => {
     console.log('Setting up WebSocket subscription');
-
-    // trpc.projects.onProgress.useSubscription(undefined, {
-    //   onData(data: {
-    //     progress: number;
-    //     current: number;
-    //     total: number;
-    //     status: string;
-    //   }) {
-    //     console.log('Client received progress:', data);
-    //     setProgress(data);
-    //   },
-    //   onError(err: TRPCClientErrorLike<AppRouter>) {
-    //     console.error('WebSocket error:', err);
-    //   },
-    // });
-
     return () => {
       console.log('Cleaning up subscription');
     };
@@ -113,6 +97,28 @@ export default function PageProjects() {
       limit,
     },
     {
+      onSuccess: (data) => {
+        console.log('[PageProjects] OpenSearch response:', data);
+        // Try to get scroll ID from the response metadata first
+        const metaScrollId = data.pages[0]?.scrollId;
+        if (metaScrollId) {
+          console.log(
+            '[PageProjects] Found scroll ID in metadata:',
+            metaScrollId
+          );
+          setSearchId(metaScrollId);
+          return;
+        }
+
+        // Fallback to checking logs if metadata doesn't have scroll ID
+        const scrollId = data.pages[0]?.logs[0]?._scroll_id;
+        console.log('[PageProjects] Setting searchId:', scrollId);
+        if (scrollId) {
+          setSearchId(scrollId);
+        } else {
+          console.warn('[PageProjects] No scroll ID found in response');
+        }
+      },
       onSettled: () => {
         setProgress({
           progress: 100,
@@ -128,10 +134,6 @@ export default function PageProjects() {
           total: 0,
           status: 'error',
         });
-      },
-      onSuccess: (data) => {
-        const scrollId = data.pages[0]?.logs[0]?._scroll_id;
-        setSearchId(scrollId ?? '');
       },
     }
   );
@@ -266,7 +268,7 @@ export default function PageProjects() {
   const searchParams = {
     timeFrom: selectedFromDate,
     timeTo: selectedToDate,
-    menu,
+    menu: 'TRAFFIC' as const,
     searchTerm: form.getValues('searchTerm') || '',
   };
 
@@ -334,12 +336,8 @@ export default function PageProjects() {
               </Flex>
             </Flex>
             <div
-              className={
-                colorMode === 'light'
-                  ? 'ag-theme-quartz'
-                  : 'ag-theme-quartz-dark'
-              }
               style={{ width: '100%', height: '82vh', zIndex: 0 }}
+              className={`ag-theme-quartz${colorMode === 'dark' ? '-dark' : ''}`}
             >
               <AgGridReact
                 ref={gridRef}
@@ -372,6 +370,7 @@ export default function PageProjects() {
               onCurrentPageChange={onCurrentPageChange}
               searchId={searchId}
               searchParams={searchParams}
+              loadingProgress={progress}
             />
           </Stack>
         </Form>

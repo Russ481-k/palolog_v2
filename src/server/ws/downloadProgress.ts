@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Socket } from 'net';
 import { WebSocket, WebSocketServer } from 'ws';
 
+import { env } from '@/env.mjs';
 import { DownloadProgress } from '@/types/download';
 
 import { downloadChunkManager } from '../lib/downloadChunkManager';
@@ -12,12 +13,14 @@ interface WebSocketServerConfig {
   port?: number;
 }
 
-export function createWebSocketServer(
-  config: WebSocketServerConfig
-): WebSocketServer {
-  console.log('[WebSocket] Creating WebSocket server with config:', config);
+export function createWebSocketServer(config: WebSocketServerConfig) {
+  console.log('[WebSocket] Creating WebSocket server with config:', {
+    server: config.server,
+    env: env.NEXT_PUBLIC_ENV_NAME,
+  });
+
   const wss = new WebSocketServer({
-    ...config,
+    server: config.server,
     path: '/api/ws/download',
   });
 
