@@ -66,10 +66,12 @@ interface OverallProgress {
 export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
   (
     {
-      searchId: totalRows,
+      searchId,
+      totalRows,
       searchParams,
     }: {
       searchId: string;
+      totalRows: number;
       searchParams: {
         menu: 'TRAFFIC';
         timeFrom: string;
@@ -430,7 +432,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
 
     const handleDownloadClick = async () => {
       try {
-        const searchId = `download-${Date.now()}`;
         console.log('[Download] Initializing download process', {
           searchId,
           searchParams,
@@ -440,7 +441,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         const result = await startDownload.mutateAsync({
           searchId,
           searchParams,
-          totalRows: Number(totalRows),
+          totalRows,
         });
 
         console.log('[Download] Server response received:', result);
@@ -529,7 +530,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     const handleFileDownload = (fileName: string) => {
       downloadFile.mutate({
         fileName,
-        searchId: totalRows,
+        searchId,
         searchParams: { ...searchParams, menu: 'TRAFFIC' as const },
       });
     };
@@ -596,12 +597,9 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       setOverallProgress({
         totalFiles: allFiles.length || 1,
         completedFiles: completed,
-        totalRows: Number(totalRows),
+        totalRows,
         processedRows: totalProcessed,
-        percentage:
-          Number(totalRows) > 0
-            ? (totalProcessed / Number(totalRows)) * 100
-            : 0,
+        percentage: totalRows > 0 ? (totalProcessed / totalRows) * 100 : 0,
         status: completed === allFiles.length ? 'completed' : 'downloading',
       });
     }, [fileStatuses, totalRows]);

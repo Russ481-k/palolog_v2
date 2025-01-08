@@ -10,7 +10,7 @@ export const MemoryUsageCard = ({ memoryUsage }: { memoryUsage: number }) => {
   return (
     <GridItem
       borderRadius="lg"
-      bg={colorMode === 'light' ? 'white' : 'whiteAlpha.50'}
+      bg={colorMode === 'light' ? 'white' : '#182232'}
       borderWidth={1}
       borderColor={
         memoryUsage >= 80

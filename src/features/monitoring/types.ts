@@ -2,6 +2,7 @@ import { DownloadStatus } from '@/types/download';
 
 export interface DownloadButtonProps {
   searchId: string;
+  totalRows: number;
   searchParams: {
     menu: 'TRAFFIC';
     timeFrom: string;
