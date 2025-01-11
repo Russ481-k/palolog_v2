@@ -1,7 +1,8 @@
+import dayjs from 'dayjs';
 import { Observable, Subscriber } from 'rxjs';
 import { z } from 'zod';
 
-import { DownloadProgress } from '@/types/download';
+import { ChunkProgress, DownloadProgress } from '@/types/download';
 
 import { downloadChunkManager } from '../lib/downloadChunkManager';
 import { downloadManager } from '../lib/downloadManager';
@@ -9,7 +10,7 @@ import { protectedProcedure, router } from '../trpc';
 
 const searchParamsSchema = z
   .object({
-    menu: z.enum(['TRAFFIC', 'THREAT', 'SYSTEM']),
+    menu: z.enum(['TRAFFIC', 'THREAT', 'SYSTEM'] as const),
     timeFrom: z.string(),
     timeTo: z.string(),
     searchTerm: z.string(),
@@ -45,34 +46,82 @@ export const downloadRouter = router({
     )
     .mutation(async ({ input }) => {
       const { searchId, totalRows, searchParams } = input;
-      console.log('Starting download with searchId:', searchId);
-      const download = downloadManager.createDownload(searchId, totalRows);
-      console.log('Download created with id:', download.id);
-      const manager = downloadChunkManager.createManager(
-        searchId,
-        searchParams
-      );
-      console.log('Manager created for searchId:', searchId);
-      await manager.createChunks();
-      console.log('Chunks created for searchId:', searchId);
-      return { downloadId: download.id };
+      try {
+        console.log('[Download Router] Starting download with params:', {
+          searchId,
+          totalRows,
+          searchParams,
+          timestamp: new Date().toISOString(),
+        });
+
+        const download = await downloadManager.createDownload(
+          searchId,
+          totalRows,
+          searchParams
+        );
+
+        // 파일 크기 계산 (500,000 rows per file)
+        const CHUNK_SIZE = 500000;
+        const numFiles = Math.ceil(totalRows / CHUNK_SIZE);
+        const timestamp = dayjs().format('YYYYMMDD_HHmmss');
+
+        // 초기 파일 목록 생성
+        const initialFiles: ChunkProgress[] = Array.from(
+          { length: numFiles },
+          (_, index) => {
+            const fileName = `${searchParams.menu}_${timestamp}_${index + 1}of${numFiles}.csv`;
+            return {
+              fileName,
+              downloadId: download.id,
+              size: 0,
+              status: 'pending' as const,
+              progress: 0,
+              processedRows: 0,
+              totalRows: Math.min(CHUNK_SIZE, totalRows - index * CHUNK_SIZE),
+              message: 'Initializing...',
+              searchParams,
+              startTime: new Date(),
+              processingSpeed: 0,
+              estimatedTimeRemaining: 0,
+            };
+          }
+        );
+
+        // 다운로드 매니저에 초기 상태 설정
+        downloadManager.initializeFiles(download.id, initialFiles);
+
+        return {
+          downloadId: download.id,
+          files: initialFiles,
+          totalFiles: numFiles,
+          searchParams,
+        };
+      } catch (error) {
+        console.error('[Download Router] Failed to start download:', {
+          error: error instanceof Error ? error.message : String(error),
+          searchId,
+          searchParams,
+          totalRows,
+          timestamp: new Date().toISOString(),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        throw error;
+      }
     }),
 
   downloadFile: protectedProcedure
     .input(
       z.object({
         fileName: z.string(),
-        searchId: z.string(),
-        searchParams: searchParamsSchema,
+        downloadId: z.string(),
       })
     )
     .mutation(async ({ input }) => {
-      const { fileName, searchId, searchParams } = input;
-      const manager = downloadChunkManager.createManager(
-        searchId,
-        searchParams
-      );
-      const chunk = manager['chunks'].get(fileName);
+      const { fileName, downloadId } = input;
+      const manager = downloadChunkManager.getManager(downloadId);
+      if (!manager) throw new Error('Download manager not found');
+
+      const chunk = manager.getChunk(fileName);
       if (!chunk) throw new Error('File not found');
       return { filePath: fileName };
     }),

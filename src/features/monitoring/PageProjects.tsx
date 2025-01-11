@@ -76,17 +76,6 @@ export default function PageProjects() {
   const gridRef = useRef<AgGridReact<zLogs>>(null);
   const toast = useToast();
 
-  useEffect(() => {
-    console.log('Setting up WebSocket subscription');
-    return () => {
-      console.log('Cleaning up subscription');
-    };
-  }, []);
-
-  useEffect(() => {
-    console.log('Current progress state:', progress);
-  }, [progress]);
-
   const { data, isLoading } = trpc.projects.getAll.useInfiniteQuery(
     {
       menu,
@@ -268,7 +257,7 @@ export default function PageProjects() {
   const searchParams = {
     timeFrom: selectedFromDate,
     timeTo: selectedToDate,
-    menu: 'TRAFFIC' as const,
+    menu,
     searchTerm: form.getValues('searchTerm') || '',
   };
 

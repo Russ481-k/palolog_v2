@@ -1,4 +1,5 @@
-import { forwardRef, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useState } from 'react';
+import { useRef } from 'react';
 
 import {
   Box,
@@ -27,18 +28,14 @@ import 'ag-grid-community/styles/ag-theme-quartz.css';
 import { AgGridReact } from 'ag-grid-react';
 import { FaDownload } from 'react-icons/fa';
 
-import { env } from '@/env.mjs';
 import { trpc } from '@/lib/trpc/client';
 import { DownloadStatus } from '@/types/download';
 import { MenuType } from '@/types/project';
 
 import { DownloadProgress } from './components/DownloadProgress';
-import {
-  DownloadButtonProps,
-  FileData,
-  FileStatuses,
-  isProgressMessage,
-} from './types';
+import { useDownloadState } from './hooks/useDownloadState';
+import { useWebSocketConnection } from './hooks/useWebSocketConnection';
+import { DownloadButtonProps, FileData, isProgressMessage } from './types';
 
 interface StatusDisplay {
   text: string;
@@ -54,15 +51,6 @@ const statusDisplayMap = new Map([
 ] as const) as Map<DownloadStatus, StatusDisplay>;
 
 const defaultStatusDisplay: StatusDisplay = { text: 'pending', color: 'gray' };
-
-interface OverallProgress {
-  totalFiles: number;
-  completedFiles: number;
-  totalRows: number;
-  processedRows: number;
-  percentage: number;
-  status: DownloadStatus;
-}
 
 export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
   (
@@ -85,46 +73,10 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     const { colorMode } = useColorMode();
     const gridTheme =
       colorMode === 'light' ? 'ag-theme-quartz' : 'ag-theme-quartz-dark';
-    const [isOpen, setIsOpen] = useState(false);
-    const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
-    const [downloadId, setDownloadId] = useState<string>('');
-    const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-    const [fileStatuses, setFileStatuses] = useState<FileStatuses>({});
-    const [isConnecting, setIsConnecting] = useState(false);
-    const [isConnectionAcknowledged, setIsConnectionAcknowledged] =
-      useState(false);
     const gridRef = useRef<AgGridReact>(null);
-    const isConnectingRef = useRef<boolean>(false);
-    const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const [, setOverallProgress] = useState<OverallProgress>({
-      totalFiles: 0,
-      completedFiles: 0,
-      totalRows: Number(totalRows),
-      processedRows: 0,
-      percentage: 0,
-      status: 'pending',
-    });
-    const [, setDownloadProgress] = useState<{
-      progress: number;
-      status: DownloadStatus;
-      message: string;
-      processedRows: number;
-      totalRows: number;
-      size: number;
-      fileName: string;
-      searchParams?: {
-        timeFrom: string;
-        timeTo: string;
-      };
-    }>({
-      progress: 0,
-      status: 'pending',
-      message: '',
-      processedRows: 0,
-      totalRows: 0,
-      size: 0,
-      fileName: '',
-    });
+    const [activeDownloadId, setActiveDownloadId] = useState<string | null>(
+      null
+    );
 
     const downloadFile = trpc.download.downloadFile.useMutation({
       onError: (error) => {
@@ -134,476 +86,214 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     const cancelDownload = trpc.download.cancelDownload.useMutation();
     const cleanup = trpc.download.cleanup.useMutation();
 
-    const handleConnectionError = (error: Error) => {
-      console.error('[Error] Connection error occurred:', {
-        message: error.message,
-        stack: error.stack,
-        downloadId: downloadId || 'not_set',
-      });
+    const {
+      state: { downloadId, fileStatuses, selectedFiles, isOpen, totalProgress },
+      updateFileStatus,
+      handleFileSelection,
+      handleError,
+      handleModalClose,
+      setState,
+    } = useDownloadState({
+      onCleanup: (id) => cleanup.mutateAsync({ downloadId: id }),
+      onCancel: (id) => cancelDownload.mutate({ downloadId: id }),
+    });
 
-      setIsConnecting(false);
-      isConnectingRef.current = false;
-
-      if (retryTimeoutRef.current) {
-        console.log('[Cleanup] Clearing retry timeout');
-        clearTimeout(retryTimeoutRef.current);
-      }
-
-      if (webSocket) {
-        console.log('[Cleanup] Closing existing WebSocket connection');
-        webSocket.close();
-        setWebSocket(null);
-      }
-
-      if (downloadId) {
-        console.log(
-          '[Cleanup] Initiating download cleanup for ID:',
-          downloadId
-        );
-        cleanupDownload(downloadId);
-        setDownloadId('');
-      }
-
-      setFileStatuses((prev) => ({
-        ...prev,
-        error: {
-          fileName: 'error',
-          progress: 0,
-          status: 'failed',
-          message: error.message || 'Connection failed',
-          processedRows: 0,
-          totalRows: 0,
-          size: 0,
-          processingSpeed: 0,
-          estimatedTimeRemaining: 0,
-        },
-      }));
-    };
-
-    const cleanupDownload = async (id: string) => {
-      try {
-        console.log('[Cleanup] Starting download cleanup process for ID:', id);
-        await cleanup.mutateAsync({ downloadId: id });
-        console.log('[Cleanup] Successfully cleaned up download:', id);
-      } catch (error) {
-        console.error('[Cleanup] Failed to cleanup download:', {
-          downloadId: id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    };
-
-    const connectWebSocket = async (id: string): Promise<WebSocket | null> => {
-      if (isConnectingRef.current) {
-        console.log('[WebSocket] Connection already in progress');
-        return null;
-      }
-
-      isConnectingRef.current = true;
-      setIsConnectionAcknowledged(false);
-      let retries = 0;
-      const MAX_RETRIES = 3;
-      const BASE_RETRY_DELAY = 1000;
-
-      const connect = () => {
-        return new Promise<WebSocket>((resolve, reject) => {
-          let isResolved = false;
-          const protocol =
-            window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-          const port =
-            env.NEXT_PUBLIC_ENV_NAME === 'LOCAL'
-              ? window.location.port
-              : ':8001';
-          const host = window.location.hostname;
-          const wsUrl = `${protocol}//${host}${port}/api/ws/download`;
-
-          console.log('[WebSocket] Attempting connection:', {
-            url: wsUrl,
-            protocol,
-            hostname: host,
-            port: port || 'default',
-            downloadId: id,
-            attempt: retries + 1,
-            maxRetries: MAX_RETRIES,
-            env: env.NEXT_PUBLIC_ENV_NAME,
-            currentState: isConnectingRef.current,
-            windowLocation: window.location.toString(),
-          });
-
-          const ws = new WebSocket(wsUrl);
-
-          ws.onopen = () => {
-            console.log('[WebSocket] Connection opened, sending subscription');
-            handleOpen();
-          };
-
-          ws.onerror = (error) => {
-            console.error('[WebSocket] Native error event:', error);
-            handleError(error);
-          };
-
-          const handleOpen = () => {
-            try {
-              const subscriptionMessage = {
-                type: 'subscribe',
-                searchId: searchId,
-                clientId: `client-${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                searchParams,
-                totalRows,
-              };
-              console.log(
-                '[WebSocket] Sending subscription:',
-                subscriptionMessage
-              );
-              ws.send(JSON.stringify(subscriptionMessage));
-            } catch (error) {
-              console.error('[WebSocket] Failed to send subscription:', error);
-              if (downloadId) {
-                cleanup.mutateAsync({ downloadId }).catch(console.error);
-              }
-              ws.close();
-              reject(error);
-            }
-          };
-
-          const handleMessage = (event: MessageEvent) => {
-            try {
-              const message = JSON.parse(event.data);
-              console.log('[WebSocket] Message received:', {
-                type: message.type,
-                timestamp: new Date().toISOString(),
-                data: message,
-              });
-
-              if (message.type === 'connected') {
-                setIsConnectionAcknowledged(true);
-                console.log('[WebSocket] Connection acknowledged by server');
-                if (!isResolved) {
-                  isResolved = true;
-                  if (downloadId) {
-                    cleanup.mutateAsync({ downloadId }).catch(console.error);
-                  }
-                  resolve(ws);
-                }
-              }
-
-              if (isProgressMessage(message)) {
-                console.log(
-                  '[WebSocket] Processing progress message:',
-                  message
-                );
-                setFileStatuses((prev) => {
-                  const newStatuses = { ...prev };
-                  delete newStatuses['initializing'];
-
-                  if (message.fileName) {
-                    newStatuses[message.fileName] = {
-                      fileName: message.fileName,
-                      progress: message.progress || 0,
-                      status: message.status || 'downloading',
-                      message: message.message || '',
-                      processedRows: message.processedRows || 0,
-                      totalRows: message.totalRows || 0,
-                      size: message.size || 0,
-                      processingSpeed: message.processingSpeed || 0,
-                      estimatedTimeRemaining:
-                        message.estimatedTimeRemaining || 0,
-                      searchParams: message.searchParams,
-                    };
-                  }
-                  return newStatuses;
-                });
-
-                // Update download progress
-                setDownloadProgress({
-                  progress: message.progress || 0,
-                  status: message.status || 'downloading',
-                  message: message.message || '',
-                  processedRows: message.processedRows || 0,
-                  totalRows: message.totalRows || 0,
-                  size: message.size || 0,
-                  fileName: message.fileName || '',
-                  searchParams: message.searchParams,
-                });
-              }
-            } catch (error) {
-              console.error('[WebSocket] Failed to process message:', {
-                error,
-                data: event.data,
-              });
-            }
-          };
-
-          const handleError = (event: Event) => {
-            console.error('[WebSocket] Connection error:', {
-              event,
-              timestamp: new Date().toISOString(),
-              wsState: ws.readyState,
-              url: wsUrl,
-            });
-            if (downloadId) {
-              cleanup.mutateAsync({ downloadId }).catch(console.error);
-            }
-            if (!isResolved) {
-              isResolved = true;
-              reject(new Error('WebSocket connection failed'));
-            }
-          };
-
-          const handleClose = (event: CloseEvent) => {
-            console.log('[WebSocket] Connection closed:', {
-              code: event.code,
-              reason: event.reason,
-              wasClean: event.wasClean,
-              acknowledged: isConnectionAcknowledged,
-              timestamp: new Date().toISOString(),
-              wsState: ws.readyState,
-            });
-            if (downloadId) {
-              cleanup.mutateAsync({ downloadId }).catch(console.error);
-            }
-
-            if (!isConnectionAcknowledged && !isResolved) {
-              if (retries < MAX_RETRIES && isConnectingRef.current) {
-                retries++;
-                const retryDelay =
-                  BASE_RETRY_DELAY * Math.pow(1.5, retries - 1);
-                console.log('[WebSocket] Scheduling retry:', {
-                  attempt: retries,
-                  maxRetries: MAX_RETRIES,
-                  delay: retryDelay,
-                  timestamp: new Date().toISOString(),
-                });
-
-                if (retryTimeoutRef.current) {
-                  clearTimeout(retryTimeoutRef.current);
-                }
-
-                retryTimeoutRef.current = setTimeout(() => {
-                  console.log('[WebSocket] Attempting retry connection');
-                  connect()
-                    .then(resolve)
-                    .catch((error) => {
-                      if (retries === MAX_RETRIES) {
-                        console.error(
-                          '[WebSocket] Max retries reached:',
-                          error
-                        );
-                        isConnectingRef.current = false;
-                        reject(error);
-                      }
-                    });
-                }, retryDelay);
-              } else {
-                console.error('[WebSocket] Connection permanently failed');
-                isConnectingRef.current = false;
-                if (!isResolved) {
-                  isResolved = true;
-                  reject(
-                    new Error(`WebSocket connection closed: ${event.code}`)
-                  );
-                }
-              }
-            }
-          };
-
-          ws.addEventListener('message', handleMessage);
-          ws.addEventListener('close', handleClose);
-        });
-      };
-
-      try {
-        console.log('[WebSocket] Starting connection process');
-        const ws = await connect();
-        if (ws) {
-          console.log('[WebSocket] Connection successfully established');
-          setWebSocket(ws);
-          return ws;
-        }
-        return null;
-      } catch (error) {
-        console.error('[WebSocket] Connection process failed:', error);
-        isConnectingRef.current = false;
-        throw error;
-      }
-    };
-
-    const handleDownloadClick = async () => {
-      console.log('[Download] Initializing download process', {
-        searchId,
-        searchParams,
-        totalRows,
-      });
-
-      try {
-        if (!searchId?.trim()) {
-          throw new Error(
-            'Search ID is missing. Please wait for the search to complete or try refreshing the page.'
-          );
-        }
-
-        console.log('[Download] Starting download mutation with params:', {
-          searchId,
-          searchParams,
-          totalRows,
-        });
-
-        const result = await startDownload.mutateAsync({
-          searchId,
-          searchParams,
-          totalRows,
-        });
-
-        console.log('[Download] Server response received:', result);
-        setDownloadId(result.downloadId);
-
-        console.log('[Download] Attempting to establish WebSocket connection');
-        const ws = await connectWebSocket(result.downloadId);
-        if (!ws) {
-          throw new Error('WebSocket connection failed to establish');
-        }
-        console.log('[Download] WebSocket connection established successfully');
-      } catch (error) {
-        console.error('[Download] Failed to initialize download:', error);
-        handleConnectionError(
-          error instanceof Error
-            ? error
-            : new Error('Failed to initialize download')
-        );
-        setIsConnecting(false);
-      }
-    };
-
-    const startDownload = trpc.download.startDownload.useMutation({
+    const startDownloadMutation = trpc.download.startDownload.useMutation({
       onMutate: () => {
-        console.log('[Download] Starting mutation process');
-        setIsConnecting(true);
-        setFileStatuses({});
-        setSelectedFiles([]);
-        setIsOpen(true);
-        setFileStatuses((prev) => ({
-          ...prev,
-          initializing: {
-            fileName: 'initializing',
-            progress: 0,
-            status: 'pending',
-            message: 'Preparing download...',
-            processedRows: 0,
-            totalRows: 0,
-            size: 0,
-            processingSpeed: 0,
-            estimatedTimeRemaining: 0,
-          },
-        }));
+        console.log('[DownloadButton] Starting download mutation...', {
+          searchId,
+          totalRows,
+          searchParams,
+          timestamp: new Date().toISOString(),
+        });
       },
-      onSuccess: (result) => {
-        console.log('[Download] Mutation completed successfully:', result);
+      onSuccess: async (result) => {
+        console.log('[DownloadButton] Download mutation successful:', {
+          result,
+          timestamp: new Date().toISOString(),
+        });
         if (!result.downloadId) {
           throw new Error('Download ID not received from server');
         }
       },
       onError: (error) => {
-        console.error('[Download] Mutation failed:', error);
-        handleConnectionError(
-          new Error(error.message || 'Failed to start download')
-        );
-        setIsConnecting(false);
-        setFileStatuses({});
+        console.error('[DownloadButton] Download mutation failed:', {
+          error: error.message,
+          searchId,
+          timestamp: new Date().toISOString(),
+        });
+        handleError(new Error(error.message || 'Failed to start download'));
       },
-      onSettled: () => {
-        console.log('[Download] Mutation settled');
+      retry: false,
+      onSettled: (data, error) => {
+        console.log('[DownloadButton] Download mutation settled:', {
+          success: !!data,
+          hasError: !!error,
+          timestamp: new Date().toISOString(),
+        });
       },
-      retry: 1,
     });
 
-    const handleFileDownload = (fileName: string) => {
-      const downloadParams = {
-        timeFrom: searchParams.timeFrom,
-        timeTo: searchParams.timeTo,
-        menu: searchParams.menu,
-        searchTerm: searchParams.searchTerm,
-      };
-      downloadFile.mutate({
-        fileName,
-        searchId,
-        searchParams: downloadParams,
-      });
-    };
+    const {
+      connect,
+      startDownload: startWebSocketDownload,
+      isConnecting: isConnectingWs,
+    } = useWebSocketConnection({
+      downloadId: activeDownloadId || '',
+      searchId,
+      searchParams,
+      totalRows,
+      onMessage: (message) => {
+        console.log('[DownloadButton] Received WebSocket message:', {
+          type: message.type,
+          downloadId: activeDownloadId,
+          timestamp: new Date().toISOString(),
+        });
 
-    const handleCancel = () => {
-      if (downloadId) {
-        cancelDownload.mutate({ downloadId });
-      }
-    };
-
-    const handleModalClose = async () => {
-      if (downloadId) {
-        console.log('[Modal] Closing modal with active download:', downloadId);
-        try {
-          console.log('[Cleanup] Starting cleanup process for modal close');
-          await cleanup.mutateAsync({ downloadId });
-
-          if (webSocket) {
-            console.log('[WebSocket] Closing connection due to modal close');
-            webSocket.close();
-            setWebSocket(null);
+        if (isProgressMessage(message)) {
+          if (message.fileName) {
+            updateFileStatus(message.fileName, {
+              progress: message.progress || 0,
+              status: message.status || 'downloading',
+              message: message.message || '',
+              processedRows: message.processedRows || 0,
+              totalRows: message.totalRows || 0,
+              size: message.size || 0,
+              processingSpeed: message.processingSpeed || 0,
+              estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
+              searchParams: message.searchParams,
+            });
           }
 
-          setDownloadId('');
-          setFileStatuses({});
-          setSelectedFiles([]);
-          console.log('[Modal] Cleanup completed successfully');
-          handleCancel();
-        } catch (error) {
-          console.error('[Modal] Failed to cleanup on close:', error);
-        } finally {
-          setIsOpen(false);
+          if (message.totalProgress) {
+            setState((prev) => ({
+              ...prev,
+              totalProgress: message.totalProgress,
+            }));
+          }
+
+          if (message.newFiles) {
+            setState((prev) => ({
+              ...prev,
+              fileStatuses: {
+                ...prev.fileStatuses,
+                ...message.newFiles?.reduce(
+                  (acc, file) => ({
+                    ...acc,
+                    [file.fileName]: {
+                      ...file,
+                      processingSpeed: 0,
+                      estimatedTimeRemaining: 0,
+                    },
+                  }),
+                  {}
+                ),
+              },
+            }));
+          }
         }
-      } else {
-        console.log('[Modal] Closing modal without active download');
-        setIsOpen(false);
+      },
+      onError: handleError,
+      onConnectionAcknowledged: () => {
+        console.log('[WebSocket] Connection acknowledged by server');
+        setState((prev) => ({
+          ...prev,
+          isConnectionReady: true,
+        }));
+      },
+    });
+
+    const handleDownloadClick = useCallback(async () => {
+      try {
+        // 먼저 모달을 열고 연결 상태 초기화
+        setState((prev) => ({
+          ...prev,
+          isOpen: true,
+          isConnecting: true,
+          isConnectionReady: false,
+        }));
+
+        // 다운로드 mutation 실행
+        const result = await startDownloadMutation.mutateAsync({
+          searchId,
+          totalRows,
+          searchParams,
+        });
+
+        if (!result.downloadId) {
+          throw new Error('Download ID not received from server');
+        }
+
+        // downloadId를 먼저 설정하고 상태 업데이트를 기다림
+        setActiveDownloadId(result.downloadId);
+
+        // 상태 업데이트를 기다림
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            setState((prev) => ({
+              ...prev,
+              downloadId: result.downloadId,
+              fileStatuses: result.files.reduce(
+                (acc, file) => ({
+                  ...acc,
+                  [file.fileName]: {
+                    ...file,
+                    status: 'pending',
+                    progress: 0,
+                    processingSpeed: 0,
+                    estimatedTimeRemaining: 0,
+                  },
+                }),
+                {}
+              ),
+            }));
+            resolve();
+          });
+        });
+
+        // WebSocket 연결 시도
+        const socket = await connect();
+
+        if (!socket) {
+          throw new Error('Failed to establish WebSocket connection');
+        }
+
+        startWebSocketDownload();
+      } catch (error) {
+        console.error('[DownloadButton] Error during download process:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString(),
+        });
+        handleError(
+          error instanceof Error ? error : new Error('Download failed')
+        );
+      } finally {
+        setState((prev) => ({
+          ...prev,
+          isConnecting: false,
+        }));
       }
-    };
+    }, [
+      searchId,
+      totalRows,
+      searchParams,
+      startDownloadMutation,
+      setState,
+      connect,
+      startWebSocketDownload,
+      handleError,
+    ]);
 
-    useEffect(() => {
-      return () => {
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-        }
-        if (webSocket) {
-          webSocket.close();
-          setWebSocket(null);
-        }
-        if (downloadId) {
-          cleanupDownload(downloadId);
-        }
-      };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [downloadId]);
-
-    useEffect(() => {
-      const allFiles = Object.values(fileStatuses);
-      const completed = allFiles.filter((f) => f.status === 'completed').length;
-      const totalProcessed = allFiles.reduce(
-        (sum, f) => sum + (f.processedRows || 0),
-        0
-      );
-
-      setOverallProgress({
-        totalFiles: allFiles.length || 1,
-        completedFiles: completed,
-        totalRows,
-        processedRows: totalProcessed,
-        percentage: totalRows > 0 ? (totalProcessed / totalRows) * 100 : 0,
-        status: completed === allFiles.length ? 'completed' : 'downloading',
+    const handleFileDownload = (fileName: string) => {
+      if (!downloadId) {
+        handleError(new Error('Download ID is missing'));
+        return;
+      }
+      downloadFile.mutate({
+        fileName,
+        downloadId,
       });
-    }, [fileStatuses, totalRows]);
-
-    const handleFileSelection = (fileName: string, checked: boolean) => {
-      setSelectedFiles((prev) =>
-        checked ? [...prev, fileName] : prev.filter((name) => name !== fileName)
-      );
     };
 
     const columnDefs: GridColDef<FileData>[] = [
@@ -725,37 +415,42 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       },
     ];
 
-    const activeDownloads = Object.entries(fileStatuses).filter(
-      ([_, status]) => status.status !== 'completed'
-    );
-    const completedFiles = Object.values(fileStatuses).filter(
-      (status) => status.status === 'completed'
-    );
-
-    const rowData: FileData[] = Object.entries(fileStatuses).map(
-      ([fileName, status]) => ({
-        fileName,
-        size: status.size || 0,
-        lastModified: new Date().toISOString(),
-        selected: selectedFiles.includes(fileName),
-        status: status.status || 'pending',
-        progress: status.progress || 0,
-        message: status.message,
-        processedRows: status.processedRows || 0,
-        totalRows: status.totalRows || 0,
-        timeRange: status.searchParams
-          ? `${status.searchParams.timeFrom} ~ ${status.searchParams.timeTo}`
-          : '',
-        searchParams: {
-          timeFrom: status.searchParams?.timeFrom || searchParams.timeFrom,
-          timeTo: status.searchParams?.timeTo || searchParams.timeTo,
-          menu: searchParams.menu,
-          searchTerm: searchParams.searchTerm,
-        },
-        processingSpeed: status.processingSpeed,
-        estimatedTimeRemaining: status.estimatedTimeRemaining,
-      })
-    );
+    const rowData: FileData[] = Object.entries(fileStatuses).length
+      ? Object.entries(fileStatuses).map(([fileName, status]) => ({
+          fileName,
+          size: status.size || 0,
+          lastModified: new Date().toISOString(),
+          selected: selectedFiles.includes(fileName),
+          status: status.status || 'pending',
+          progress: status.progress || 0,
+          message: status.message,
+          processedRows: status.processedRows || 0,
+          totalRows: status.totalRows || 0,
+          timeRange: status.searchParams
+            ? `${status.searchParams.timeFrom} ~ ${status.searchParams.timeTo}`
+            : '',
+          searchParams: {
+            timeFrom: status.searchParams?.timeFrom || searchParams.timeFrom,
+            timeTo: status.searchParams?.timeTo || searchParams.timeTo,
+            menu: searchParams.menu,
+            searchTerm: searchParams.searchTerm,
+          },
+        }))
+      : [
+          {
+            fileName: `TRAFFIC_${new Date().toISOString().slice(0, 10)}_1of1.csv`,
+            size: 0,
+            lastModified: new Date().toISOString(),
+            selected: false,
+            status: 'pending',
+            progress: 0,
+            message: 'Initializing download...',
+            processedRows: 0,
+            totalRows,
+            timeRange: `${searchParams.timeFrom} ~ ${searchParams.timeTo}`,
+            searchParams,
+          },
+        ];
 
     const onGridReady = (params: GridReadyEvent<FileData>) => {
       params.api.sizeColumnsToFit();
@@ -769,7 +464,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           borderColor={colorMode === 'light' ? 'gray.200' : 'gray.700'}
           textAlign="center"
           leftIcon={
-            isConnecting ? (
+            isConnectingWs ? (
               <Spinner size="xs" />
             ) : (
               <FaDownload width="12px" height="12px" />
@@ -777,9 +472,9 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           }
           onClick={handleDownloadClick}
           aria-label="Download"
-          isLoading={isConnecting}
+          isLoading={isConnectingWs}
           loadingText="Connecting..."
-          disabled={isConnecting}
+          disabled={isConnectingWs}
           width="120px"
           className="download-button"
         >
@@ -798,13 +493,30 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
             <ModalBody pb={6}>
               <VStack spacing={4} align="stretch">
                 <Box>
+                  <Text fontSize="sm" mb={2}>
+                    Overall Progress
+                  </Text>
+                  <DownloadProgress
+                    progress={totalProgress?.progress || 0}
+                    status={totalProgress?.status || 'pending'}
+                    processedRows={totalProgress?.processedRows || 0}
+                    totalRows={totalProgress?.totalRows || 0}
+                    processingSpeed={totalProgress?.processingSpeed || 0}
+                    estimatedTimeRemaining={
+                      totalProgress?.estimatedTimeRemaining || 0
+                    }
+                    message={totalProgress?.message || 'Preparing files...'}
+                    size="md"
+                  />
+                </Box>
+                <Box>
                   <Text fontSize="sm" color="gray.600">
-                    {activeDownloads.length} / {completedFiles.length} /{' '}
-                    {Math.ceil(
-                      Number(totalRows) /
-                        Number(env.NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE)
-                    )}
-                    files completed
+                    {
+                      Object.values(fileStatuses).filter(
+                        (f) => f.status === 'completed'
+                      ).length
+                    }{' '}
+                    / {Object.keys(fileStatuses).length} files completed
                   </Text>
                 </Box>
                 <Box

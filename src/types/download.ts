@@ -6,6 +6,8 @@ export interface OpenSearchSource {
 
 export type DownloadStatus =
   | 'pending'
+  | 'generating'
+  | 'ready'
   | 'downloading'
   | 'completed'
   | 'failed'
@@ -33,6 +35,8 @@ export interface ChunkProgress {
   error?: string;
   message?: string;
   searchParams: SearchParams;
+  processingSpeed: number;
+  estimatedTimeRemaining: number;
 }
 
 export interface DownloadProgress {

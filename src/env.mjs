@@ -86,6 +86,11 @@ export const env = createEnv({
     NEXT_PUBLIC_NODE_ENV: zNodeEnv,
     NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: z.string().default('100000'),
     NEXT_PUBLIC_WS_HOST: z.string().optional(),
+    NEXT_PUBLIC_WS_PORT: z
+      .string()
+      .optional()
+      .default('3001')
+      .transform(Number),
   },
 
   /**
@@ -115,6 +120,7 @@ export const env = createEnv({
     NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: process.env.DOWNLOAD_CHUNK_SIZE,
     NEXT_PUBLIC_WS_HOST: process.env.NEXT_PUBLIC_WS_HOST,
+    NEXT_PUBLIC_WS_PORT: process.env.NEXT_PUBLIC_WS_PORT || '3001',
     X_H: process.env.X_H,
     X_P: process.env.X_P,
     X_K: process.env.X_K,

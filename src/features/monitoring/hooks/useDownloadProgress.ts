@@ -6,7 +6,7 @@ interface DownloadProgressState {
   fileName: string;
   processedRows: number;
   totalRows: number;
-  percentage: number;
+  progress: number;
   status: DownloadStatus;
   message?: string;
   error?: string;
@@ -21,7 +21,7 @@ export function useDownloadProgress() {
     fileName: '',
     processedRows: 0,
     totalRows: 0,
-    percentage: 0,
+    progress: 0,
     status: 'pending' as DownloadStatus,
     processingSpeed: 0,
     estimatedTimeRemaining: 0,
@@ -43,14 +43,14 @@ export function useDownloadProgress() {
         speed > 0
           ? (totalRows - processedRows) / speed
           : prevState.estimatedTimeRemaining;
-      const percentage =
+      const progressValue =
         totalRows > 0 ? Math.min(100, (processedRows / totalRows) * 100) : 0;
 
       return {
         fileName: progress.fileName,
         processedRows,
         totalRows,
-        percentage,
+        progress: progressValue,
         status: progress.status,
         message: progress.message,
         error: progress.error,
@@ -67,7 +67,7 @@ export function useDownloadProgress() {
       fileName: '',
       processedRows: 0,
       totalRows: 0,
-      percentage: 0,
+      progress: 0,
       status: 'pending',
       processingSpeed: 0,
       estimatedTimeRemaining: 0,

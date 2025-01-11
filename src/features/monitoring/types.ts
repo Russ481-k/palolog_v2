@@ -52,7 +52,7 @@ export interface FileData {
 }
 
 export interface WebSocketMessage {
-  type: string;
+  type: 'connected' | 'progress';
   fileName?: string;
   progress?: number;
   status?: DownloadStatus;
@@ -66,12 +66,21 @@ export interface WebSocketMessage {
     timeFrom: string;
     timeTo: string;
   };
+  chunks?: Array<{
+    fileName: string;
+    progress: number;
+    status: DownloadStatus;
+    message: string;
+    processedRows: number;
+    totalRows: number;
+    size: number;
+  }>;
 }
 
 export interface SearchParams {
   timeFrom: string;
   timeTo: string;
-  menu: string;
+  menu: MenuType;
   searchTerm?: string;
   searchAfter?: string[];
 }
@@ -105,6 +114,16 @@ export interface ProgressMessage {
   chunks: ChunkData[];
   processingSpeed: number;
   estimatedTimeRemaining: number;
+  totalProgress?: {
+    progress: number;
+    status: DownloadStatus;
+    processedRows: number;
+    totalRows: number;
+    processingSpeed: number;
+    estimatedTimeRemaining: number;
+    message: string;
+  };
+  newFiles?: FileStatus[];
 }
 
 export function isProgressMessage(

@@ -49,6 +49,7 @@ export const FieldPassword = <
               type={showPassword ? 'text' : 'password'}
               placeholder={props.placeholder}
               autoFocus={props.autoFocus}
+              color="gray.500"
               {...field}
             />
             <InputRightElement>
