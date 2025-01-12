@@ -12,7 +12,11 @@ import {
   useColorMode,
 } from '@chakra-ui/react';
 
+import { MenuType } from '@/types/project';
+
+// import { DownloadButton } from './DownloadButton';
 import PaginationButtons from './PaginationButtons';
+import { DownloadButton } from './download-button/components/DownloadButton';
 
 export const PageProjectsFooter = ({
   nextCurrentPage,
@@ -39,7 +43,7 @@ export const PageProjectsFooter = ({
   searchParams: {
     timeFrom: string;
     timeTo: string;
-    menu: string;
+    menu: MenuType;
     searchTerm: string;
   };
   loadingProgress?: {
@@ -149,7 +153,7 @@ export const PageProjectsFooter = ({
           <InputLeftAddon borderLeftRadius={5}>Total</InputLeftAddon>
           <Input
             textAlign="right"
-            borderRightRadius={5}
+            borderRightRadius={0}
             readOnly
             value={totalCnt
               .toString()
@@ -157,11 +161,12 @@ export const PageProjectsFooter = ({
           />
         </InputGroup>
       </Flex>
-      {/* <DownloadButton
+      <DownloadButton
         searchId={searchId}
         totalRows={totalCnt}
         searchParams={searchParams}
-      /> */}
+        isLoading={isLoading}
+      />
     </Flex>
   );
 };

@@ -29,14 +29,14 @@ export const DashboardStatics = () => {
 
   return (
     <Grid
-      height="80vh"
+      height="60vh"
       gap={3}
       templateColumns={{
         base: 'repeat(1, 6fr)',
         sm: 'repeat(2, 6fr)',
-        md: 'repeat(3, 3fr)',
-        lg: 'repeat(4, 2fr)',
-        xl: 'repeat(6, 2fr)',
+        md: 'repeat(3, 2fr)',
+        lg: 'repeat(3, 2fr)',
+        xl: 'repeat(6, 1fr)',
       }}
     >
       <LogsPerSecondCard logsPerSecond={logsPerSecond || 0} />
@@ -59,13 +59,7 @@ export const DashboardStatics = () => {
       <DashboardStaticsCountsPerMonthByDomain
         data={getChartMetrics.data?.domain_monthly_totals ?? []}
       />
-      <Text
-        fontSize="xs"
-        gridColumn="1/-1"
-        textAlign="center"
-        color="gray.500"
-        style={{ textWrap: 'balance' }}
-      >
+      <Text fontSize="xs" gridColumn="1/-1" textAlign="center" color="gray.500">
         Copyright 2024. Yun Su-Bin all rights reserved.
       </Text>
     </Grid>

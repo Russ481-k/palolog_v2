@@ -15,7 +15,7 @@ export const DaemonStatusCard = ({
   return (
     <GridItem
       borderRadius="lg"
-      bg={colorMode === 'light' ? 'white' : 'whiteAlpha.50'}
+      bg={colorMode === 'light' ? 'white' : '#182232'}
       borderWidth={1}
       borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
       colSpan={1}

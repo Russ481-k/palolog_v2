@@ -11,7 +11,7 @@ export default function PageAdminLogin() {
   return (
     <Card boxShadow="card" w={360}>
       <CardHeader pt={4} pb={0} textAlign="center">
-        <Heading size="sm" fontWeight={400}>
+        <Heading size="sm" fontWeight={400} color="gray.500">
           {t('auth:login.adminTitle')}
         </Heading>
       </CardHeader>

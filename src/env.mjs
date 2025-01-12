@@ -42,6 +42,7 @@ export const env = createEnv({
 
     CONFIG_PATH: z.string().optional(),
     LOGSTASH_PATH: z.string().optional(),
+    CA_CERT_PATH: z.string().default('/home/vtek/palolog_v2/ca-cert.pem'),
   },
 
   /**
@@ -62,7 +63,9 @@ export const env = createEnv({
       .transform(
         (value) =>
           value ??
-          (process.env.NODE_ENV === 'development' ? 'LOCAL' : undefined)
+          (process.env.NODE_ENV === 'production'
+            ? process.env.NEXT_PUBLIC_ENV_NAME
+            : 'LOCAL')
       ),
     NEXT_PUBLIC_ENV_EMOJI: z
       .string()
@@ -70,7 +73,7 @@ export const env = createEnv({
       .optional()
       .transform(
         (value) =>
-          value ?? (process.env.NODE_ENV === 'development' ? '🚧' : undefined)
+          value ?? (process.env.NODE_ENV === 'production' ? undefined : '🚧')
       ),
     NEXT_PUBLIC_ENV_COLOR_SCHEME: z
       .string()
@@ -78,10 +81,16 @@ export const env = createEnv({
       .transform(
         (value) =>
           value ??
-          (process.env.NODE_ENV === 'development' ? 'warning' : 'success')
+          (process.env.NODE_ENV === 'production' ? 'success' : 'warning')
       ),
     NEXT_PUBLIC_NODE_ENV: zNodeEnv,
-    NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: z.string().default('500000'),
+    NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: z.string().default('100000'),
+    NEXT_PUBLIC_WS_HOST: z.string().optional(),
+    NEXT_PUBLIC_WS_PORT: z
+      .string()
+      .optional()
+      .default('3001')
+      .transform(Number),
   },
 
   /**
@@ -110,6 +119,8 @@ export const env = createEnv({
     NEXT_PUBLIC_IS_DEMO: process.env.NEXT_PUBLIC_IS_DEMO,
     NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: process.env.DOWNLOAD_CHUNK_SIZE,
+    NEXT_PUBLIC_WS_HOST: process.env.NEXT_PUBLIC_WS_HOST,
+    NEXT_PUBLIC_WS_PORT: process.env.NEXT_PUBLIC_WS_PORT || '3001',
     X_H: process.env.X_H,
     X_P: process.env.X_P,
     X_K: process.env.X_K,
@@ -119,6 +130,7 @@ export const env = createEnv({
 
     CONFIG_PATH: process.env.CONFIG_PATH,
     LOGSTASH_PATH: process.env.LOGSTASH_PATH,
+    CA_CERT_PATH: process.env.CA_CERT_PATH,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

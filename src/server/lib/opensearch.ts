@@ -44,6 +44,10 @@ export interface PaginatedScrollOptions extends ScrollSearchOptions {
 }
 
 export interface OpenSearchResponse {
+  data?: string | null;
+  firstReceiveTime?: string;
+  lastReceiveTime?: string;
+  searchAfter?: string[];
   hits: {
     total: {
       value: number;
@@ -67,19 +71,26 @@ export class OpenSearchClient {
   private readonly baseOptions: https.RequestOptions;
 
   private constructor() {
+    const opensearchUrl = env.OPENSEARCH_URL.replace('https://', '');
+    const opensearchPort = Number(env.OPENSEARCH_PORT);
+    const opensearchUsername = env.OPENSEARCH_USERNAME;
+    const opensearchPassword = env.OPENSEARCH_PASSWORD;
+
     this.baseOptions = {
-      hostname: env.OPENSEARCH_URL.replace('https://', ''),
-      port: Number(env.OPENSEARCH_PORT),
+      hostname: opensearchUrl,
+      port: opensearchPort,
       headers: {
         'Content-Type': 'application/json',
         Authorization:
           'Basic ' +
-          Buffer.from(
-            `${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`
-          ).toString('base64'),
+          Buffer.from(`${opensearchUsername}:${opensearchPassword}`).toString(
+            'base64'
+          ),
       },
-      ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
-      rejectUnauthorized: true,
+      ca: fs.existsSync(env.CA_CERT_PATH)
+        ? fs.readFileSync(env.CA_CERT_PATH)
+        : undefined,
+      rejectUnauthorized: false,
     };
   }
 
@@ -109,12 +120,23 @@ export class OpenSearchClient {
     };
 
     return new Promise((resolve, reject) => {
+      console.log('Making OpenSearch request:', {
+        path,
+        method,
+        hostname: options.hostname,
+        port: options.port,
+      });
+
       const req = https.request(options, (res) => {
         let data = '';
         res.on('data', (chunk) => (data += chunk));
         res.on('end', () => {
           try {
             if (res.statusCode && res.statusCode >= 400) {
+              console.error('OpenSearch request failed:', {
+                statusCode: res.statusCode,
+                data,
+              });
               reject(
                 new Error(
                   `OpenSearch request failed with status ${res.statusCode}: ${data}`
@@ -122,17 +144,23 @@ export class OpenSearchClient {
               );
               return;
             }
-            resolve(JSON.parse(data));
+            const parsedData = JSON.parse(data);
+            resolve(parsedData);
           } catch (e) {
+            console.error('Failed to parse OpenSearch response:', e);
             reject(new Error(`Failed to parse OpenSearch response: ${e}`));
           }
         });
       });
 
-      req.on('error', (e) =>
-        reject(new Error(`OpenSearch request failed: ${e.message}`))
-      );
-      if (body) req.write(JSON.stringify(body));
+      req.on('error', (e) => {
+        console.error('OpenSearch request error:', e);
+        reject(new Error(`OpenSearch request failed: ${e.message}`));
+      });
+
+      if (body) {
+        req.write(JSON.stringify(body));
+      }
       req.end();
     });
   }

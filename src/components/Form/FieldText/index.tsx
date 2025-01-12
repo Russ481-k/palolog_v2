@@ -46,6 +46,7 @@ export const FieldText = <
               autoFocus={props.autoFocus}
               size={props.size}
               width={props.width}
+              color="gray.500"
               {...field}
             />
             {!!props.startElement && (

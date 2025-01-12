@@ -45,6 +45,18 @@ const config = withPWA({
   pageExtensions: ['tsx', 'ts'],
   swcMinify: true,
   poweredByHeader: false,
+  rewrites: async () => {
+    return [
+      {
+        source: '/api/ws/download',
+        destination: `http://${process.env.NEXT_PUBLIC_WS_HOST || 'localhost'}:${process.env.NEXT_PUBLIC_WS_PORT || '3001'}/api/ws/download`,
+      },
+      {
+        source: '/socket.io/:path*',
+        destination: `http://${process.env.NEXT_PUBLIC_WS_HOST || 'localhost'}:${process.env.NEXT_PUBLIC_WS_PORT || '3001'}/socket.io/:path*`,
+      },
+    ];
+  },
 });
 
 export default config;

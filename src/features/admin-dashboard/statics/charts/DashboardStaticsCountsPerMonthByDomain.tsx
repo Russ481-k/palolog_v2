@@ -6,30 +6,53 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
 import { AgChartsThemeChanged } from '@/components/AgChartsThemeChanged';
-import { trpc } from '@/lib/trpc/client';
 
-interface Props {
-  data: Record<string, string | number>[];
+interface DomainData {
+  domain: string;
+  data: Array<{
+    time: string;
+    total: number;
+  }>;
 }
 
-export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
+export const DashboardStaticsCountsPerMonthByDomain = ({
+  data,
+}: {
+  data: DomainData[];
+}) => {
   const { colorMode } = useColorMode();
-  const { data: domains = { domains: [] } } =
-    trpc.dashboard.getDomains.useQuery();
+
+  const chartData = useMemo(() => {
+    // 모든 시간대 추출
+    const timeSet = new Set<string>();
+    data.forEach((domain) => {
+      domain.data.forEach((item) => timeSet.add(item.time));
+    });
+    const times = Array.from(timeSet).sort();
+
+    // 차트 데이터 구성
+    return times.map((time) => {
+      const entry: Record<string, string | number> = { time };
+      data.forEach((domain) => {
+        const monthData = domain.data.find((d) => d.time === time);
+        entry[domain.domain] = monthData?.total ?? 0;
+      });
+      return entry;
+    });
+  }, [data]);
 
   const countsPerDay = useMemo<AgChartOptions>(
     () => ({
       title: {
         text: '장비별 월간 로그 총 수집량',
       },
-      data,
-      series: domains.domains.map((domain: string) => ({
+      data: chartData,
+      series: data.map((domain) => ({
         type: 'bar',
         xKey: 'time',
-        yKey: domain,
-        stackGroup: 'domain',
-        legendItemName: domain,
-        yName: domain,
+        yKey: domain.domain,
+        stacked: true,
+        yName: domain.domain,
       })),
       axes: [
         {
@@ -44,24 +67,18 @@ export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
               return `${(params.value / 1000000).toFixed(1)}M`;
             },
           },
-          keys: domains.domains,
           title: {
-            text: 'Total',
-          },
-        },
-        {
-          type: 'number',
-          position: 'right',
-          keys: ['countsPerMonthByDomain'],
-          title: {
-            text: 'Counts Per Month By Domain',
+            text: 'Total (M)',
           },
         },
       ],
-      height: 270,
+      legend: {
+        position: 'bottom',
+      },
+      height: 480,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, domains, colorMode]
+    [data, chartData, colorMode]
   );
 
   return (
@@ -70,14 +87,14 @@ export const DashboardStaticsCountsPerMonthByDomain = ({ data }: Props) => {
       bg="blackAlpha.200"
       borderWidth={1}
       borderColor={colorMode === 'light' ? 'gray.200' : 'whiteAlpha.300'}
-      colSpan={3}
+      colSpan={{ base: 1, sm: 2, md: 3, lg: 3, xl: 3 }}
       overflow="hidden"
       height={{
-        base: '270px',
-        sm: '270px',
-        md: '270px',
-        lg: '270px',
-        xl: '270px',
+        base: '480px',
+        sm: '480px',
+        md: '480px',
+        lg: '480px',
+        xl: '480px',
       }}
     >
       <AgChartsThemeChanged colorMode={colorMode} options={countsPerDay} />

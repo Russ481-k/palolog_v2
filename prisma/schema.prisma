@@ -66,17 +66,6 @@ model Project {
   description String?
 }
 
-model LogCount {
-  id              String   @id @default(cuid())
-  domain          String
-  count           Int
-  timestamp       DateTime
-  aggregationType String   @default("hourly") // 'hourly', 'daily', 'monthly'
-
-  @@index([timestamp])
-  @@index([aggregationType])
-}
-
 model Menu {
   id          Int          @id @default(autoincrement())
   name        String       @unique

@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { Flex, Stack } from '@chakra-ui/react';
-
 import {
   AdminLayoutPage,
   AdminLayoutPageContent,
@@ -13,11 +11,7 @@ export default function PageAdminDashboard() {
   return (
     <AdminLayoutPage containerMaxWidth="container.md">
       <AdminLayoutPageContent>
-        <Flex flexDir="column">
-          <Stack spacing={4}>
-            <DashboardStatics />
-          </Stack>
-        </Flex>
+        <DashboardStatics />
       </AdminLayoutPageContent>
     </AdminLayoutPage>
   );
