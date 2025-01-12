@@ -13,6 +13,26 @@ export type DownloadStatus =
   | 'failed'
   | 'paused';
 
+export type WebSocketEventType =
+  | 'subscribe'
+  | 'generation_progress'
+  | 'file_ready'
+  | 'download_progress'
+  | 'count_update';
+
+export interface WebSocketEvent {
+  type: WebSocketEventType;
+  downloadId: string;
+  fileName?: string;
+  progress?: number;
+  status?: DownloadStatus;
+  timestamp: string;
+  message?: string;
+  processedRows?: number;
+  totalRows?: number;
+  searchParams?: SearchParams;
+}
+
 export type SortType = string | number | null;
 
 export interface SearchParams {

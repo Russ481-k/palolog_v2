@@ -66,6 +66,15 @@ export interface WebSocketMessage {
     timeFrom: string;
     timeTo: string;
   };
+  totalProgress?: {
+    progress: number;
+    status: DownloadStatus;
+    processedRows: number;
+    totalRows: number;
+    processingSpeed: number;
+    estimatedTimeRemaining: number;
+    message: string;
+  };
   chunks?: Array<{
     fileName: string;
     progress: number;

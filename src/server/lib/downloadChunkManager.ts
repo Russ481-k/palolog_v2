@@ -70,7 +70,7 @@ class DownloadChunkManager {
       );
 
       for (let i = 0; i < numChunks; i++) {
-        const fileName = `${this.searchParams.menu}_${dayjs().format('YYYYMMDD_HHmmss')}_${i + 1}of${numChunks}.csv`;
+        const fileName = `${this.searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_${i + 1}of${numChunks}.csv`;
         this.chunks.set(fileName, {
           fileName,
           downloadId: this.downloadId,

@@ -26,12 +26,12 @@ import {
 import { trpc } from '@/lib/trpc/client';
 import { MenuType } from '@/types/project';
 
-import { columnNames } from './11.0/colNameList_11.0';
-import { dummy } from './11.0/dummy_11.0';
 import MenuSetter from './MenuSetter';
 import { PageProjectsFooter } from './PageProjectsFooter';
 import { colDefs } from './colDefs';
 import { FormFieldsPaloLogsParams, zLogs, zPaloLogsParams } from './schemas';
+import { columnNames } from './versions/11.0/colNameList_11.0';
+import { dummy } from './versions/11.0/dummy_11.0';
 
 export default function PageProjects() {
   const { colorMode } = useColorMode();

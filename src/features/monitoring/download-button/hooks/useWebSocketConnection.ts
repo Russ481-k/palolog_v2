@@ -5,7 +5,7 @@ import { Socket, io } from 'socket.io-client';
 import { env } from '@/env.mjs';
 import { MenuType } from '@/types/project';
 
-import { WebSocketMessage } from '../types';
+import { WebSocketMessage } from '../../types';
 
 interface WebSocketConnectionConfig {
   downloadId: string;
@@ -240,12 +240,140 @@ export const useWebSocketConnection = ({
 
       socket.on('progress', (message) => {
         if (!mountedRef.current) return;
-        onMessage(message);
+        if (!message.fileName) return;
+
+        console.log('[Socket.IO] Progress update:', {
+          type: message.type,
+          status: message.status,
+          fileName: message.fileName,
+          progress: message.progress,
+          timestamp: new Date().toISOString(),
+        });
+
+        onMessage({
+          type: 'progress',
+          fileName: message.fileName,
+          status: message.status || 'downloading',
+          progress: message.progress || 0,
+          processedRows: message.processedRows || 0,
+          totalRows: message.totalRows || 0,
+          message: message.message || '',
+        });
+      });
+
+      socket.on('generation_progress', (message) => {
+        if (!mountedRef.current) return;
+        if (!message.fileName) return;
+
+        console.log('[Socket.IO] Generation progress:', {
+          type: message.type,
+          status: message.status,
+          fileName: message.fileName,
+          progress: message.progress,
+          timestamp: new Date().toISOString(),
+        });
+
+        onMessage({
+          type: 'progress',
+          fileName: message.fileName,
+          status: 'generating',
+          progress: message.progress || 0,
+          processedRows: message.processedRows || 0,
+          totalRows: message.totalRows || 0,
+          message: message.message || 'Generating file...',
+          processingSpeed: message.processingSpeed || 0,
+          estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
+        });
+      });
+
+      socket.on('file_ready', (message) => {
+        if (!mountedRef.current) return;
+        if (!message.fileName) return;
+
+        console.log('[Socket.IO] File ready:', {
+          type: message.type,
+          fileName: message.fileName,
+          timestamp: new Date().toISOString(),
+        });
+
+        // First set the status to ready with 100% progress
+        onMessage({
+          type: 'progress',
+          fileName: message.fileName,
+          status: 'ready',
+          progress: 100,
+          message: 'File is ready for download',
+          processedRows: message.processedRows || 0,
+          totalRows: message.totalRows || 0,
+          processingSpeed: 0,
+          estimatedTimeRemaining: 0,
+        });
+
+        // Then reset progress to 0 for download preparation
+        setTimeout(() => {
+          onMessage({
+            type: 'progress',
+            fileName: message.fileName,
+            status: 'ready',
+            progress: 0,
+            message: 'Ready to download',
+            processedRows: message.processedRows || 0,
+            totalRows: message.totalRows || 0,
+            processingSpeed: 0,
+            estimatedTimeRemaining: 0,
+          });
+        }, 500);
       });
 
       socket.on('count_update', (message) => {
         if (!mountedRef.current) return;
-        onMessage(message);
+
+        console.log('[Socket.IO] Count update:', {
+          type: message.type,
+          status: message.status,
+          fileName: message.fileName,
+          progress: message.progress,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Send a default progress update if no specific progress is provided
+        onMessage({
+          type: 'progress',
+          totalProgress: {
+            progress: message.progress || 0,
+            status: message.status || 'generating',
+            processedRows: message.processedRows || 0,
+            totalRows: message.totalRows || totalRows,
+            processingSpeed: message.processingSpeed || 0,
+            estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
+            message: message.message || 'Processing files...',
+          },
+        });
+      });
+
+      socket.on('download_progress', (message) => {
+        if (!mountedRef.current) return;
+        if (!message.fileName) return;
+
+        console.log('[Socket.IO] Download progress:', {
+          type: message.type,
+          status: message.status,
+          fileName: message.fileName,
+          progress: message.progress,
+          timestamp: new Date().toISOString(),
+        });
+
+        onMessage({
+          type: 'progress',
+          fileName: message.fileName,
+          status: 'downloading',
+          progress: message.progress || 0,
+          processedRows: message.processedRows || 0,
+          totalRows: message.totalRows || 0,
+          message: message.message || 'Downloading...',
+          processingSpeed: message.processingSpeed || 0,
+          estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
+        });
       });
 
       socket.connect();

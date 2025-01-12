@@ -45,6 +45,9 @@ export const DownloadProgress = ({
     return `${minutes}m ${seconds}s`;
   }, [estimatedTimeRemaining]);
 
+  // Reset progress when transitioning from generating to ready
+  const displayProgress = status === 'ready' ? 0 : progress;
+
   return (
     <VStack spacing={spacing} align="stretch" width="100%">
       <Box pt={2}>
@@ -53,7 +56,7 @@ export const DownloadProgress = ({
           isDisabled={!message && status === 'completed'}
         >
           <Progress
-            value={progress}
+            value={displayProgress}
             size={size}
             colorScheme={
               status === 'completed'
@@ -62,9 +65,11 @@ export const DownloadProgress = ({
                   ? 'red'
                   : status === 'paused'
                     ? 'orange'
-                    : 'blue'
+                    : status === 'generating'
+                      ? 'purple'
+                      : 'blue'
             }
-            isIndeterminate={status === 'pending'}
+            isIndeterminate={status === 'pending' || status === 'generating'}
             borderRadius="md"
           />
         </Tooltip>
@@ -76,7 +81,13 @@ export const DownloadProgress = ({
         color="gray.600"
       >
         <Text>
-          {status === 'pending' ? 'Preparing...' : `${Math.round(progress)}%`}
+          {status === 'pending'
+            ? 'Preparing...'
+            : status === 'generating'
+              ? 'Generating...'
+              : status === 'ready'
+                ? 'Ready'
+                : `${Math.round(displayProgress)}%`}
         </Text>
         {processedRows !== undefined && totalRows !== undefined && (
           <Tooltip label="Processed / Total Rows">
@@ -85,12 +96,12 @@ export const DownloadProgress = ({
             </Text>
           </Tooltip>
         )}
-        {formattedSpeed && (
+        {formattedSpeed && status !== 'ready' && (
           <Tooltip label="Processing Speed">
             <Text>{formattedSpeed}</Text>
           </Tooltip>
         )}
-        {formattedTime && (
+        {formattedTime && status !== 'ready' && (
           <Tooltip label="Estimated Time Remaining">
             <Text>{formattedTime}</Text>
           </Tooltip>

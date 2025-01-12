@@ -9,8 +9,8 @@ import {
 
 import { MenuType } from '@/types/project';
 
-import { columnNames } from './11.0/colNameList_11.0';
 import { zLogs } from './schemas';
+import { columnNames } from './versions/11.0/colNameList_11.0';
 
 // 컬럼 설정 함수
 const createColumn = (

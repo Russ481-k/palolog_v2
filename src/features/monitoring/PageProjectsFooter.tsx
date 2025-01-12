@@ -14,8 +14,9 @@ import {
 
 import { MenuType } from '@/types/project';
 
-import { DownloadButton } from './DownloadButton';
+// import { DownloadButton } from './DownloadButton';
 import PaginationButtons from './PaginationButtons';
+import { DownloadButton } from './download-button/components/DownloadButton';
 
 export const PageProjectsFooter = ({
   nextCurrentPage,
