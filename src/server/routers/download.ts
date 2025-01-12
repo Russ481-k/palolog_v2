@@ -63,7 +63,7 @@ export const downloadRouter = router({
         // 파일 크기 계산 (500,000 rows per file)
         const CHUNK_SIZE = 500000;
         const numFiles = Math.ceil(totalRows / CHUNK_SIZE);
-        const timestamp = dayjs().format('YYYYMMDD_HHmmss');
+        const timestamp = dayjs().format('YYYY-MM-DD_HH:mm:ss');
 
         // 초기 파일 목록 생성
         const initialFiles: ChunkProgress[] = Array.from(

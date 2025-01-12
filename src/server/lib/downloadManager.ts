@@ -128,27 +128,39 @@ export class DownloadManager {
         });
       }
 
-      const initialProgress: DownloadProgress = {
-        fileName: `${finalId}.csv`,
-        downloadId: finalId,
-        processedRows: 0,
-        totalRows: actualCount,
-        progress: 0,
-        status: 'downloading',
-        startTime: new Date(),
-        lastUpdateTime: Date.now(),
-        lastProcessedCount: 0,
-        processingSpeed: 0,
-        estimatedTimeRemaining: 0,
-        totalChunks: Math.ceil(actualCount / 1000), // Assuming chunk size of 1000
-        completedChunks: 0,
-        failedChunks: 0,
-        processingChunks: 0,
-        chunks: [],
-      };
+      // Calculate number of chunks based on total rows
+      const CHUNK_SIZE = 500000;
+      const numChunks = Math.ceil(actualCount / CHUNK_SIZE);
+      const timestamp = dayjs().format('YYYY-MM-DD_HH:mm:ss');
 
-      this.downloads.set(finalId, initialProgress);
-      this.eventEmitter.emit(`progress:${finalId}`, finalId, initialProgress);
+      // Create an array of initial progress objects for each chunk
+      const files = Array.from({ length: numChunks }, (_, index) => {
+        const chunkFileName = `${searchParams.menu}_${timestamp}_${index + 1}of${numChunks}.csv`;
+        return {
+          fileName: chunkFileName,
+          downloadId: finalId,
+          processedRows: 0,
+          totalRows: Math.min(CHUNK_SIZE, actualCount - index * CHUNK_SIZE),
+          progress: 0,
+          status: 'downloading' as const,
+          startTime: new Date(),
+          lastUpdateTime: Date.now(),
+          lastProcessedCount: 0,
+          processingSpeed: 0,
+          estimatedTimeRemaining: 0,
+          totalChunks: numChunks,
+          completedChunks: 0,
+          failedChunks: 0,
+          processingChunks: 0,
+          chunks: [],
+        };
+      });
+
+      // Initialize all files
+      files.forEach((file) => {
+        this.downloads.set(file.fileName, file);
+        this.eventEmitter.emit(`progress:${finalId}`, finalId, file);
+      });
 
       return { id: finalId };
     } catch (error) {

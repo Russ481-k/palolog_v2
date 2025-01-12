@@ -25,9 +25,6 @@ export const DashboardStaticsCountsPerMonth = ({
           xKey: 'time',
           yKey: 'total',
           yName: 'Total',
-          marker: {
-            enabled: false,
-          },
         } as AgBarSeriesOptions,
       ],
       axes: [

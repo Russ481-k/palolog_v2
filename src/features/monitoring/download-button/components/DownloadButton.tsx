@@ -5,18 +5,14 @@ import { FaDownload } from 'react-icons/fa';
 
 import { trpc } from '@/lib/trpc/client';
 
+import { useDownloadProgress } from '../hooks/useDownloadProgress';
 import { useDownloadState } from '../hooks/useDownloadState';
 import { useWebSocketConnection } from '../hooks/useWebSocketConnection';
-import {
-  DownloadButtonProps,
-  DownloadState,
-  FileStatuses,
-  isProgressMessage,
-} from '../types';
+import { DownloadButtonProps, isProgressMessage } from '../types';
 import { DownloadModal } from './DownloadModal';
 
 export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
-  ({ searchId, totalRows, searchParams }, ref) => {
+  ({ searchId, totalRows, searchParams, isLoading }, ref) => {
     const { colorMode } = useColorMode();
     const gridTheme =
       colorMode === 'light' ? 'ag-theme-quartz' : 'ag-theme-quartz-dark';
@@ -24,16 +20,8 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       null
     );
 
-    const downloadFile = trpc.download.downloadFile.useMutation({
-      onError: (error) => {
-        console.error('Failed to download file:', error);
-      },
-    });
-    const cancelDownload = trpc.download.cancelDownload.useMutation();
-    const cleanup = trpc.download.cleanup.useMutation();
-
     const {
-      state: { downloadId, fileStatuses, selectedFiles, isOpen, totalProgress },
+      state,
       updateFileStatus,
       handleFileSelection,
       handleError,
@@ -43,6 +31,42 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       onCleanup: (id) => cleanup.mutateAsync({ downloadId: id }),
       onCancel: (id) => cancelDownload.mutate({ downloadId: id }),
     });
+
+    const { handleProgressMessage } = useDownloadProgress({
+      setState,
+      updateFileStatus,
+    });
+
+    const {
+      connect,
+      startDownload: startWebSocketDownload,
+      isConnecting: isConnectingWs,
+    } = useWebSocketConnection({
+      downloadId: activeDownloadId || '',
+      searchId,
+      searchParams,
+      totalRows,
+      onMessage: (message: unknown) => {
+        if (!isProgressMessage(message)) return;
+        handleProgressMessage(message);
+      },
+      onError: handleError,
+      onConnectionAcknowledged: () => {
+        console.log('[WebSocket] Connection acknowledged by server');
+        setState((prev) => ({
+          ...prev,
+          isConnectionReady: true,
+        }));
+      },
+    });
+
+    const downloadFile = trpc.download.downloadFile.useMutation({
+      onError: (error) => {
+        console.error('Failed to download file:', error);
+      },
+    });
+    const cancelDownload = trpc.download.cancelDownload.useMutation();
+    const cleanup = trpc.download.cleanup.useMutation();
 
     const startDownloadMutation = trpc.download.startDownload.useMutation({
       onMutate: () => {
@@ -77,103 +101,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           hasError: !!error,
           timestamp: new Date().toISOString(),
         });
-      },
-    });
-
-    const {
-      connect,
-      startDownload: startWebSocketDownload,
-      isConnecting: isConnectingWs,
-    } = useWebSocketConnection({
-      downloadId: activeDownloadId || '',
-      searchId,
-      searchParams,
-      totalRows,
-      onMessage: (message: unknown) => {
-        if (!isProgressMessage(message)) return;
-
-        if (message.fileName) {
-          updateFileStatus(message.fileName, {
-            progress: message.progress || 0,
-            status: message.status || 'downloading',
-            message: message.message || '',
-            processedRows: message.processedRows || 0,
-            totalRows: message.totalRows || 0,
-            size: message.size || 0,
-            processingSpeed: message.processingSpeed || 0,
-            estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
-            searchParams: message.searchParams,
-          });
-        }
-
-        if (message.totalProgress) {
-          setState((prev: DownloadState) => ({
-            downloadId: prev.downloadId,
-            fileStatuses: prev.fileStatuses,
-            selectedFiles: prev.selectedFiles,
-            isOpen: prev.isOpen,
-            isConnecting: prev.isConnecting,
-            isConnectionReady: prev.isConnectionReady,
-            searchParams: prev.searchParams,
-            totalProgress: {
-              progress: message.totalProgress?.progress || 0,
-              status: message.totalProgress?.status || 'pending',
-              processedRows: message.totalProgress?.processedRows || 0,
-              totalRows: message.totalProgress?.totalRows || 0,
-              processingSpeed: message.totalProgress?.processingSpeed || 0,
-              estimatedTimeRemaining:
-                message.totalProgress?.estimatedTimeRemaining || 0,
-              message: message.totalProgress?.message || '',
-            },
-          }));
-        }
-
-        if (message.newFiles) {
-          const newFileStatuses = message.newFiles.reduce<FileStatuses>(
-            (acc, file) => ({
-              ...acc,
-              [file.fileName]: {
-                size: file.size || 0,
-                status: file.status || 'pending',
-                progress: file.progress || 0,
-                message: file.message || '',
-                processedRows: file.processedRows || 0,
-                totalRows: file.totalRows || 0,
-                processingSpeed: 0,
-                estimatedTimeRemaining: 0,
-                searchParams: {
-                  timeFrom: file.searchParams.timeFrom,
-                  timeTo: file.searchParams.timeTo,
-                  menu: file.searchParams.menu,
-                  searchTerm: file.searchParams.searchTerm,
-                },
-              },
-            }),
-            {}
-          );
-
-          setState((prev: DownloadState) => ({
-            downloadId: prev.downloadId,
-            fileStatuses: {
-              ...prev.fileStatuses,
-              ...newFileStatuses,
-            },
-            selectedFiles: prev.selectedFiles,
-            isOpen: prev.isOpen,
-            isConnecting: prev.isConnecting,
-            isConnectionReady: prev.isConnectionReady,
-            totalProgress: prev.totalProgress,
-            searchParams: prev.searchParams,
-          }));
-        }
-      },
-      onError: handleError,
-      onConnectionAcknowledged: () => {
-        console.log('[WebSocket] Connection acknowledged by server');
-        setState((prev) => ({
-          ...prev,
-          isConnectionReady: true,
-        }));
       },
     });
 
@@ -255,7 +182,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     ]);
 
     const handleFileDownload = (fileName: string) => {
-      const fileStatus = fileStatuses[fileName];
+      const fileStatus = state.fileStatuses[fileName];
       if (!fileStatus || fileStatus.status !== 'ready') {
         return;
       }
@@ -263,7 +190,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       downloadFile.mutate(
         {
           fileName,
-          downloadId,
+          downloadId: state.downloadId,
         },
         {
           onSuccess: () => {
@@ -301,20 +228,20 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           }
           onClick={handleDownloadClick}
           aria-label="Download"
-          isLoading={isConnectingWs}
+          isLoading={isConnectingWs || isLoading}
           loadingText="Connecting..."
-          disabled={isConnectingWs}
+          disabled={isConnectingWs || isLoading}
           width="120px"
           className="download-button"
         >
           Download
         </Button>
         <DownloadModal
-          isOpen={isOpen}
+          isOpen={state.isOpen}
           onClose={handleModalClose}
-          totalProgress={totalProgress || null}
-          fileStatuses={fileStatuses}
-          selectedFiles={selectedFiles}
+          totalProgress={state.totalProgress || null}
+          fileStatuses={state.fileStatuses}
+          selectedFiles={state.selectedFiles}
           onFileSelection={handleFileSelection}
           onFileDownload={handleFileDownload}
           gridTheme={gridTheme}

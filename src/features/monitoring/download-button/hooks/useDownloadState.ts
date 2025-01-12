@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { DownloadStatus } from '@/types/download';
+
 import type { DownloadState, FileStatus } from '../types';
 
 interface UseDownloadStateProps {
@@ -18,6 +20,16 @@ const initialState: DownloadState = {
   searchParams: undefined,
 };
 
+const validTransitions: Record<DownloadStatus, DownloadStatus[]> = {
+  pending: ['generating'],
+  generating: ['ready', 'failed'],
+  ready: ['downloading', 'failed'],
+  downloading: ['completed', 'failed'],
+  completed: [],
+  failed: [],
+  paused: ['downloading', 'failed'],
+};
+
 export const useDownloadState = ({
   onCleanup,
   onCancel,
@@ -25,85 +37,86 @@ export const useDownloadState = ({
   const [state, setState] = useState<DownloadState>(initialState);
 
   const updateFileStatus = (fileName: string, update: Partial<FileStatus>) => {
+    console.log('[useDownloadState] Updating file status:', {
+      fileName,
+      currentStatus: state.fileStatuses[fileName]?.status,
+      newStatus: update.status,
+      update,
+    });
+
     setState((prev) => {
-      const currentStatus = prev.fileStatuses[fileName] || {
-        size: 0,
-        status: 'pending' as const,
-        progress: 0,
-        message: '',
-        processedRows: 0,
-        totalRows: 0,
-        processingSpeed: 0,
-        estimatedTimeRemaining: 0,
-        searchParams: {
-          timeFrom: '',
-          timeTo: '',
-          menu: 'TRAFFIC',
-          searchTerm: '',
-        },
+      const currentFile = prev.fileStatuses[fileName];
+
+      // If file doesn't exist, create it with initial state
+      if (!currentFile) {
+        const newFile: FileStatus = {
+          status: 'pending',
+          progress: 0,
+          message: 'Initializing...',
+          size: 0,
+          processedRows: 0,
+          totalRows: 0,
+          processingSpeed: 0,
+          estimatedTimeRemaining: 0,
+          searchParams: update.searchParams || {
+            timeFrom: '',
+            timeTo: '',
+            menu: 'TRAFFIC',
+            searchTerm: '',
+          },
+          ...update,
+        };
+
+        console.log('[useDownloadState] Creating new file:', {
+          fileName,
+          initialState: newFile,
+        });
+
+        return {
+          ...prev,
+          fileStatuses: {
+            ...prev.fileStatuses,
+            [fileName]: newFile,
+          },
+        };
+      }
+
+      // For existing files, validate status transition
+      if (update.status && currentFile.status !== update.status) {
+        const allowedTransitions = validTransitions[currentFile.status];
+        console.log('[useDownloadState] Validating status transition:', {
+          fileName,
+          from: currentFile.status,
+          to: update.status,
+          allowed: allowedTransitions,
+        });
+
+        if (!allowedTransitions.includes(update.status)) {
+          console.warn(
+            `[useDownloadState] Invalid status transition from ${currentFile.status} to ${update.status}`
+          );
+          return prev;
+        }
+      }
+
+      const updatedFile = {
+        ...currentFile,
+        ...update,
       };
 
-      // Handle state transitions
-      let newProgress = update.progress ?? currentStatus.progress;
-      const newStatus = update.status ?? currentStatus.status;
-      let newMessage = update.message ?? currentStatus.message;
-      let newProcessingSpeed =
-        update.processingSpeed ?? currentStatus.processingSpeed;
-      let newEstimatedTime =
-        update.estimatedTimeRemaining ?? currentStatus.estimatedTimeRemaining;
-
-      // State transition rules
-      switch (currentStatus.status) {
-        case 'pending':
-          if (newStatus === 'generating') {
-            newMessage = newMessage || 'Generating file...';
-          }
-          break;
-
-        case 'generating':
-          if (newStatus === 'ready') {
-            newProgress = 0;
-            newMessage = 'Ready to download';
-            newProcessingSpeed = 0;
-            newEstimatedTime = 0;
-          }
-          break;
-
-        case 'ready':
-          if (newStatus === 'downloading') {
-            newProgress = 0;
-            newMessage = 'Starting download...';
-            newProcessingSpeed = 0;
-            newEstimatedTime = 0;
-          }
-          break;
-
-        case 'downloading':
-          if (newStatus === 'completed') {
-            newProgress = 100;
-            newMessage = 'Download completed';
-            newProcessingSpeed = 0;
-            newEstimatedTime = 0;
-          }
-          break;
-
-        default:
-          break;
-      }
+      console.log('[useDownloadState] Updated file status:', {
+        fileName,
+        before: currentFile.status,
+        after: updatedFile.status,
+        progress: updatedFile.progress,
+        message: updatedFile.message,
+      });
 
       return {
         ...prev,
         fileStatuses: {
           ...prev.fileStatuses,
-          [fileName]: {
-            ...currentStatus,
-            ...update,
-            progress: newProgress,
-            status: newStatus,
-            message: newMessage,
-            processingSpeed: newProcessingSpeed,
-            estimatedTimeRemaining: newEstimatedTime,
-          },
+          [fileName]: updatedFile,
         },
       };
     });

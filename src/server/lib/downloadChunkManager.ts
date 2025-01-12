@@ -409,12 +409,6 @@ class DownloadChunkManager {
           const batch = response.hits.hits;
           if (!batch || batch.length === 0) break;
 
-          console.log('[DownloadChunkManager] Processing batch:', {
-            batchSize: batch.length,
-            firstRecord: batch[0]?._source,
-            lastRecord: batch[batch.length - 1]?._source,
-          });
-
           // Process batch and write to file
           let batchData = '';
           for (const hit of batch) {
@@ -496,17 +490,6 @@ class DownloadChunkManager {
             });
           }
         }
-
-        const stats = await fs.promises.stat(filePath);
-        console.log('[DownloadChunkManager] Chunk download completed:', {
-          fileName,
-          fileSize: `${(stats.size / (1024 * 1024)).toFixed(2)}MB`,
-          processedRows: chunk.processedRows,
-          totalRows: chunk.totalRows,
-          progress: `${((chunk.processedRows / chunk.totalRows) * 100).toFixed(2)}%`,
-          downloadId: this.downloadId,
-          timestamp: new Date().toISOString(),
-        });
 
         chunk.status = 'completed';
         chunk.endTime = new Date();
@@ -621,8 +604,14 @@ class DownloadChunkManager {
 
     const progress = chunks.length > 0 ? totalProgress / chunks.length : 0;
 
+    // Use the first chunk's filename if available, otherwise generate a new one
+    const firstChunk = chunks[0];
+    const fileName =
+      firstChunk?.fileName ||
+      `${this.searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_1of1.csv`;
+
     return {
-      fileName: `${this.downloadId}.csv`,
+      fileName,
       downloadId: this.downloadId,
       progress: Math.min(100, progress),
       status,

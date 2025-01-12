@@ -165,6 +165,7 @@ export const PageProjectsFooter = ({
         searchId={searchId}
         totalRows={totalCnt}
         searchParams={searchParams}
+        isLoading={isLoading}
       />
     </Flex>
   );

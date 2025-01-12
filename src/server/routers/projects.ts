@@ -214,18 +214,6 @@ export const projectsRouter = createTRPCRouter({
       try {
         const timeFrom = dayjs.tz(input.timeFrom, 'Asia/Seoul');
         const timeTo = dayjs.tz(input.timeTo, 'Asia/Seoul');
-
-        console.log('Search Time Range (KST):', {
-          from: timeFrom.format('YYYY-MM-DD HH:mm:ss'),
-          to: timeTo.format('YYYY-MM-DD HH:mm:ss'),
-        });
-        console.log('Search input:', {
-          timeFrom: timeFrom.format(),
-          timeTo: timeTo.format(),
-          searchTerm: input.searchTerm,
-          menu: input.menu,
-        });
-
         const searchBody: SearchBody = {
           size: input.limit,
           query: {

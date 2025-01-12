@@ -6,6 +6,15 @@ import { env } from '@/env.mjs';
 import { MenuType } from '@/types/project';
 
 import { WebSocketMessage } from '../../types';
+import { useConnectionTimeout } from './useConnectionTimeout';
+
+enum ConnectionState {
+  DISCONNECTED = 'disconnected',
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  ACKNOWLEDGED = 'acknowledged',
+  ERROR = 'error',
+}
 
 interface WebSocketConnectionConfig {
   downloadId: string;
@@ -22,6 +31,19 @@ interface WebSocketConnectionConfig {
   onConnectionAcknowledged: () => void;
 }
 
+interface SocketEventHandlers {
+  handleConnect: (socket: Socket) => void;
+  handleConnected: (socket: Socket, resolve: (socket: Socket) => void) => void;
+  handleDisconnect: (socket: Socket, reason: string) => void;
+  handleError: (error: unknown) => void;
+  handleProgress: (message: WebSocketMessage) => void;
+  handleConnectError: (
+    socket: Socket,
+    error: Error,
+    reject: (error: Error) => void
+  ) => void;
+}
+
 export const useWebSocketConnection = ({
   downloadId,
   searchId,
@@ -31,23 +53,221 @@ export const useWebSocketConnection = ({
   onError,
   onConnectionAcknowledged,
 }: WebSocketConnectionConfig) => {
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isConnectionAcknowledged, setIsConnectionAcknowledged] =
-    useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    ConnectionState.DISCONNECTED
+  );
   const socketRef = useRef<Socket | null>(null);
   const mountedRef = useRef(true);
-  const connectionTimeoutRef = useRef<NodeJS.Timeout>();
   const downloadIdRef = useRef<string | null>(null);
 
-  // Update downloadIdRef when downloadId changes
-  useEffect(() => {
-    console.log('[Socket.IO] downloadId changed:', {
-      previousDownloadId: downloadIdRef.current,
-      newDownloadId: downloadId,
-      timestamp: new Date().toISOString(),
-    });
-    downloadIdRef.current = downloadId;
-  }, [downloadId]);
+  const { startTimeout, clearTimeout } = useConnectionTimeout({
+    onTimeout: () => {
+      if (socketRef.current) {
+        handleTimeout(socketRef.current, (error) => {
+          onError(error);
+        });
+      }
+    },
+  });
+
+  const handleTimeout = useCallback(
+    (socket: Socket, reject: (error: Error) => void) => {
+      if (!mountedRef.current) return;
+
+      console.error('[Socket.IO] Connection timeout', {
+        downloadId,
+        timestamp: new Date().toISOString(),
+      });
+      socket.removeAllListeners();
+      socket.close();
+      setConnectionState(ConnectionState.ERROR);
+      reject(new Error('Connection timeout after 10000ms'));
+    },
+    [downloadId]
+  );
+
+  const eventHandlers = useCallback(
+    (): SocketEventHandlers => ({
+      handleConnectError: (
+        socket: Socket,
+        error: Error,
+        reject: (error: Error) => void
+      ) => {
+        if (!mountedRef.current) return;
+
+        console.error('[Socket.IO] Connection error:', {
+          error: error.message,
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+        socket.removeAllListeners();
+        setConnectionState(ConnectionState.ERROR);
+        clearTimeout();
+        reject(error);
+      },
+
+      handleConnect: (socket: Socket) => {
+        if (!mountedRef.current) return;
+
+        console.log('[Socket.IO] Connected, subscribing...', {
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+
+        setConnectionState(ConnectionState.CONNECTED);
+        socket.emit('subscribe', {
+          downloadId,
+          searchId,
+          searchParams,
+          totalRows,
+          timestamp: new Date().toISOString(),
+        });
+      },
+
+      handleConnected: (socket: Socket, resolve: (socket: Socket) => void) => {
+        if (!mountedRef.current) return;
+
+        clearTimeout();
+
+        console.log('[Socket.IO] Connection acknowledged by server', {
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+
+        setConnectionState(ConnectionState.ACKNOWLEDGED);
+        onConnectionAcknowledged();
+        resolve(socket);
+      },
+
+      handleDisconnect: (socket: Socket, reason: string) => {
+        if (!mountedRef.current) return;
+
+        console.log('[Socket.IO] Disconnected:', {
+          reason,
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+
+        socket.removeAllListeners();
+        setConnectionState(ConnectionState.DISCONNECTED);
+      },
+
+      handleError: (error: unknown) => {
+        if (!mountedRef.current) return;
+
+        console.error('[Socket.IO] Error:', {
+          error: error instanceof Error ? error.message : error,
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+
+        onError(
+          new Error(error instanceof Error ? error.message : 'Connection error')
+        );
+      },
+
+      handleProgress: (message: WebSocketMessage) => {
+        if (!mountedRef.current) return;
+
+        if ('totalProgress' in message && message.totalProgress) {
+          console.log('[Socket.IO] Total progress update:', {
+            progress: message.totalProgress.progress,
+            status: message.totalProgress.status,
+            processedRows: message.totalProgress.processedRows,
+            totalRows: message.totalProgress.totalRows,
+            timestamp: new Date().toISOString(),
+          });
+        } else if (message.fileName) {
+          console.log('[Socket.IO] File progress update:', {
+            fileName: message.fileName,
+            status: message.status,
+            progress: message.progress,
+            processedRows: message.processedRows,
+            totalRows: message.totalRows,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        onMessage(message);
+      },
+    }),
+    [
+      downloadId,
+      searchId,
+      searchParams,
+      totalRows,
+      onMessage,
+      onError,
+      onConnectionAcknowledged,
+      clearTimeout,
+    ]
+  );
+
+  const setupSocketListeners = useCallback(
+    (
+      socket: Socket,
+      resolve: (socket: Socket) => void,
+      reject: (error: Error) => void
+    ) => {
+      const handlers = eventHandlers();
+
+      socket.on('connect_error', (error) =>
+        handlers.handleConnectError(socket, error, reject)
+      );
+      socket.on('connect', () => handlers.handleConnect(socket));
+      socket.on('connected', () => handlers.handleConnected(socket, resolve));
+      socket.on('disconnect', (reason) =>
+        handlers.handleDisconnect(socket, reason)
+      );
+      socket.on('error', handlers.handleError);
+
+      socket.on(
+        'generation_progress',
+        (rawMessage: Record<string, unknown>) => {
+          const message: WebSocketMessage = {
+            type: 'progress',
+            ...rawMessage,
+            status: 'generating',
+          };
+          console.log(
+            '[Socket.IO] Received generation_progress message:',
+            message
+          );
+          handlers.handleProgress(message);
+        }
+      );
+
+      socket.on('file_ready', (rawMessage: Record<string, unknown>) => {
+        const message: WebSocketMessage = {
+          type: 'progress',
+          ...rawMessage,
+          status: 'ready',
+        };
+        console.log('[Socket.IO] Received file_ready message:', message);
+        handlers.handleProgress(message);
+      });
+
+      socket.on('download_progress', (rawMessage: Record<string, unknown>) => {
+        const message: WebSocketMessage = {
+          type: 'progress',
+          ...rawMessage,
+          status: 'downloading',
+        };
+        console.log('[Socket.IO] Received download_progress message:', message);
+        handlers.handleProgress(message);
+      });
+
+      socket.on('progress', (rawMessage: Record<string, unknown>) => {
+        const message: WebSocketMessage = {
+          type: 'progress',
+          ...rawMessage,
+        };
+        console.log('[Socket.IO] Received generic progress message:', message);
+        handlers.handleProgress(message);
+      });
+    },
+    [eventHandlers]
+  );
 
   const connect = useCallback(() => {
     console.log('[Socket.IO] Connect called:', {
@@ -55,12 +275,11 @@ export const useWebSocketConnection = ({
       refDownloadId: downloadIdRef.current,
       hasSocket: !!socketRef.current,
       isSocketConnected: socketRef.current?.connected,
-      isConnecting,
+      connectionState,
       timestamp: new Date().toISOString(),
     });
 
     return new Promise<Socket>((resolve, reject) => {
-      // 이미 연결된 소켓이 있고, downloadId가 같다면 재사용
       if (
         socketRef.current?.connected &&
         downloadIdRef.current === downloadId
@@ -74,8 +293,7 @@ export const useWebSocketConnection = ({
         return;
       }
 
-      // 연결 중이면 대기
-      if (isConnecting) {
+      if (connectionState === ConnectionState.CONNECTING) {
         console.log('[Socket.IO] Connection already in progress', {
           downloadId,
           timestamp: new Date().toISOString(),
@@ -91,9 +309,8 @@ export const useWebSocketConnection = ({
         return;
       }
 
-      setIsConnecting(true);
+      setConnectionState(ConnectionState.CONNECTING);
 
-      // 기존 소켓 정리
       if (socketRef.current) {
         console.log('[Socket.IO] Cleaning up existing socket:', {
           downloadId,
@@ -108,13 +325,6 @@ export const useWebSocketConnection = ({
       const baseUrl = env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
       const wsUrl = baseUrl.replace(/:\d+/, `:${wsPort}`);
 
-      console.log('[Socket.IO] Creating socket connection...', {
-        wsUrl,
-        path: '/api/ws/download',
-        downloadId,
-        timestamp: new Date().toISOString(),
-      });
-
       const socket = io(wsUrl, {
         path: '/api/ws/download',
         transports: ['websocket', 'polling'],
@@ -125,292 +335,43 @@ export const useWebSocketConnection = ({
         timeout: 20000,
         forceNew: true,
         auth: {
-          downloadId: downloadId || downloadIdRef.current, // downloadId가 없으면 ref 사용
+          downloadId: downloadId || downloadIdRef.current,
         },
       });
 
       socketRef.current = socket;
-
-      const cleanupListeners = () => {
-        if (!mountedRef.current) return;
-
-        socket.off('connect_error');
-        socket.off('connect');
-        socket.off('connected');
-        socket.off('disconnect');
-        socket.off('error');
-        socket.off('progress');
-        socket.off('count_update');
-
-        if (connectionTimeoutRef.current) {
-          clearTimeout(connectionTimeoutRef.current);
-        }
-      };
-
-      connectionTimeoutRef.current = setTimeout(() => {
-        if (!mountedRef.current) return;
-
-        console.error('[Socket.IO] Connection timeout', {
-          wsUrl,
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-        cleanupListeners();
-        socket.close();
-        setIsConnecting(false);
-        reject(new Error('Connection timeout after 10000ms'));
-      }, 10000);
-
-      socket.on('connect_error', (error: Error) => {
-        if (!mountedRef.current) return;
-
-        console.error('[Socket.IO] Connection error:', {
-          error: error.message,
-          wsUrl,
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-        cleanupListeners();
-        setIsConnecting(false);
-        reject(error);
-      });
-
-      socket.on('connect', () => {
-        if (!mountedRef.current) return;
-
-        console.log('[Socket.IO] Connected, subscribing...', {
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-
-        socket.emit('subscribe', {
-          downloadId,
-          searchId,
-          searchParams,
-          totalRows,
-          timestamp: new Date().toISOString(),
-        });
-      });
-
-      socket.on('connected', () => {
-        if (!mountedRef.current) return;
-
-        if (connectionTimeoutRef.current) {
-          clearTimeout(connectionTimeoutRef.current);
-        }
-
-        console.log('[Socket.IO] Connection acknowledged by server', {
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-
-        setIsConnectionAcknowledged(true);
-        onConnectionAcknowledged();
-        setIsConnecting(false);
-        resolve(socket);
-      });
-
-      socket.on('disconnect', (reason) => {
-        if (!mountedRef.current) return;
-
-        console.log('[Socket.IO] Disconnected:', {
-          reason,
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-
-        cleanupListeners();
-        setIsConnecting(false);
-        setIsConnectionAcknowledged(false);
-      });
-
-      socket.on('error', (error) => {
-        if (!mountedRef.current) return;
-
-        console.error('[Socket.IO] Error:', {
-          error: error instanceof Error ? error.message : error,
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-
-        onError(
-          new Error(error instanceof Error ? error.message : 'Connection error')
-        );
-      });
-
-      socket.on('progress', (message) => {
-        if (!mountedRef.current) return;
-        if (!message.fileName) return;
-
-        console.log('[Socket.IO] Progress update:', {
-          type: message.type,
-          status: message.status,
-          fileName: message.fileName,
-          progress: message.progress,
-          timestamp: new Date().toISOString(),
-        });
-
-        onMessage({
-          type: 'progress',
-          fileName: message.fileName,
-          status: message.status || 'downloading',
-          progress: message.progress || 0,
-          processedRows: message.processedRows || 0,
-          totalRows: message.totalRows || 0,
-          message: message.message || '',
-        });
-      });
-
-      socket.on('generation_progress', (message) => {
-        if (!mountedRef.current) return;
-        if (!message.fileName) return;
-
-        console.log('[Socket.IO] Generation progress:', {
-          type: message.type,
-          status: message.status,
-          fileName: message.fileName,
-          progress: message.progress,
-          timestamp: new Date().toISOString(),
-        });
-
-        onMessage({
-          type: 'progress',
-          fileName: message.fileName,
-          status: 'generating',
-          progress: message.progress || 0,
-          processedRows: message.processedRows || 0,
-          totalRows: message.totalRows || 0,
-          message: message.message || 'Generating file...',
-          processingSpeed: message.processingSpeed || 0,
-          estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
-        });
-      });
-
-      socket.on('file_ready', (message) => {
-        if (!mountedRef.current) return;
-        if (!message.fileName) return;
-
-        console.log('[Socket.IO] File ready:', {
-          type: message.type,
-          fileName: message.fileName,
-          timestamp: new Date().toISOString(),
-        });
-
-        // First set the status to ready with 100% progress
-        onMessage({
-          type: 'progress',
-          fileName: message.fileName,
-          status: 'ready',
-          progress: 100,
-          message: 'File is ready for download',
-          processedRows: message.processedRows || 0,
-          totalRows: message.totalRows || 0,
-          processingSpeed: 0,
-          estimatedTimeRemaining: 0,
-        });
-
-        // Then reset progress to 0 for download preparation
-        setTimeout(() => {
-          onMessage({
-            type: 'progress',
-            fileName: message.fileName,
-            status: 'ready',
-            progress: 0,
-            message: 'Ready to download',
-            processedRows: message.processedRows || 0,
-            totalRows: message.totalRows || 0,
-            processingSpeed: 0,
-            estimatedTimeRemaining: 0,
-          });
-        }, 500);
-      });
-
-      socket.on('count_update', (message) => {
-        if (!mountedRef.current) return;
-
-        console.log('[Socket.IO] Count update:', {
-          type: message.type,
-          status: message.status,
-          fileName: message.fileName,
-          progress: message.progress,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Send a default progress update if no specific progress is provided
-        onMessage({
-          type: 'progress',
-          totalProgress: {
-            progress: message.progress || 0,
-            status: message.status || 'generating',
-            processedRows: message.processedRows || 0,
-            totalRows: message.totalRows || totalRows,
-            processingSpeed: message.processingSpeed || 0,
-            estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
-            message: message.message || 'Processing files...',
-          },
-        });
-      });
-
-      socket.on('download_progress', (message) => {
-        if (!mountedRef.current) return;
-        if (!message.fileName) return;
-
-        console.log('[Socket.IO] Download progress:', {
-          type: message.type,
-          status: message.status,
-          fileName: message.fileName,
-          progress: message.progress,
-          timestamp: new Date().toISOString(),
-        });
-
-        onMessage({
-          type: 'progress',
-          fileName: message.fileName,
-          status: 'downloading',
-          progress: message.progress || 0,
-          processedRows: message.processedRows || 0,
-          totalRows: message.totalRows || 0,
-          message: message.message || 'Downloading...',
-          processingSpeed: message.processingSpeed || 0,
-          estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
-        });
-      });
-
+      setupSocketListeners(socket, resolve, reject);
+      startTimeout();
       socket.connect();
     });
-  }, [
-    downloadId,
-    searchId,
-    searchParams,
-    totalRows,
-    onError,
-    onConnectionAcknowledged,
-    onMessage,
-    isConnecting,
-  ]);
+  }, [downloadId, connectionState, setupSocketListeners, startTimeout]);
+
+  useEffect(() => {
+    downloadIdRef.current = downloadId;
+  }, [downloadId]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners();
+        socketRef.current.close();
+        socketRef.current = null;
+      }
+      clearTimeout();
+    };
+  }, [clearTimeout]);
 
   const disconnect = useCallback(() => {
-    if (connectionTimeoutRef.current) {
-      clearTimeout(connectionTimeoutRef.current);
-    }
-
+    clearTimeout();
     if (!socketRef.current) return;
 
     socketRef.current.removeAllListeners();
     socketRef.current.close();
     socketRef.current = null;
-    setIsConnecting(false);
-    setIsConnectionAcknowledged(false);
-  }, []);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-      disconnect();
-    };
-  }, [disconnect]);
+    setConnectionState(ConnectionState.DISCONNECTED);
+  }, [clearTimeout]);
 
   const startDownload = useCallback(() => {
     const currentDownloadId = downloadId || downloadIdRef.current;
@@ -421,11 +382,6 @@ export const useWebSocketConnection = ({
     }
 
     if (!currentDownloadId) {
-      console.log('[Socket.IO] Start download attempt with downloadId:', {
-        propDownloadId: downloadId,
-        refDownloadId: downloadIdRef.current,
-        timestamp: new Date().toISOString(),
-      });
       console.error('[Socket.IO] Cannot start download: no downloadId');
       return;
     }
@@ -450,7 +406,7 @@ export const useWebSocketConnection = ({
     disconnect,
     startDownload,
     socket: socketRef.current,
-    isConnecting,
-    isConnectionAcknowledged,
+    isConnecting: connectionState === ConnectionState.CONNECTING,
+    isConnectionAcknowledged: connectionState === ConnectionState.ACKNOWLEDGED,
   };
 };

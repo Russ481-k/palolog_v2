@@ -76,13 +76,6 @@ export class OpenSearchClient {
     const opensearchUsername = env.OPENSEARCH_USERNAME;
     const opensearchPassword = env.OPENSEARCH_PASSWORD;
 
-    console.log('Initializing OpenSearch client with:', {
-      url: opensearchUrl,
-      port: opensearchPort,
-      username: opensearchUsername,
-      certPath: env.CA_CERT_PATH,
-    });
-
     this.baseOptions = {
       hostname: opensearchUrl,
       port: opensearchPort,
@@ -152,11 +145,6 @@ export class OpenSearchClient {
               return;
             }
             const parsedData = JSON.parse(data);
-            console.log('OpenSearch response received:', {
-              path,
-              statusCode: res.statusCode,
-              dataSize: data.length,
-            });
             resolve(parsedData);
           } catch (e) {
             console.error('Failed to parse OpenSearch response:', e);
@@ -171,10 +159,6 @@ export class OpenSearchClient {
       });
 
       if (body) {
-        console.log('Sending request body:', {
-          path,
-          bodySize: JSON.stringify(body).length,
-        });
         req.write(JSON.stringify(body));
       }
       req.end();

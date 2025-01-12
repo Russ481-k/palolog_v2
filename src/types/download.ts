@@ -31,6 +31,8 @@ export interface WebSocketEvent {
   processedRows?: number;
   totalRows?: number;
   searchParams?: SearchParams;
+  processingSpeed?: number;
+  estimatedTimeRemaining?: number;
 }
 
 export type SortType = string | number | null;

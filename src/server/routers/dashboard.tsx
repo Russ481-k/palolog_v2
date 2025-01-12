@@ -88,7 +88,6 @@ setInterval(async () => {
     }
   }
 }, 60 * 1000);
-
 // 디스크 관리 관련 함수
 async function checkDiskUsageAndDeleteOldLogs() {
   let diskUsage = await getDiskUsage();
@@ -103,23 +102,38 @@ async function checkDiskUsageAndDeleteOldLogs() {
 }
 
 async function deleteOldestLogCounts() {
-  const oldestIndex = await getOldestIndexName();
-  if (oldestIndex !== '') {
-    await deleteIndex(oldestIndex);
-    console.log(`Deleted index ${oldestIndex}`);
+  const oldestIndices = await getOldestIndices();
+  for (const index of oldestIndices) {
+    await deleteIndex(index);
+    console.log(`Deleted index ${index}`);
   }
 }
 
-async function getOldestIndexName(): Promise<string> {
+async function getOldestIndices(): Promise<string[]> {
   const indices = await listIndices();
-  const validIndices = indices.filter((index) =>
-    index.startsWith('logstash-logs-')
-  );
-  if (validIndices.length === 0) return '';
-  const oldestIndex = validIndices.sort(
-    (a, b) => dayjs(a).unix() - dayjs(b).unix()
-  )[0];
-  return oldestIndex ?? '';
+  const validIndices = indices.filter((index) => index.startsWith('20'));
+  if (validIndices.length === 0) return [];
+
+  // Parse date and index number from index name
+  const indexMap = validIndices.map((index) => {
+    const [date, ...rest] = index.split('_');
+    return {
+      index,
+      date: dayjs(date, 'YYYY.MM.DD.HH'),
+      indexNum: parseInt(rest.join('_').split('_').pop() || '0'),
+    };
+  });
+
+  // Sort by date then by index number
+  return indexMap
+    .sort((a, b) => {
+      const dateCompare = a.date.unix() - b.date.unix();
+      if (dateCompare === 0) {
+        return a.indexNum - b.indexNum;
+      }
+      return dateCompare;
+    })
+    .map((item) => item.index);
 }
 
 async function listIndices(): Promise<string[]> {
