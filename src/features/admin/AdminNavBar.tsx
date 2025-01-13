@@ -77,14 +77,22 @@ const AdminNavBarAccountMenu = ({ ...rest }: Omit<MenuProps, 'children'>) => {
   const router = useRouter();
 
   return (
-    <Box color="gray.800" _dark={{ color: 'white' }}>
+    <Box
+      color="gray.800"
+      borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+      _dark={{ color: 'white' }}
+    >
       <Menu placement="bottom-end" {...rest}>
         <MenuButton borderRadius="full" _focusVisible={{ shadow: 'outline' }}>
           <Avatar size="sm" icon={<></>} name={account.data?.email ?? ''}>
             {account.isLoading && <Spinner size="xs" />}
           </Avatar>
         </MenuButton>
-        <MenuList maxW="12rem" overflow="hidden">
+        <MenuList
+          maxW="12rem"
+          overflow="hidden"
+          borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+        >
           <MenuGroup title={account.data?.email ?? ''} noOfLines={1}>
             <MenuItem
               as={LinkAdmin}
@@ -114,7 +122,9 @@ const AdminNavBarAccountMenu = ({ ...rest }: Omit<MenuProps, 'children'>) => {
             )}
           </MenuGroup>
 
-          <MenuDivider />
+          <MenuDivider
+            borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+          />
           <MenuItem
             icon={
               <Icon
@@ -129,7 +139,9 @@ const AdminNavBarAccountMenu = ({ ...rest }: Omit<MenuProps, 'children'>) => {
               ? t('admin:layout.accountMenu.switchColorModeLight')
               : t('admin:layout.accountMenu.switchColorModeDark')}
           </MenuItem>
-          <MenuDivider />
+          <MenuDivider
+            borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+          />
           <MenuItem
             icon={<Icon icon={LuLogOut} fontSize="lg" color="gray.400" />}
             onClick={() => router.push(`/logout?redirect=${ADMIN_PATH || ''}`)}
@@ -299,7 +311,7 @@ const AdminNavBarDrawer = ({ ...rest }) => {
 
 const AdminNavBarAccountMenuVersion = ({ ...rest }) => {
   const { t } = useTranslation(['admin']);
-
+  const { colorMode } = useColorMode();
   const { hasCopied, onCopy } = useClipboard(
     JSON.stringify(buildInfo, null, 2)
   );
@@ -310,7 +322,9 @@ const AdminNavBarAccountMenuVersion = ({ ...rest }) => {
 
   return (
     <>
-      <MenuDivider />
+      <MenuDivider
+        borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+      />
       <Flex
         role="group"
         as="button"
