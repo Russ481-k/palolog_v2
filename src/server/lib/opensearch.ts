@@ -335,7 +335,7 @@ export async function makeOpenSearchRequest<T>(
       'Content-Type': 'application/json',
       Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
     },
-    ca: fs.readFileSync('/home/vtek/palolog_v2/ca-cert.pem'),
+    ca: fs.readFileSync('./ca-cert.pem'),
     rejectUnauthorized: true,
   };
   return new Promise((resolve, reject) => {

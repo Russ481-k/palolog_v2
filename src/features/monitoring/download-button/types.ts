@@ -8,6 +8,13 @@ export interface DownloadSearchParams {
   searchTerm: string;
 }
 
+export interface SearchParams {
+  timeFrom: string;
+  timeTo: string;
+  menu: string;
+  searchTerm: string;
+}
+
 // Base interface for all progress-related messages
 interface BaseProgressMessage {
   type: 'progress';
@@ -65,6 +72,7 @@ export interface NewFilesMessage {
   type: 'progress';
   newFiles: Array<{
     fileName: string;
+    clientFileName?: string;
     status: DownloadStatus;
     progress: number;
     message: string;
@@ -116,6 +124,7 @@ export const isProgressMessage = (
 
 export interface FileData {
   fileName: string;
+  clientFileName?: string;
   size: number;
   lastModified: string;
   selected: boolean;
@@ -168,4 +177,10 @@ export interface DownloadButtonProps {
   totalRows: number;
   searchParams: DownloadSearchParams;
   isLoading: boolean;
+}
+
+export interface UpdateFileStatusProps {
+  fileName: string;
+  update: Partial<FileStatus>;
+  searchParams?: DownloadSearchParams;
 }

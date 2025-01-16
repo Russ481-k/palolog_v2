@@ -1,11 +1,12 @@
+import dayjs from 'dayjs';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
 import { env } from '@/env.mjs';
-import { DownloadProgress } from '@/types/download';
+import { DownloadProgress as ClientDownloadProgress } from '@/types/download';
 
 import { downloadChunkManager } from './lib/downloadChunkManager';
-import { downloadManager } from './lib/downloadManager';
+import { TotalProgress, downloadManager } from './lib/downloadManager';
 
 console.log('[Server] Starting Socket.IO server initialization...');
 console.log('NEXT_PUBLIC_ENV_NAME : ', env.NEXT_PUBLIC_ENV_NAME);
@@ -63,12 +64,25 @@ io.on('connection', (socket) => {
     timestamp: new Date().toISOString(),
   });
 
-  socket.on('disconnect', (reason) => {
+  socket.on('disconnect', async (reason) => {
     console.log('[Socket.IO] Client disconnected:', {
       id: socket.id,
       reason,
       timestamp: new Date().toISOString(),
     });
+
+    // Cleanup any active downloads for this socket
+    if (socket.data.downloadId) {
+      try {
+        await downloadManager.cleanup(socket.data.downloadId);
+      } catch (error) {
+        console.error('[Socket.IO] Failed to cleanup download:', {
+          error: error instanceof Error ? error.message : String(error),
+          downloadId: socket.data.downloadId,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
   });
 
   socket.on('error', (error) => {
@@ -81,13 +95,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('subscribe', async (message) => {
-    const { downloadId, searchId, searchParams, totalRows } = message;
+    const { downloadId, searchId } = message;
     console.log('[Socket.IO] Client subscribing to download updates:', {
       socketId: socket.id,
       downloadId,
       searchId,
       timestamp: new Date().toISOString(),
     });
+
+    // Store downloadId in socket data
+    socket.data.downloadId = downloadId;
 
     // Send connected response
     socket.emit('connected', {
@@ -98,12 +115,54 @@ io.on('connection', (socket) => {
     // Handle download progress updates
     const unsubscribe = downloadManager.onProgressUpdate(
       downloadId,
-      (downloadId: string, progress: DownloadProgress) => {
-        socket.emit('progress', {
-          type: 'progress',
-          ...progress,
-          timestamp: new Date().toISOString(),
-        });
+      (downloadId: string, progress: TotalProgress) => {
+        progress.files.forEach(
+          (file: ClientDownloadProgress & { clientFileName?: string }) => {
+            if (file.status === 'generating') {
+              socket.emit('generation_progress', {
+                type: 'generation_progress',
+                downloadId,
+                fileName: file.fileName,
+                clientFileName: file.clientFileName,
+                status: file.status,
+                progress: file.progress,
+                processedRows: file.processedRows,
+                totalRows: file.totalRows,
+                message: file.message,
+                timestamp: new Date().toISOString(),
+              });
+            } else if (file.status === 'ready') {
+              socket.emit('file_ready', {
+                type: 'file_ready',
+                downloadId,
+                fileName: file.fileName,
+                clientFileName: file.clientFileName,
+                status: file.status,
+                progress: 100,
+                processedRows: file.totalRows,
+                totalRows: file.totalRows,
+                message: 'File is ready for download',
+                timestamp: new Date().toISOString(),
+              });
+            } else if (
+              file.status === 'downloading' ||
+              file.status === 'completed'
+            ) {
+              socket.emit('download_progress', {
+                type: 'download_progress',
+                downloadId,
+                fileName: file.fileName,
+                clientFileName: file.clientFileName,
+                status: file.status,
+                progress: file.progress,
+                processedRows: file.processedRows,
+                totalRows: file.totalRows,
+                message: file.message,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+        );
       }
     );
 
@@ -141,28 +200,41 @@ io.on('connection', (socket) => {
       const manager = downloadChunkManager.createManager(id, searchParams);
       await manager.createChunks();
 
-      // Send initial progress
-      socket.emit('progress', {
-        type: 'progress',
+      // Send initial progress with client file names
+      socket.emit('generation_progress', {
+        type: 'generation_progress',
         downloadId,
+        fileName: `${downloadId}.csv`,
+        clientFileName: `${searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_1of1.csv`,
         progress: 0,
-        status: 'downloading',
+        status: 'generating',
         processedRows: 0,
         totalRows: actualCount,
-        message: 'Starting download...',
+        message: 'Starting file generation...',
+        searchParams,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       console.error('[Socket.IO] Failed to start download:', {
         error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
         downloadId,
+        searchId,
+        searchParams,
         timestamp: new Date().toISOString(),
       });
 
       socket.emit('error', {
+        type: 'error',
         downloadId,
-        message: 'Failed to start download',
-        error: error instanceof Error ? error.message : String(error),
+        fileName: `download-${downloadId}.csv`,
+        status: 'failed',
+        progress: 0,
+        processedRows: 0,
+        totalRows: totalRows,
+        message:
+          error instanceof Error ? error.message : 'Failed to start download',
+        error: error instanceof Error ? error.stack : String(error),
         timestamp: new Date().toISOString(),
       });
     }

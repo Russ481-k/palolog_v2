@@ -54,6 +54,8 @@ export interface FileData {
 export interface WebSocketMessage {
   type: 'connected' | 'progress';
   fileName?: string;
+  clientFileName?: string;
+  downloadId?: string;
   progress?: number;
   status?: DownloadStatus;
   message?: string;
@@ -62,6 +64,7 @@ export interface WebSocketMessage {
   size?: number;
   processingSpeed?: number;
   estimatedTimeRemaining?: number;
+  timestamp?: string;
   searchParams?: {
     timeFrom: string;
     timeTo: string;

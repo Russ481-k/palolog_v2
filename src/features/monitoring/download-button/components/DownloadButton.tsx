@@ -194,18 +194,22 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         },
         {
           onSuccess: () => {
-            updateFileStatus(fileName, {
-              ...fileStatus,
-              status: 'downloading',
-              progress: 0,
-              message: 'Starting download...',
+            updateFileStatus({
+              fileName,
+              update: {
+                status: 'downloading',
+                progress: 0,
+                message: 'Starting download...',
+              },
             });
           },
           onError: (error) => {
-            updateFileStatus(fileName, {
-              ...fileStatus,
-              status: 'failed',
-              message: error.message || 'Download failed',
+            updateFileStatus({
+              fileName,
+              update: {
+                status: 'failed',
+                message: error.message || 'Download failed',
+              },
             });
           },
         }

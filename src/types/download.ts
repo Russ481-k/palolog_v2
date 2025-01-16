@@ -1,3 +1,5 @@
+import { FileInfo } from '@/server/lib/fileManager';
+
 import { MenuType } from './project';
 
 export interface OpenSearchSource {
@@ -10,11 +12,12 @@ export type DownloadStatus =
   | 'ready'
   | 'downloading'
   | 'completed'
-  | 'failed'
-  | 'paused';
+  | 'failed';
 
 export type WebSocketEventType =
   | 'subscribe'
+  | 'connected'
+  | 'error'
   | 'generation_progress'
   | 'file_ready'
   | 'download_progress'
@@ -24,15 +27,19 @@ export interface WebSocketEvent {
   type: WebSocketEventType;
   downloadId: string;
   fileName?: string;
+  clientFileName?: string;
   progress?: number;
   status?: DownloadStatus;
   timestamp: string;
   message?: string;
+  error?: string;
   processedRows?: number;
   totalRows?: number;
   searchParams?: SearchParams;
   processingSpeed?: number;
   estimatedTimeRemaining?: number;
+  expectedRows?: number;
+  actualRows?: number;
 }
 
 export type SortType = string | number | null;
@@ -47,22 +54,22 @@ export interface SearchParams {
 
 export interface ChunkProgress {
   fileName: string;
+  fileInfo: FileInfo;
   downloadId: string;
   progress: number;
   status: DownloadStatus;
   processedRows: number;
   totalRows: number;
   startTime: Date;
-  endTime?: Date;
-  error?: string;
-  message?: string;
   searchParams: SearchParams;
   processingSpeed: number;
   estimatedTimeRemaining: number;
+  message: string;
 }
 
 export interface DownloadProgress {
   fileName: string;
+  clientFileName?: string;
   downloadId: string;
   processedRows: number;
   totalRows: number;
@@ -106,15 +113,4 @@ export interface DownloadProgressState {
   estimatedTimeRemaining: number;
   lastUpdateTime: number;
   lastProcessedCount: number;
-}
-
-export interface DownloadButtonProps {
-  searchId: string;
-  totalRows: number;
-  searchParams: {
-    menu: 'TRAFFIC';
-    timeFrom: string;
-    timeTo: string;
-    searchTerm: string;
-  };
 }

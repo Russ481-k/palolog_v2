@@ -69,7 +69,12 @@ export const PageProjectsFooter = ({
       <Flex flex={1}>
         <Flex gap={2}>
           <InputGroup size="xs" lineHeight="16px">
-            <InputLeftAddon borderLeftRadius={4}>Batch</InputLeftAddon>
+            <InputLeftAddon
+              borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+              borderLeftRadius={4}
+            >
+              Batch
+            </InputLeftAddon>
             <Select
               borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
               borderWidth={1}
@@ -87,7 +92,12 @@ export const PageProjectsFooter = ({
           </InputGroup>
           <Flex>
             <InputGroup size="xs">
-              <InputLeftAddon borderLeftRadius={5}>Go To</InputLeftAddon>
+              <InputLeftAddon
+                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                borderLeftRadius={5}
+              >
+                Go To
+              </InputLeftAddon>
               <Input
                 id="pagination_batch"
                 textAlign="right"
@@ -150,7 +160,13 @@ export const PageProjectsFooter = ({
           </ProgressLabel>
         </Progress>
         <InputGroup size="xs" w="150px">
-          <InputLeftAddon borderLeftRadius={5}>Total</InputLeftAddon>
+          <InputLeftAddon
+            borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+            borderWidth={1}
+            borderLeftRadius={5}
+          >
+            Total
+          </InputLeftAddon>
           <Input
             textAlign="right"
             borderRightRadius={0}

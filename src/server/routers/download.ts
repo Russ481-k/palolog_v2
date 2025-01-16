@@ -1,4 +1,6 @@
 import dayjs from 'dayjs';
+import path from 'path';
+import process from 'process';
 import { Observable, Subscriber } from 'rxjs';
 import { z } from 'zod';
 
@@ -45,44 +47,61 @@ export const downloadRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { searchId, totalRows, searchParams } = input;
+      const { searchId, totalRows: expectedRows, searchParams } = input;
       try {
         console.log('[Download Router] Starting download with params:', {
           searchId,
-          totalRows,
+          expectedRows,
           searchParams,
+          timestamp: new Date().toISOString(),
+        });
+
+        // 실제 OpenSearch에서 카운트 조회
+        const actualCount = await downloadManager.getActualCount(searchParams);
+
+        console.log('[Download Router] Actual count from OpenSearch:', {
+          expectedRows,
+          actualCount,
+          searchId,
           timestamp: new Date().toISOString(),
         });
 
         const download = await downloadManager.createDownload(
           searchId,
-          totalRows,
+          actualCount,
           searchParams
         );
 
         // 파일 크기 계산 (500,000 rows per file)
         const CHUNK_SIZE = 500000;
-        const numFiles = Math.ceil(totalRows / CHUNK_SIZE);
+        const numFiles = Math.ceil(actualCount / CHUNK_SIZE);
         const timestamp = dayjs().format('YYYY-MM-DD_HH:mm:ss');
 
         // 초기 파일 목록 생성
         const initialFiles: ChunkProgress[] = Array.from(
           { length: numFiles },
           (_, index) => {
-            const fileName = `${searchParams.menu}_${timestamp}_${index + 1}of${numFiles}.csv`;
+            const internalFileName = `${download.id}_${index + 1}of${numFiles}.csv`;
+            const clientFileName = `${searchParams.menu}_${timestamp}.csv`;
             return {
-              fileName,
+              fileName: internalFileName,
+              clientFileName,
               downloadId: download.id,
               size: 0,
               status: 'pending' as const,
               progress: 0,
               processedRows: 0,
-              totalRows: Math.min(CHUNK_SIZE, totalRows - index * CHUNK_SIZE),
+              totalRows: Math.min(CHUNK_SIZE, actualCount - index * CHUNK_SIZE),
               message: 'Initializing...',
               searchParams,
               startTime: new Date(),
               processingSpeed: 0,
               estimatedTimeRemaining: 0,
+              fileInfo: {
+                id: `${download.id}_${index + 1}of${numFiles}`,
+                displayName: clientFileName,
+                path: path.join(process.cwd(), 'downloads', internalFileName),
+              },
             };
           }
         );
@@ -95,13 +114,15 @@ export const downloadRouter = router({
           files: initialFiles,
           totalFiles: numFiles,
           searchParams,
+          expectedRows,
+          actualCount,
         };
       } catch (error) {
         console.error('[Download Router] Failed to start download:', {
           error: error instanceof Error ? error.message : String(error),
           searchId,
           searchParams,
-          totalRows,
+          totalRows: expectedRows,
           timestamp: new Date().toISOString(),
           stack: error instanceof Error ? error.stack : undefined,
         });

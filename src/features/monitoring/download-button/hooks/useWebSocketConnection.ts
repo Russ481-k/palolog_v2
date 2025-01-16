@@ -6,7 +6,7 @@ import { env } from '@/env.mjs';
 import { MenuType } from '@/types/project';
 
 import { WebSocketMessage } from '../../types';
-import { useConnectionTimeout } from './useConnectionTimeout';
+import { useConnectionTimeout } from './websocket/useConnectionTimeout';
 
 enum ConnectionState {
   DISCONNECTED = 'disconnected',
@@ -221,42 +221,63 @@ export const useWebSocketConnection = ({
       );
       socket.on('error', handlers.handleError);
 
+      // 1. Generation Progress
       socket.on(
         'generation_progress',
         (rawMessage: Record<string, unknown>) => {
           const message: WebSocketMessage = {
             type: 'progress',
             ...rawMessage,
-            status: 'generating',
           };
           console.log(
             '[Socket.IO] Received generation_progress message:',
             message
           );
           handlers.handleProgress(message);
+          setConnectionState(ConnectionState.ACKNOWLEDGED);
+          onMessage({
+            ...message,
+            type: 'progress',
+            progress: message.progress || 0,
+            fileName: message.clientFileName || message.fileName,
+          });
         }
       );
 
+      // 2. File Ready
       socket.on('file_ready', (rawMessage: Record<string, unknown>) => {
         const message: WebSocketMessage = {
           type: 'progress',
           ...rawMessage,
-          status: 'ready',
         };
         console.log('[Socket.IO] Received file_ready message:', message);
         handlers.handleProgress(message);
+        setConnectionState(ConnectionState.ACKNOWLEDGED);
+        onMessage({
+          ...message,
+          type: 'progress',
+          progress: message.progress || 100,
+          fileName: message.clientFileName || message.fileName,
+        });
       });
 
+      // 3. Download Progress
       socket.on('download_progress', (rawMessage: Record<string, unknown>) => {
         const message: WebSocketMessage = {
           type: 'progress',
           ...rawMessage,
-          status: 'downloading',
         };
         console.log('[Socket.IO] Received download_progress message:', message);
         handlers.handleProgress(message);
+        onMessage({
+          ...message,
+          type: 'progress',
+          progress: message.progress || 0,
+          fileName: message.clientFileName || message.fileName,
+        });
       });
 
+      // Generic Progress
       socket.on('progress', (rawMessage: Record<string, unknown>) => {
         const message: WebSocketMessage = {
           type: 'progress',
@@ -264,9 +285,19 @@ export const useWebSocketConnection = ({
         };
         console.log('[Socket.IO] Received generic progress message:', message);
         handlers.handleProgress(message);
+
+        // Only forward progress updates for the current status
+        if (message.status) {
+          onMessage({
+            ...message,
+            type: 'progress',
+            progress: message.progress || 0,
+            fileName: message.clientFileName || message.fileName,
+          });
+        }
       });
     },
-    [eventHandlers]
+    [eventHandlers, onMessage]
   );
 
   const connect = useCallback(() => {

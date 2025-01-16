@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { DownloadStatus } from '@/types/download';
+import { MenuType } from '@/types/project';
 
-import type { DownloadState, FileStatus } from '../types';
+import type { DownloadSearchParams, DownloadState, FileStatus } from '../types';
 
 interface UseDownloadStateProps {
   onCleanup: (id: string) => void;
   onCancel: (id: string) => void;
+}
+
+interface UpdateFileStatusProps {
+  fileName: string;
+  update: Partial<FileStatus>;
+  searchParams?: DownloadSearchParams;
 }
 
 const initialState: DownloadState = {
@@ -27,7 +34,6 @@ const validTransitions: Record<DownloadStatus, DownloadStatus[]> = {
   downloading: ['completed', 'failed'],
   completed: [],
   failed: [],
-  paused: ['downloading', 'failed'],
 };
 
 export const useDownloadState = ({
@@ -36,20 +42,46 @@ export const useDownloadState = ({
 }: UseDownloadStateProps) => {
   const [state, setState] = useState<DownloadState>(initialState);
 
-  const updateFileStatus = (fileName: string, update: Partial<FileStatus>) => {
-    console.log('[useDownloadState] Updating file status:', {
-      fileName,
-      currentStatus: state.fileStatuses[fileName]?.status,
-      newStatus: update.status,
-      update,
-    });
+  const updateFileStatus = useCallback(
+    ({ fileName, update, searchParams }: UpdateFileStatusProps) => {
+      setState((prev) => {
+        const currentStatus = prev.fileStatuses[fileName];
 
-    setState((prev) => {
-      const currentFile = prev.fileStatuses[fileName];
+        // 상태나 진행률이 변경되지 않았다면 업데이트 스킵
+        if (
+          currentStatus &&
+          update.status === currentStatus.status &&
+          update.progress === currentStatus.progress
+        ) {
+          console.log('[useDownloadState] Skipping duplicate update:', {
+            fileName,
+            status: update.status,
+            progress: update.progress,
+            timestamp: new Date().toISOString(),
+          });
+          return prev;
+        }
 
-      // If file doesn't exist, create it with initial state
-      if (!currentFile) {
-        const newFile: FileStatus = {
+        // 상태 전환 검증
+        if (currentStatus?.status && update?.status) {
+          const allowedTransitions = validTransitions[currentStatus.status];
+          if (
+            allowedTransitions &&
+            !allowedTransitions.includes(update.status)
+          ) {
+            console.warn('[useDownloadState] Invalid state transition:', {
+              fileName,
+              currentStatus: currentStatus.status,
+              newStatus: update.status,
+              allowedTransitions,
+              timestamp: new Date().toISOString(),
+            });
+            return prev;
+          }
+        }
+
+        // 새 파일이거나 상태가 변경된 경우에만 업데이트
+        const baseStatus: FileStatus = {
           status: 'pending',
           progress: 0,
           message: 'Initializing...',
@@ -58,69 +90,54 @@ export const useDownloadState = ({
           totalRows: 0,
           processingSpeed: 0,
           estimatedTimeRemaining: 0,
-          searchParams: update.searchParams || {
+          searchParams: {
             timeFrom: '',
             timeTo: '',
-            menu: 'TRAFFIC',
+            menu: 'TRAFFIC' as MenuType,
             searchTerm: '',
           },
-          ...update,
         };
 
-        console.log('[useDownloadState] Creating new file:', {
+        // 새 파일인 경우에만 임시 파일명 사용
+        const targetFileName = currentStatus
+          ? fileName
+          : `${searchParams?.menu || 'TRAFFIC'}_${new Date().toISOString().replace('T', '_').slice(0, 19)}_pending.csv`;
+
+        const newStatus: FileStatus = {
+          ...(currentStatus || baseStatus),
+          ...update,
+          searchParams:
+            searchParams ||
+            currentStatus?.searchParams ||
+            baseStatus.searchParams,
+        };
+
+        console.log('[useDownloadState] Updating file status:', {
           fileName,
-          initialState: newFile,
+          targetFileName,
+          currentStatus: currentStatus?.status,
+          newStatus: update?.status,
+          currentProgress: currentStatus?.progress,
+          newProgress: update?.progress,
+          timestamp: new Date().toISOString(),
         });
+
+        // update가 undefined인 경우 이전 상태 유지
+        if (!update) {
+          return prev;
+        }
 
         return {
           ...prev,
           fileStatuses: {
             ...prev.fileStatuses,
-            [fileName]: newFile,
+            [targetFileName]: newStatus,
           },
         };
-      }
-
-      // For existing files, validate status transition
-      if (update.status && currentFile.status !== update.status) {
-        const allowedTransitions = validTransitions[currentFile.status];
-        console.log('[useDownloadState] Validating status transition:', {
-          fileName,
-          from: currentFile.status,
-          to: update.status,
-          allowed: allowedTransitions,
-        });
-
-        if (!allowedTransitions.includes(update.status)) {
-          console.warn(
-            `[useDownloadState] Invalid status transition from ${currentFile.status} to ${update.status}`
-          );
-          return prev;
-        }
-      }
-
-      const updatedFile = {
-        ...currentFile,
-        ...update,
-      };
-
-      console.log('[useDownloadState] Updated file status:', {
-        fileName,
-        before: currentFile.status,
-        after: updatedFile.status,
-        progress: updatedFile.progress,
-        message: updatedFile.message,
       });
-
-      return {
-        ...prev,
-        fileStatuses: {
-          ...prev.fileStatuses,
-          [fileName]: updatedFile,
-        },
-      };
-    });
-  };
+    },
+    []
+  );
 
   const handleFileSelection = (fileName: string, selected: boolean) => {
     setState((prev) => ({

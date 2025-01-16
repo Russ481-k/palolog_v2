@@ -42,7 +42,7 @@ export const env = createEnv({
 
     CONFIG_PATH: z.string().optional(),
     LOGSTASH_PATH: z.string().optional(),
-    CA_CERT_PATH: z.string().default('/home/vtek/palolog_v2/ca-cert.pem'),
+    CA_CERT_PATH: z.string().default('./ca-cert.pem'),
   },
 
   /**

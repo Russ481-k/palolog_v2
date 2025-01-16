@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import {
   Box,
@@ -16,7 +16,7 @@ import {
 
 import type { DownloadStatus } from '@/types/download';
 
-import type { FileData, FileStatus, FileStatuses } from '../types';
+import type { FileData, FileStatuses } from '../types';
 import { DownloadGrid } from './DownloadGrid';
 import { DownloadProgress } from './DownloadProgress';
 
@@ -52,8 +52,6 @@ export const DownloadModal = ({
   onFileDownload,
   gridTheme,
 }: DownloadModalProps) => {
-  console.log('[DownloadModal] Render with fileStatuses:', fileStatuses);
-
   // Track fileStatuses changes
   useEffect(() => {
     Object.entries(fileStatuses).forEach(([fileName, status]) => {
@@ -67,40 +65,32 @@ export const DownloadModal = ({
     });
   }, [fileStatuses]);
 
-  const rowData: FileData[] = Object.entries(fileStatuses).map(
-    ([name, status]) => {
-      const data: FileData = {
-        fileName: name,
-        lastModified: new Date().toISOString(),
-        selected: selectedFiles.includes(name),
-        timeRange: `${status.searchParams.timeFrom} ~ ${status.searchParams.timeTo}`,
-        status: status.status,
-        progress: status.progress,
-        message: status.message,
-        processedRows: status.processedRows,
-        totalRows: status.totalRows,
-        processingSpeed: status.processingSpeed,
-        estimatedTimeRemaining: status.estimatedTimeRemaining,
-        size: status.size,
-        searchParams: status.searchParams,
-      };
-      return data;
-    }
-  );
-
-  console.log(
-    '[DownloadModal] Final rowData:',
-    rowData.map((r) => ({
-      fileName: r.fileName,
-      status: r.status,
-      canDownload: r.status === 'ready' || r.status === 'completed',
-    }))
-  );
+  // Memoize rowData to prevent unnecessary re-renders
+  const rowData: FileData[] = useMemo(() => {
+    return Object.entries(fileStatuses).map(([name, status]) => ({
+      fileName: name,
+      lastModified: new Date().toISOString(),
+      selected: selectedFiles.includes(name),
+      timeRange: `${status.searchParams?.timeFrom || ''} ~ ${status.searchParams?.timeTo || ''}`,
+      status: status.status,
+      progress: status.progress,
+      message: status.message,
+      processedRows: status.processedRows,
+      totalRows: status.totalRows,
+      processingSpeed: status.processingSpeed,
+      estimatedTimeRemaining: status.estimatedTimeRemaining,
+      size: status.size,
+      searchParams: status.searchParams,
+    }));
+  }, [fileStatuses, selectedFiles]);
 
   const handleDownloadSelected = () => {
     selectedFiles.forEach((fileName) => {
       const fileStatus = fileStatuses[fileName];
-      if (fileStatus) {
+      if (
+        fileStatus &&
+        (fileStatus.status === 'ready' || fileStatus.status === 'completed')
+      ) {
         console.log('[DownloadModal] Attempting download:', {
           fileName,
           status: fileStatus.status,

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Box,
@@ -39,15 +39,20 @@ export const DownloadGrid = memo(
     const [selectAll, setSelectAll] = useState(false);
     const [updatedRows, setUpdatedRows] = useState<Set<string>>(new Set());
 
-    // Track row updates
+    // Track row updates with previous values
+    const prevRowDataRef = useRef(rowData);
     useEffect(() => {
       const newUpdatedRows = new Set<string>();
 
       rowData.forEach((row) => {
-        const prevRow = rowData.find((r) => r.fileName === row.fileName);
+        const prevRow = prevRowDataRef.current.find(
+          (r) => r.fileName === row.fileName
+        );
         if (
           prevRow &&
-          (prevRow.status !== row.status || prevRow.progress !== row.progress)
+          (prevRow.status !== row.status ||
+            prevRow.progress !== row.progress ||
+            prevRow.processedRows !== row.processedRows)
         ) {
           console.log('[DownloadGrid] Row updated:', {
             fileName: row.fileName,
@@ -55,6 +60,8 @@ export const DownloadGrid = memo(
             newStatus: row.status,
             prevProgress: prevRow.progress,
             newProgress: row.progress,
+            prevProcessedRows: prevRow.processedRows,
+            newProcessedRows: row.processedRows,
           });
           newUpdatedRows.add(row.fileName);
         }
@@ -67,6 +74,8 @@ export const DownloadGrid = memo(
         }, 1000);
         return () => clearTimeout(timeoutId);
       }
+
+      prevRowDataRef.current = rowData;
     }, [rowData]);
 
     // Calculate selection states

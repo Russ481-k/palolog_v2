@@ -1,12 +1,8 @@
-import { Server as HttpServer } from 'http';
-import { AddressInfo, Socket } from 'net';
+import { Socket } from 'net';
 import { WebSocket, WebSocketServer } from 'ws';
 
-import { env } from '@/env.mjs';
-import { DownloadProgress } from '@/types/download';
-
 import { downloadChunkManager } from '../lib/downloadChunkManager';
-import { downloadManager } from '../lib/downloadManager';
+import { TotalProgress, downloadManager } from '../lib/downloadManager';
 
 interface WebSocketServerConfig {
   wss: WebSocketServer;
@@ -19,6 +15,21 @@ export function createWebSocketServer(config: WebSocketServerConfig) {
   });
 
   const wss = config.wss;
+
+  // Listen for file_ready events from DownloadChunkManager
+  downloadChunkManager.on('file_ready', (message) => {
+    console.log('[WebSocket] Received file_ready event:', {
+      message,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Broadcast to all connected clients
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
+  });
 
   console.log('[WebSocket] Server created with config:', {
     hasServer: !!config.wss,
@@ -161,6 +172,42 @@ export function createWebSocketServer(config: WebSocketServerConfig) {
                 timestamp: new Date().toISOString(),
               });
 
+              // Forward events from the manager to WebSocket
+              manager.onFileReady((message) => {
+                console.log('[WebSocket] Received file_ready event:', {
+                  downloadId: message.downloadId,
+                  fileName: message.fileName,
+                  status: message.status,
+                  clientAddress,
+                  timestamp: new Date().toISOString(),
+                });
+
+                ws.send(
+                  JSON.stringify({
+                    ...message,
+                    type: 'file_ready',
+                  })
+                );
+              });
+
+              manager.onGenerationProgress((message) => {
+                console.log('[WebSocket] Received generation_progress event:', {
+                  downloadId: message.downloadId,
+                  fileName: message.fileName,
+                  status: message.status,
+                  progress: message.progress,
+                  clientAddress,
+                  timestamp: new Date().toISOString(),
+                });
+
+                ws.send(
+                  JSON.stringify({
+                    ...message,
+                    type: 'generation_progress',
+                  })
+                );
+              });
+
               // Start the download process
               await manager.createChunks();
               console.log('[WebSocket] Chunks created and download started:', {
@@ -270,6 +317,42 @@ export function createWebSocketServer(config: WebSocketServerConfig) {
                 timestamp: new Date().toISOString(),
               });
 
+              // Forward events from the manager to WebSocket
+              manager.onFileReady((message) => {
+                console.log('[WebSocket] Received file_ready event:', {
+                  downloadId: message.downloadId,
+                  fileName: message.fileName,
+                  status: message.status,
+                  clientAddress,
+                  timestamp: new Date().toISOString(),
+                });
+
+                ws.send(
+                  JSON.stringify({
+                    ...message,
+                    type: 'file_ready',
+                  })
+                );
+              });
+
+              manager.onGenerationProgress((message) => {
+                console.log('[WebSocket] Received generation_progress event:', {
+                  downloadId: message.downloadId,
+                  fileName: message.fileName,
+                  status: message.status,
+                  progress: message.progress,
+                  clientAddress,
+                  timestamp: new Date().toISOString(),
+                });
+
+                ws.send(
+                  JSON.stringify({
+                    ...message,
+                    type: 'generation_progress',
+                  })
+                );
+              });
+
               // Start the download process
               await manager.createChunks();
               console.log('[WebSocket] Chunks created and download started:', {
@@ -281,9 +364,15 @@ export function createWebSocketServer(config: WebSocketServerConfig) {
 
             const unsubscribe = downloadManager.onProgressUpdate(
               message.downloadId,
-              (downloadId: string, progress: DownloadProgress) => {
+              (downloadId: string, progress: TotalProgress) => {
                 if (ws.readyState === WebSocket.OPEN) {
                   // Get current manager
+                  console.log('[WebSocket] Getting download manager:', {
+                    downloadId,
+                    clientAddress,
+                    timestamp: new Date().toISOString(),
+                    progress,
+                  });
                   const manager = downloadChunkManager.getManager(downloadId);
                   if (!manager) {
                     console.warn('[WebSocket] No download manager found:', {

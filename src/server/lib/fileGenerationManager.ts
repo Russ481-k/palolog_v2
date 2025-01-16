@@ -109,6 +109,7 @@ export class FileGenerationManager {
       processedRows: state.processedRows,
       totalRows: state.totalRows,
       progress: 0,
+      searchParams: state.searchParams,
     };
 
     state.socket.emit('generation_progress', errorEvent);
@@ -167,6 +168,7 @@ export class FileGenerationManager {
       message: `Generating file... ${state.processedRows.toLocaleString()} of ${state.totalRows.toLocaleString()} rows`,
       processingSpeed,
       estimatedTimeRemaining,
+      searchParams: state.searchParams,
     };
 
     state.socket.emit('generation_progress', event);
