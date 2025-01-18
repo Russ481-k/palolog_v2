@@ -46,7 +46,7 @@ export const DownloadGrid = memo(
 
       rowData?.forEach((row) => {
         const prevRow = prevRowDataRef.current.find(
-          (r) => r.fileName === row.fileName
+          (r) => r.clientFileName === row.clientFileName
         );
         if (
           prevRow &&
@@ -55,7 +55,7 @@ export const DownloadGrid = memo(
             prevRow.processedRows !== row.processedRows)
         ) {
           console.log('[DownloadGrid] Row updated:', {
-            fileName: row.fileName,
+            clientFileName: row.clientFileName,
             prevStatus: prevRow.status,
             newStatus: row.status,
             prevProgress: prevRow.progress,
@@ -63,7 +63,7 @@ export const DownloadGrid = memo(
             prevProcessedRows: prevRow.processedRows,
             newProcessedRows: row.processedRows,
           });
-          newUpdatedRows.add(row.fileName);
+          newUpdatedRows.add(row.clientFileName);
         }
       });
 
@@ -82,14 +82,14 @@ export const DownloadGrid = memo(
     const allSelected = useMemo(() => {
       return (
         rowData.length > 0 &&
-        rowData.every((row) => selectedFiles.includes(row.fileName))
+        rowData.every((row) => selectedFiles.includes(row.clientFileName))
       );
     }, [rowData, selectedFiles]);
 
     const someSelected = useMemo(() => {
       return (
         !allSelected &&
-        rowData.some((row) => selectedFiles.includes(row.fileName))
+        rowData.some((row) => selectedFiles.includes(row.clientFileName))
       );
     }, [allSelected, rowData, selectedFiles]);
 
@@ -124,8 +124,8 @@ export const DownloadGrid = memo(
         setSelectAll(checked);
         if (checked) {
           rowData?.forEach((row) => {
-            if (!selectedFiles.includes(row.fileName)) {
-              onFileSelection(row.fileName, true);
+            if (!selectedFiles.includes(row.clientFileName)) {
+              onFileSelection(row.clientFileName, true);
             }
           });
         } else {
@@ -189,9 +189,9 @@ export const DownloadGrid = memo(
           <Tbody>
             {rowData.map((row) => (
               <Tr
-                key={row.fileName}
+                key={row.clientFileName}
                 className={
-                  updatedRows.has(row.fileName) ? 'highlight-update' : ''
+                  updatedRows.has(row.clientFileName) ? 'highlight-update' : ''
                 }
                 _hover={{
                   backgroundColor:
@@ -200,15 +200,15 @@ export const DownloadGrid = memo(
               >
                 <Td {...styles.cell}>
                   <Checkbox
-                    isChecked={selectedFiles.includes(row.fileName)}
+                    isChecked={selectedFiles.includes(row.clientFileName)}
                     borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
                     padding={2}
                     onChange={(e) =>
-                      onFileSelection(row.fileName, e.target.checked)
+                      onFileSelection(row.clientFileName, e.target.checked)
                     }
                   />
                 </Td>
-                <Td {...styles.cell}>{row.fileName}</Td>
+                <Td {...styles.cell}>{row.clientFileName}</Td>
                 <Td {...styles.cell}>{row.timeRange}</Td>
                 <Td {...styles.cell} isNumeric>
                   {(row.size / 1024).toFixed(2)} KB
@@ -244,7 +244,7 @@ export const DownloadGrid = memo(
                       isDisabled={
                         row.status !== 'ready' && row.status !== 'completed'
                       }
-                      onClick={() => onFileDownload(row.fileName)}
+                      onClick={() => onFileDownload(row.clientFileName)}
                     />
                   </Flex>
                 </Td>

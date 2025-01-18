@@ -20,6 +20,10 @@ export interface BaseProgressMessage {
   totalRows: number;
   processingSpeed: number;
   estimatedTimeRemaining: number;
+  clientFileName: string;
+  searchParams: DownloadSearchParams;
+  size: number;
+  speed: number;
 }
 
 // For file generation progress updates
@@ -60,10 +64,9 @@ export const isProgressMessage = (
 };
 
 export interface FileData {
-  fileName: string;
+  clientFileName: string;
   lastModified: string;
   downloadId: string;
-  clientFileName: string;
   status: DownloadStatus;
   progress: number;
   message: string;

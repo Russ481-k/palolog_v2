@@ -6,6 +6,7 @@ interface StatusDisplay {
 }
 
 export const statusDisplayMap = new Map([
+  ['progress', { text: 'progress', color: 'purple' }],
   ['completed', { text: 'completed', color: 'green' }],
   ['downloading', { text: 'downloading', color: 'blue' }],
   ['failed', { text: 'failed', color: 'red' }],

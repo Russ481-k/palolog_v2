@@ -79,7 +79,18 @@ io.on('connection', (socket) => {
     // Cleanup any active downloads for this socket
     if (socket.data.downloadId) {
       try {
-        await downloadManager.cleanup(socket.data.downloadId);
+        // 다운로드 매니저에서 다운로드 취소
+        downloadManager.cancelDownload(socket.data.downloadId);
+
+        // 청크 매니저에서 파일 정리
+        const manager = downloadChunkManager.getManager(socket.data.downloadId);
+        if (manager) {
+          await manager.cleanup();
+          console.log('[Socket.IO] Cleaned up download files:', {
+            downloadId: socket.data.downloadId,
+            timestamp: new Date().toISOString(),
+          });
+        }
       } catch (error) {
         console.error('[Socket.IO] Failed to cleanup download:', {
           error: error instanceof Error ? error.message : String(error),

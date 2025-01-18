@@ -47,17 +47,17 @@ export const useDownloadState = ({
   const updateFileStatuses = useCallback(
     (update: FileStatus) => {
       console.log('[useDownloadState] Updating file status:', {
-        fileName: update.fileName,
-        currentStatus: state.fileStatuses[update.fileName]?.status,
+        downloadId: update.downloadId,
+        clientFileName: update.clientFileName,
+        currentStatus: state.fileStatuses[update.downloadId]?.status,
         newStatus: update.status,
         update,
       });
 
-      const displayFileName = update.clientFileName || update.fileName;
-
-      if (!state.fileStatuses[update.fileName]) {
+      if (!state.fileStatuses[update.downloadId]) {
         console.log('[useDownloadState] Creating new file:', {
-          fileName: displayFileName,
+          downloadId: update.downloadId,
+          clientFileName: update.clientFileName,
           initialState: update,
         });
 
@@ -65,10 +65,10 @@ export const useDownloadState = ({
           ...prev,
           fileStatuses: {
             ...prev.fileStatuses,
-            [update.fileName]: {
+            [update.downloadId]: {
               clientFileName: update.clientFileName || update.fileName,
               fileName: update.fileName,
-              downloadId: update.downloadId || prev.downloadId, // 기본값 제공
+              downloadId: update.downloadId,
               status: update.status || 'generating',
               progress: update.progress || 0,
               message: update.message || 'Initializing...',
@@ -89,17 +89,15 @@ export const useDownloadState = ({
         return;
       }
 
-      // For existing files, v
-
       if (
         update.status &&
-        state.fileStatuses[update.fileName]?.status !== update.status
+        state.fileStatuses[update.downloadId]?.status !== update.status
       ) {
         const currentStatus =
-          state.fileStatuses[update.fileName]?.status || 'generating';
+          state.fileStatuses[update.downloadId]?.status || 'generating';
         const allowedTransitions = validTransitions[currentStatus];
         console.log('[useDownloadState] Validating status transition:', {
-          fileName: update.fileName,
+          downloadId: update.downloadId,
           from: currentStatus,
           to: update.status,
           allowed: allowedTransitions,
@@ -107,49 +105,48 @@ export const useDownloadState = ({
 
         if (!allowedTransitions.includes(update.status)) {
           console.warn(
-            `[useDownloadState] Invalid status transition from ${state.fileStatuses[update.fileName]?.status} to ${update.status}`
+            `[useDownloadState] Invalid status transition from ${state.fileStatuses[update.downloadId]?.status} to ${update.status}`
           );
           return;
         }
       }
 
       const updatedFile: FileStatus = {
-        ...state.fileStatuses[update.fileName],
+        ...state.fileStatuses[update.downloadId],
         clientFileName: update.clientFileName || update.fileName,
         fileName: update.fileName,
-        downloadId:
-          update.downloadId ||
-          state.fileStatuses[update.fileName]?.downloadId ||
-          '',
+        downloadId: update.downloadId,
         status:
           update.status ||
-          state.fileStatuses[update.fileName]?.status ||
+          state.fileStatuses[update.downloadId]?.status ||
           'generating',
         progress:
-          update.progress ?? state.fileStatuses[update.fileName]?.progress ?? 0,
+          update.progress ??
+          state.fileStatuses[update.downloadId]?.progress ??
+          0,
         message:
           update.message ??
-          state.fileStatuses[update.fileName]?.message ??
+          state.fileStatuses[update.downloadId]?.message ??
           'Initializing...',
-        size: update.size ?? state.fileStatuses[update.fileName]?.size ?? 0,
+        size: update.size ?? state.fileStatuses[update.downloadId]?.size ?? 0,
         processedRows:
           update.processedRows ??
-          state.fileStatuses[update.fileName]?.processedRows ??
+          state.fileStatuses[update.downloadId]?.processedRows ??
           0,
         totalRows:
           update.totalRows ??
-          state.fileStatuses[update.fileName]?.totalRows ??
+          state.fileStatuses[update.downloadId]?.totalRows ??
           0,
         processingSpeed:
           update.processingSpeed ??
-          state.fileStatuses[update.fileName]?.processingSpeed ??
+          state.fileStatuses[update.downloadId]?.processingSpeed ??
           0,
         estimatedTimeRemaining:
           update.estimatedTimeRemaining ??
-          state.fileStatuses[update.fileName]?.estimatedTimeRemaining ??
+          state.fileStatuses[update.downloadId]?.estimatedTimeRemaining ??
           0,
         searchParams: update.searchParams ??
-          state.fileStatuses[update.fileName]?.searchParams ?? {
+          state.fileStatuses[update.downloadId]?.searchParams ?? {
             menu: 'TRAFFIC',
             timeFrom: '',
             timeTo: '',
@@ -158,8 +155,9 @@ export const useDownloadState = ({
       };
 
       console.log('[useDownloadState] Updated file status:', {
-        fileName: update.fileName,
-        before: state.fileStatuses[update.fileName]?.status,
+        downloadId: update.downloadId,
+        clientFileName: updatedFile.clientFileName,
+        before: state.fileStatuses[update.downloadId]?.status,
         after: updatedFile.status,
         progress: updatedFile.progress,
         message: updatedFile.message,
@@ -169,19 +167,19 @@ export const useDownloadState = ({
         ...prev,
         fileStatuses: {
           ...prev.fileStatuses,
-          [update.fileName]: updatedFile,
+          [update.downloadId]: updatedFile,
         },
       }));
     },
     [state.fileStatuses]
   );
 
-  const handleFileSelection = (fileName: string, selected: boolean) => {
+  const handleFileSelection = (downloadId: string, selected: boolean) => {
     setState((prev) => ({
       ...prev,
       selectedFiles: selected
-        ? [...prev.selectedFiles, fileName]
-        : prev.selectedFiles.filter((f) => f !== fileName),
+        ? [...prev.selectedFiles, downloadId]
+        : prev.selectedFiles.filter((id) => id !== downloadId),
     }));
   };
 
@@ -211,23 +209,24 @@ export const useDownloadState = ({
   };
 
   const handleDownload = useCallback(
-    async (fileName: string) => {
-      const fileStatus = state.fileStatuses[fileName];
+    async (downloadId: string) => {
+      const fileStatus = state.fileStatuses[downloadId];
       if (!fileStatus) {
-        console.error('[useDownloadState] File not found:', fileName);
+        console.error('[useDownloadState] File not found:', downloadId);
         return;
       }
 
       try {
         const result = await downloadFile.mutateAsync({
-          fileName,
-          downloadId: state.downloadId,
+          fileName: fileStatus.fileName,
+          downloadId: fileStatus.downloadId,
         });
 
         if (result.filePath) {
           updateFileStatuses({
-            fileName,
-            downloadId: state.downloadId,
+            fileName: fileStatus.fileName,
+            downloadId: fileStatus.downloadId,
+            clientFileName: fileStatus.clientFileName,
             status: 'downloading',
             message: 'Starting download...',
             size: 0,
@@ -247,8 +246,9 @@ export const useDownloadState = ({
       } catch (error) {
         console.error('[useDownloadState] Download error:', error);
         updateFileStatuses({
-          fileName,
-          downloadId: state.downloadId,
+          fileName: fileStatus.fileName,
+          downloadId: fileStatus.downloadId,
+          clientFileName: fileStatus.clientFileName,
           status: 'failed',
           message: error instanceof Error ? error.message : 'Download failed',
           size: 0,
@@ -266,13 +266,7 @@ export const useDownloadState = ({
         });
       }
     },
-    [
-      state.fileStatuses,
-      state.downloadId,
-      downloadFile,
-      updateFileStatuses,
-      state.searchParams,
-    ]
+    [state.fileStatuses, downloadFile, updateFileStatuses, state.searchParams]
   );
 
   return {

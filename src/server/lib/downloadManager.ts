@@ -57,63 +57,14 @@ export class DownloadManager {
   ): Promise<{ servedDownloadId: string; files: DownloadFile[] }> {
     try {
       // Get actual count from OpenSearch
-      const client = OpenSearchClient.getInstance();
-      const timeFrom = dayjs(searchParams.timeFrom).tz('Asia/Seoul').format();
-      const timeTo = dayjs(searchParams.timeTo).tz('Asia/Seoul').format();
-
-      const countQuery = {
-        track_total_hits: true,
-        query: {
-          bool: {
-            must: [
-              {
-                range: {
-                  '@timestamp': {
-                    gte: timeFrom,
-                    lte: timeTo,
-                    format: 'strict_date_time',
-                    time_zone: '+09:00',
-                  },
-                },
-              },
-              {
-                match: {
-                  logType: searchParams.menu,
-                },
-              },
-              {
-                exists: {
-                  field: 'message',
-                },
-              },
-            ],
-          },
-        },
-        _source: false,
-        size: 0,
-      };
-
-      const response = await client.request<{
-        hits: {
-          total: {
-            value: number;
-            relation?: string;
-          };
-        };
-      }>({
-        path: '/_search',
-        method: 'POST',
-        body: countQuery,
-      });
-
-      const actualCount = response.hits?.total?.value || 0;
+      const actualCount = await this.getActualCount(searchParams);
 
       // Calculate number of chunks based on total rows
       const CHUNK_SIZE = 500000;
       const numChunks = Math.ceil(actualCount / CHUNK_SIZE);
       const timestamp = dayjs().format('YYYY-MM-DD_HH:mm:ss');
 
-      // Create download files
+      // Create download files with pre-generated clientFileNames
       const files: DownloadFile[] = Array.from(
         { length: numChunks },
         (_, index) => {
@@ -124,9 +75,11 @@ export class DownloadManager {
             total: numChunks,
           });
 
+          const serverFileName = `${downloadId}_${index + 1}.csv`;
+
           const file: DownloadFile = {
             downloadId,
-            fileName: `${downloadId}.csv`,
+            fileName: serverFileName,
             clientFileName,
             status: 'generating',
             progress: 0,
@@ -140,7 +93,17 @@ export class DownloadManager {
             estimatedTimeRemaining: 0,
           };
 
-          this.downloads.set(downloadId, file);
+          // Store file info in downloads map
+          this.downloads.set(serverFileName, file);
+
+          console.log('[DownloadManager] Created file:', {
+            downloadId,
+            serverFileName,
+            clientFileName,
+            totalRows: file.totalRows,
+            timestamp: new Date().toISOString(),
+          });
+
           return file;
         }
       );
@@ -151,7 +114,12 @@ export class DownloadManager {
 
       console.log('[DownloadManager] Created download:', {
         downloadId,
-        files,
+        files: files.map((f) => ({
+          fileName: f.fileName,
+          clientFileName: f.clientFileName,
+          totalRows: f.totalRows,
+        })),
+        timestamp: new Date().toISOString(),
       });
 
       // Return the first file's ID as the main download ID
@@ -338,8 +306,21 @@ export class DownloadManager {
     }
   }
 
-  getDownload(downloadId: string): DownloadFile | undefined {
-    return this.downloads.get(downloadId);
+  getDownload(fileId: string): DownloadFile | undefined {
+    const file = this.downloads.get(fileId);
+    console.log('[DownloadManager] Getting file info:', {
+      fileId,
+      found: !!file,
+      info: file
+        ? {
+            fileName: file.fileName,
+            clientFileName: file.clientFileName,
+            status: file.status,
+          }
+        : undefined,
+      timestamp: new Date().toISOString(),
+    });
+    return file;
   }
 
   initializeFiles(downloadId: string, files: DownloadFile[]): void {

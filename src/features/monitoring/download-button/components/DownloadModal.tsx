@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import {
   Box,
@@ -8,17 +8,21 @@ import {
   ModalBody,
   ModalCloseButton,
   ModalContent,
+  ModalFooter,
   ModalHeader,
   ModalOverlay,
   Text,
   VStack,
 } from '@chakra-ui/react';
+import { ICellRendererParams } from 'ag-grid-community';
+import { AgGridReact } from 'ag-grid-react';
 
 import type { DownloadStatus } from '@/types/download';
 
 import type { FileData, FileStatuses } from '../types';
 import { DownloadGrid } from './DownloadGrid';
 import { DownloadProgress } from './DownloadProgress';
+import { DownloadStatus as DownloadStatusComponent } from './DownloadStatus';
 
 interface DownloadModalProps {
   isOpen: boolean;
@@ -43,6 +47,17 @@ interface DownloadModalProps {
   gridTheme: string;
 }
 
+interface GridRowData {
+  id: string;
+  fileName: string;
+  status: DownloadStatus;
+  progress: number;
+  processedRows: number;
+  totalRows: number;
+  message: string;
+  selected: boolean;
+}
+
 export const DownloadModal = ({
   isOpen,
   onClose,
@@ -56,9 +71,10 @@ export const DownloadModal = ({
 }: DownloadModalProps) => {
   // Track fileStatuses changes
   useEffect(() => {
-    Object.entries(fileStatuses)?.forEach(([fileName, status]) => {
+    Object.entries(fileStatuses)?.forEach(([downloadId, status]) => {
       console.log('[DownloadModal] File status update:', {
-        fileName,
+        downloadId,
+        clientFileName: status.clientFileName,
         status: status.status,
         progress: status.progress,
         message: status.message,
@@ -67,12 +83,34 @@ export const DownloadModal = ({
     });
   }, [fileStatuses]);
 
+  // Handle modal close
+  const handleModalClose = useCallback(() => {
+    // 모달이 닫힐 때 cleanup 실행
+    console.log('[DownloadModal] Modal closing, cleaning up...');
+    onClose();
+  }, [onClose]);
+
+  // Handle browser close/refresh
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (isOpen) {
+        event.preventDefault();
+        event.returnValue = '';
+        handleModalClose();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isOpen, handleModalClose]);
+
   // Memoize rowData to prevent unnecessary re-renders
   const rowData: FileData[] = useMemo(() => {
     return Object.entries(fileStatuses).map(([name, status]) => ({
       downloadId: status.downloadId,
       clientFileName: status.clientFileName || '',
-      fileName: name,
       lastModified: new Date().toISOString(),
       selected: selectedFiles.includes(name),
       timeRange: `${status.searchParams?.timeFrom || ''} ~ ${status.searchParams?.timeTo || ''}`,
@@ -91,8 +129,8 @@ export const DownloadModal = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      size="xl"
+      onClose={handleModalClose}
+      size="6xl"
       closeOnOverlayClick={false}
     >
       <ModalOverlay />

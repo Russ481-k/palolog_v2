@@ -1,4 +1,4 @@
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, useCallback, useEffect } from 'react';
 
 import { Box, Button, Spinner, useColorMode } from '@chakra-ui/react';
 import { FaDownload } from 'react-icons/fa';
@@ -28,7 +28,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       updateFileStatuses,
       handleError,
       handleModalClose,
-      handleDownload,
     } = useDownloadState({
       onCleanup: (id) => cleanup.mutateAsync({ downloadId: id }),
       onCancel: (id) => cancelDownload.mutate({ downloadId: id }),
@@ -42,16 +41,16 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         const fileStatus: FileStatus = {
           fileName: message.fileName,
           downloadId: message.downloadId,
+          clientFileName: message.clientFileName,
           status: message.status,
           progress: message.progress,
-          message: message.message,
+          message: message.message || '',
           processedRows: message.processedRows,
           totalRows: message.totalRows,
-          processingSpeed: message.processingSpeed,
-          estimatedTimeRemaining: message.estimatedTimeRemaining,
+          processingSpeed: message.speed || 0,
+          estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
           size: 0,
           searchParams: searchParams,
-          clientFileName: state.fileStatuses[message.fileName]?.clientFileName,
         };
         console.log('[DownloadButton] File status update:', fileStatus);
 
@@ -96,6 +95,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     const {
       connect,
       startDownload: startWebSocketDownload,
+      disconnect,
       isConnecting: isConnectingWs,
     } = useWebSocketConnection({
       downloadId: state.downloadId,
@@ -133,7 +133,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
 
     const cancelDownload = trpc.download.cancelDownload.useMutation();
     const cleanup = trpc.download.cleanup.useMutation();
-
     const startDownloadMutation = trpc.download.startDownload.useMutation({
       onSuccess: async (result) => {
         console.log('[DownloadButton] Download mutation successful:', {
@@ -192,6 +191,46 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       },
     });
 
+    const handleClose = useCallback(() => {
+      console.log('[DownloadButton] Modal closing, cleaning up...');
+
+      // 웹소켓 연결 종료
+      disconnect();
+
+      // 서버에 cleanup 요청
+      if (state.downloadId) {
+        cleanup.mutateAsync({ downloadId: state.downloadId }).catch((error) => {
+          console.error('[DownloadButton] Failed to cleanup:', {
+            error: error instanceof Error ? error.message : String(error),
+            downloadId: state.downloadId,
+            timestamp: new Date().toISOString(),
+          });
+        });
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isOpen: false,
+        isConnecting: false,
+        isConnectionReady: false,
+      }));
+      handleModalClose();
+    }, [state.downloadId, disconnect, cleanup, setState, handleModalClose]);
+
+    // Handle browser close/refresh
+    useEffect(() => {
+      const handleBeforeUnload = () => {
+        if (state.downloadId) {
+          handleModalClose();
+        }
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }, [state.downloadId, handleModalClose]);
+
     const handleDownloadClick = useCallback(async () => {
       try {
         setState((prev) => ({
@@ -231,8 +270,8 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     ]);
 
     const handleFileDownload = useCallback(
-      (fileName: string) => {
-        const fileStatus = state.fileStatuses[fileName];
+      (downloadId: string) => {
+        const fileStatus = state.fileStatuses[downloadId];
         if (!fileStatus || fileStatus.status !== 'ready') return;
 
         downloadFile.mutate({
@@ -244,22 +283,22 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     );
 
     const handleFileSelection = useCallback(
-      (fileName: string, selected: boolean) => {
+      (downloadId: string, selected: boolean) => {
         setState((prev) => ({
           ...prev,
           selectedFiles: selected
-            ? [...prev.selectedFiles, fileName]
-            : prev.selectedFiles.filter((f) => f !== fileName),
+            ? [...prev.selectedFiles, downloadId]
+            : prev.selectedFiles.filter((id) => id !== downloadId),
         }));
       },
       [setState]
     );
 
     const handleDownloadSelected = useCallback(() => {
-      state.selectedFiles?.forEach((fileName) => {
-        const fileStatus = state.fileStatuses[fileName];
+      state.selectedFiles?.forEach((downloadId) => {
+        const fileStatus = state.fileStatuses[downloadId];
         if (fileStatus?.status === 'ready') {
-          handleFileDownload(fileName);
+          handleFileDownload(downloadId);
         }
       });
     }, [state.selectedFiles, state.fileStatuses, handleFileDownload]);
@@ -290,7 +329,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         </Button>
         <DownloadModal
           isOpen={state.isOpen}
-          onClose={handleModalClose}
+          onClose={handleClose}
           totalProgress={state.totalProgress}
           fileStatuses={state.fileStatuses}
           selectedFiles={state.selectedFiles}

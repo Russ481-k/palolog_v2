@@ -64,21 +64,21 @@ export const DownloadProgress = memo(
     const colorScheme = useMemo(() => {
       const scheme = {
         light: {
-          progress: 'gray',
+          progress: 'purple',
           completed: 'green',
           failed: 'red',
           paused: 'orange',
-          generating: 'purple',
+          generating: 'gray',
           downloading: 'blue',
           ready: 'teal',
           pending: 'gray',
         },
         dark: {
-          progress: 'gray',
+          progress: 'purple',
           completed: 'green',
           failed: 'red',
           paused: 'orange',
-          generating: 'purple',
+          generating: 'gray',
           downloading: 'blue',
           ready: 'teal',
           pending: 'gray',
@@ -105,7 +105,8 @@ export const DownloadProgress = memo(
               colorScheme={colorScheme}
               isIndeterminate={status === 'generating' || status === 'ready'}
               borderRadius="md"
-              transition="all 0.2s"
+              transition="all 0.5s ease-in-out"
+              transitionTimingFunction="ease-in-out"
               bg={colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.100'}
             />
           </Tooltip>

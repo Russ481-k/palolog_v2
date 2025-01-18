@@ -94,12 +94,22 @@ class DownloadChunkManager {
       for (let i = 0; i < numChunks; i++) {
         const startRow = i * CHUNK_SIZE;
         const chunkSize = Math.min(CHUNK_SIZE, totalCount - startRow);
-        const clientFileName = `${this.searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_${i + 1}of${numChunks}.csv`;
         const serverFileName = `${this.downloadId}_${i + 1}.csv`;
+
+        // Get the file info from downloadManager
+        const fileInfo = downloadManager.getDownload(serverFileName);
+        if (!fileInfo) {
+          console.error('[DownloadChunkManager] File info not found:', {
+            downloadId: this.downloadId,
+            serverFileName,
+            timestamp: new Date().toISOString(),
+          });
+          throw new Error(`File information not found for ${serverFileName}`);
+        }
 
         this.chunks.set(serverFileName, {
           fileName: serverFileName,
-          clientFileName,
+          clientFileName: fileInfo.clientFileName,
           downloadId: this.downloadId,
           progress: 0,
           status: 'generating',
@@ -118,7 +128,7 @@ class DownloadChunkManager {
           {
             downloadId: this.downloadId,
             fileName: serverFileName,
-            clientFileName,
+            clientFileName: fileInfo.clientFileName,
             status: 'generating',
             startRow,
             chunkSize,
@@ -134,7 +144,12 @@ class DownloadChunkManager {
         });
       }
     } catch (error) {
-      console.error('[DownloadChunkManager] Error creating chunks:', error);
+      console.error('[DownloadChunkManager] Error creating chunks:', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        downloadId: this.downloadId,
+        timestamp: new Date().toISOString(),
+      });
       throw error;
     }
   }
@@ -464,22 +479,28 @@ class DownloadChunkManager {
       type: 'progress_update',
       downloadId: this.downloadId,
       fileName: chunk.fileName,
+      clientFileName: chunk.clientFileName,
       processedRows: chunk.processedRows,
       totalRows: chunk.totalRows,
       progress: chunk.progress,
       speed: chunk.processingSpeed,
       estimatedTimeRemaining: chunk.estimatedTimeRemaining,
+      status: chunk.status,
+      message: chunk.message,
       timestamp: new Date().toISOString(),
     });
 
     console.log('[DownloadChunkManager] Emitting progress_update event:', {
       downloadId: this.downloadId,
       fileName: chunk.fileName,
+      clientFileName: chunk.clientFileName,
       processedRows: chunk.processedRows,
       totalRows: chunk.totalRows,
       progress: chunk.progress,
       speed: chunk.processingSpeed,
       estimatedTimeRemaining: chunk.estimatedTimeRemaining,
+      status: chunk.status,
+      message: chunk.message,
       timestamp: new Date().toISOString(),
     });
   }

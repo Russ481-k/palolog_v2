@@ -125,4 +125,6 @@ export interface WebSocketMessage {
   totalRows: number;
   message?: string;
   timestamp: string;
+  speed?: number;
+  estimatedTimeRemaining?: number;
 }
