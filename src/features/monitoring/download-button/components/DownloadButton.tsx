@@ -125,44 +125,12 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     });
 
     const downloadFileMutation = trpc.download.downloadFile.useMutation({
-      onSuccess: async ({ downloadId, fileName }) => {
-        try {
-          console.log('[DownloadButton] Starting file download:', {
-            downloadId,
-            fileName,
-            timestamp: new Date().toISOString(),
-          });
-
-          const response = await fetch(`/api/download?file=${fileName}`);
-          if (!response.ok) {
-            throw new Error('Download failed');
-          }
-
-          // Create a blob from the response
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName || '';
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-
-          console.log('[DownloadButton] File download completed:', {
-            downloadId,
-            fileName,
-            timestamp: new Date().toISOString(),
-          });
-        } catch (error) {
-          console.error('[DownloadButton] File download failed:', {
-            error: error instanceof Error ? error.message : String(error),
-            downloadId,
-            fileName,
-            timestamp: new Date().toISOString(),
-          });
-          handleError(new Error('Failed to download file'));
-        }
+      onSuccess: ({ downloadId, fileName }) => {
+        console.log('[DownloadButton] Download mutation successful:', {
+          downloadId,
+          fileName,
+          timestamp: new Date().toISOString(),
+        });
       },
       onError: (error) => {
         console.error('[DownloadButton] Download file mutation failed:', {
@@ -173,65 +141,67 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       },
     });
 
-    const handleFileDownload = useCallback(
-      (clientFileName: string) => {
-        if (!state.downloadId) {
-          console.error('[DownloadButton] No download ID available');
-          return;
-        }
+    const handleFileDownload = async (fileName: string) => {
+      const fileStatus = Object.values(state.fileStatuses).find(
+        (status) => status.clientFileName === fileName
+      );
 
-        // Check if the download is still active
-        if (!state.isConnectionReady) {
-          console.error('[DownloadButton] WebSocket connection is not ready:', {
-            clientFileName,
-            downloadId: state.downloadId,
-            timestamp: new Date().toISOString(),
-          });
-          handleError(
-            new Error(
-              'Download connection is not ready. Please try starting the download again.'
-            )
-          );
-          return;
-        }
+      if (!fileStatus?.clientFileName || !fileStatus?.fileName) {
+        console.error('[DownloadButton] Required file information not found:', {
+          fileName,
+          availableFiles: Object.keys(state.fileStatuses),
+        });
+        return;
+      }
 
-        // Find the file status by clientFileName
-        const fileStatus = Object.values(state.fileStatuses).find(
-          (status) => status.clientFileName === clientFileName
-        );
-
-        if (!fileStatus?.fileName || fileStatus.status !== 'ready') {
-          console.error('[DownloadButton] File not ready for download:', {
-            clientFileName,
-            status: fileStatus?.status,
-            fileName: fileStatus?.fileName,
-            timestamp: new Date().toISOString(),
-          });
-          return;
-        }
-
-        console.log('[DownloadButton] Initiating download:', {
-          clientFileName: fileStatus.clientFileName,
-          serverFileName: fileStatus.fileName,
+      if (fileStatus.status !== 'ready' && fileStatus.status !== 'completed') {
+        console.warn('[DownloadButton] File not ready for download:', {
+          fileName,
           status: fileStatus.status,
-          isConnectionReady: state.isConnectionReady,
+        });
+        return;
+      }
+
+      try {
+        const result = await downloadFileMutation.mutateAsync({
+          fileName: fileStatus.fileName,
+          downloadId: fileStatus.downloadId,
+        });
+
+        console.log('[DownloadButton] Starting file download:', {
+          serverFileName: result.fileName,
+          clientFileName: fileStatus.clientFileName,
+          status: result.status,
+        });
+
+        const response = await fetch(`/api/download?file=${result.fileName}`);
+        if (!response.ok) {
+          throw new Error('Download failed');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileStatus.clientFileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        console.log('[DownloadButton] File download completed:', {
+          serverFileName: result.fileName,
+          clientFileName: fileStatus.clientFileName,
           timestamp: new Date().toISOString(),
         });
-
-        // Use the server file name (e.g., "downloadId_1.csv") for the download request
-        downloadFileMutation.mutate({
-          fileName: fileStatus.fileName,
-          downloadId: state.downloadId,
+      } catch (error) {
+        console.error('[DownloadButton] Download failed:', {
+          fileName,
+          error: error instanceof Error ? error.message : String(error),
         });
-      },
-      [
-        state.downloadId,
-        state.fileStatuses,
-        state.isConnectionReady,
-        downloadFileMutation,
-        handleError,
-      ]
-    );
+        handleError(new Error('Failed to download file'));
+      }
+    };
 
     const cancelDownload = trpc.download.cancelDownload.useMutation();
     const cleanup = trpc.download.cleanup.useMutation();

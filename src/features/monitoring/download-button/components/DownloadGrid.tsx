@@ -25,7 +25,7 @@ interface DownloadGridProps {
   rowData: FileData[];
   selectedFiles: string[];
   onFileSelection: (fileName: string, selected: boolean) => void;
-  onFileDownload: (fileName: string) => void;
+  onFileDownload: (fileName: string, useClientFileName?: boolean) => void;
   gridTheme: string;
   isLoading?: boolean;
 }
@@ -285,6 +285,7 @@ export const DownloadGrid = memo(
                             row.status !== 'ready' && row.status !== 'completed'
                           }
                           onClick={() => onFileDownload(row.fileName)}
+                          title="Download file"
                         />
                       </Flex>
                     </Td>

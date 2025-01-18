@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { downloadChunkManager } from '../lib/downloadChunkManager';
 import { TotalProgress, downloadManager } from '../lib/downloadManager';
-import { protectedProcedure, router } from '../trpc';
+import { protectedProcedure, publicProcedure, router } from '../trpc';
 
 const searchParamsSchema = z
   .object({
@@ -110,82 +110,67 @@ export const downloadRouter = router({
       };
     }),
 
-  downloadFile: protectedProcedure
+  downloadFile: publicProcedure
     .input(
       z.object({
         fileName: z.string(),
         downloadId: z.string(),
+        useClientFileName: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const { downloadId, fileName } = input;
-
-      console.log('[Download Router] Attempting to download file:', {
-        downloadId,
+      const { fileName, downloadId, useClientFileName = false } = input;
+      console.log('[Download Router] Download request:', {
         fileName,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Get all active managers for debugging
-      const activeManagers = downloadChunkManager.getActiveManagers();
-      console.log('[Download Router] Active download managers:', {
         downloadId,
-        activeManagers: activeManagers.map((m) => ({
-          id: m.downloadId,
-          files: m.getProgress().map((p) => p.fileName),
-        })),
+        useClientFileName,
         timestamp: new Date().toISOString(),
       });
 
-      // Get the manager for this download
       const manager = downloadChunkManager.getManager(downloadId);
       if (!manager) {
-        console.log('[Download Router] Download manager not found:', {
+        console.error('[Download Router] Download manager not found:', {
           downloadId,
           fileName,
-          activeManagerIds: activeManagers.map((m) => m.downloadId),
           timestamp: new Date().toISOString(),
         });
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message:
-            'Download manager not found. Please try starting the download again.',
+          message: 'Download manager not found',
         });
       }
 
-      // Get the chunk progress
       const chunk = manager.getChunk(fileName);
       if (!chunk) {
-        console.log('[Download Router] Chunk not found:', {
+        console.error('[Download Router] File not found:', {
           downloadId,
           fileName,
-          availableChunks: manager.getProgress().map((p) => p.fileName),
           timestamp: new Date().toISOString(),
         });
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'File not found. Please try starting the download again.',
+          message: 'File not found',
         });
       }
 
-      if (chunk.status !== 'ready') {
-        console.log('[Download Router] File not ready:', {
+      if (chunk.status !== 'ready' && chunk.status !== 'completed') {
+        console.error('[Download Router] File not ready:', {
           downloadId,
           fileName,
           status: chunk.status,
-          progress: chunk.progress,
           timestamp: new Date().toISOString(),
         });
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: `File is not ready for download. Current status: ${chunk.status}`,
+          message: 'File not ready for download',
         });
       }
 
       return {
         downloadId,
         fileName,
-        status: 'success',
+        clientFileName: useClientFileName ? chunk.clientFileName : fileName,
+        status: chunk.status,
       };
     }),
 
