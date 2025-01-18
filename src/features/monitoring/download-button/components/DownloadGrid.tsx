@@ -5,6 +5,7 @@ import {
   Checkbox,
   Flex,
   IconButton,
+  Skeleton,
   Table,
   Tbody,
   Td,
@@ -26,6 +27,7 @@ interface DownloadGridProps {
   onFileSelection: (fileName: string, selected: boolean) => void;
   onFileDownload: (fileName: string) => void;
   gridTheme: string;
+  isLoading?: boolean;
 }
 
 export const DownloadGrid = memo(
@@ -34,6 +36,8 @@ export const DownloadGrid = memo(
     selectedFiles,
     onFileSelection,
     onFileDownload,
+    gridTheme,
+    isLoading = false,
   }: DownloadGridProps) => {
     const { colorMode } = useColorMode();
     const [selectAll, setSelectAll] = useState(false);
@@ -46,7 +50,7 @@ export const DownloadGrid = memo(
 
       rowData?.forEach((row) => {
         const prevRow = prevRowDataRef.current.find(
-          (r) => r.clientFileName === row.clientFileName
+          (r) => r.fileName === row.fileName
         );
         if (
           prevRow &&
@@ -55,7 +59,7 @@ export const DownloadGrid = memo(
             prevRow.processedRows !== row.processedRows)
         ) {
           console.log('[DownloadGrid] Row updated:', {
-            clientFileName: row.clientFileName,
+            clientFileName: row.fileName,
             prevStatus: prevRow.status,
             newStatus: row.status,
             prevProgress: prevRow.progress,
@@ -63,7 +67,7 @@ export const DownloadGrid = memo(
             prevProcessedRows: prevRow.processedRows,
             newProcessedRows: row.processedRows,
           });
-          newUpdatedRows.add(row.clientFileName);
+          newUpdatedRows.add(row.fileName);
         }
       });
 
@@ -82,14 +86,14 @@ export const DownloadGrid = memo(
     const allSelected = useMemo(() => {
       return (
         rowData.length > 0 &&
-        rowData.every((row) => selectedFiles.includes(row.clientFileName))
+        rowData.every((row) => selectedFiles.includes(row.fileName))
       );
     }, [rowData, selectedFiles]);
 
     const someSelected = useMemo(() => {
       return (
         !allSelected &&
-        rowData.some((row) => selectedFiles.includes(row.clientFileName))
+        rowData.some((row) => selectedFiles.includes(row.fileName))
       );
     }, [allSelected, rowData, selectedFiles]);
 
@@ -124,8 +128,8 @@ export const DownloadGrid = memo(
         setSelectAll(checked);
         if (checked) {
           rowData?.forEach((row) => {
-            if (!selectedFiles.includes(row.clientFileName)) {
-              onFileSelection(row.clientFileName, true);
+            if (!selectedFiles.includes(row.fileName)) {
+              onFileSelection(row.fileName, true);
             }
           });
         } else {
@@ -172,13 +176,10 @@ export const DownloadGrid = memo(
               <Th {...styles.header} width="120px" isNumeric>
                 Size
               </Th>
-              <Th {...styles.header} width="200px">
-                Last Modified
-              </Th>
               <Th {...styles.header} width="140px">
                 Status
               </Th>
-              <Th {...styles.header} minWidth="220px">
+              <Th {...styles.header} minWidth="400px">
                 Progress
               </Th>
               <Th {...styles.header} width="100px">
@@ -187,69 +188,108 @@ export const DownloadGrid = memo(
             </Tr>
           </Thead>
           <Tbody>
-            {rowData.map((row) => (
-              <Tr
-                key={row.clientFileName}
-                className={
-                  updatedRows.has(row.clientFileName) ? 'highlight-update' : ''
-                }
-                _hover={{
-                  backgroundColor:
-                    colorMode === 'dark' ? 'gray.700' : 'gray.50',
-                }}
-              >
-                <Td {...styles.cell}>
-                  <Checkbox
-                    isChecked={selectedFiles.includes(row.clientFileName)}
-                    borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
-                    padding={2}
-                    onChange={(e) =>
-                      onFileSelection(row.clientFileName, e.target.checked)
+            {isLoading
+              ? [...Array(10)].map((_, index) => (
+                  <Tr
+                    key={index}
+                    _hover={{
+                      backgroundColor:
+                        colorMode === 'dark' ? 'gray.700' : 'gray.50',
+                    }}
+                  >
+                    <Td {...styles.cell}>
+                      <Flex
+                        gap={3}
+                        alignItems="center"
+                        justifyContent="center"
+                        w="100%"
+                        height={8}
+                      >
+                        <Skeleton height={3} width={3} />
+                      </Flex>
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Skeleton height={3} width="200px" />
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Skeleton height={3} width="220px" />
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Skeleton height={3} width="80px" />
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Skeleton height={4} width="100px" />
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Skeleton height={3} width="360px" />
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Skeleton height={4} width={4} />
+                    </Td>
+                  </Tr>
+                ))
+              : rowData.map((row) => (
+                  <Tr
+                    key={row.fileName}
+                    className={
+                      updatedRows.has(row.fileName) ? 'highlight-update' : ''
                     }
-                  />
-                </Td>
-                <Td {...styles.cell}>{row.clientFileName}</Td>
-                <Td {...styles.cell}>{row.timeRange}</Td>
-                <Td {...styles.cell} isNumeric>
-                  {(row.size / 1024).toFixed(2)} KB
-                </Td>
-                <Td {...styles.cell}>
-                  {dayjs(row.lastModified).format('YYYY-MM-DD HH:mm:ss')}
-                </Td>
-                <Td {...styles.cell}>
-                  <DownloadStatus status={row.status} />
-                </Td>
-                <Td {...styles.cell}>
-                  <Flex width="580px" alignItems="center">
-                    <DownloadProgress
-                      progress={row.progress}
-                      status={row.status}
-                      processedRows={row.processedRows}
-                      totalRows={row.totalRows}
-                      processingSpeed={row.processingSpeed || 0}
-                      estimatedTimeRemaining={row.estimatedTimeRemaining || 0}
-                      message={row.message || ''}
-                      size="sm"
-                    />
-                  </Flex>
-                </Td>
-                <Td {...styles.cell}>
-                  <Flex alignItems="center" justifyContent="center">
-                    <IconButton
-                      aria-label="Download"
-                      icon={<FaDownload />}
-                      size="sm"
-                      colorScheme="blue"
-                      variant="ghost"
-                      isDisabled={
-                        row.status !== 'ready' && row.status !== 'completed'
-                      }
-                      onClick={() => onFileDownload(row.clientFileName)}
-                    />
-                  </Flex>
-                </Td>
-              </Tr>
-            ))}
+                    _hover={{
+                      backgroundColor:
+                        colorMode === 'dark' ? 'gray.700' : 'gray.50',
+                    }}
+                  >
+                    <Td {...styles.cell}>
+                      <Checkbox
+                        isChecked={selectedFiles.includes(row.fileName)}
+                        borderColor={
+                          colorMode === 'dark' ? 'gray.700' : 'gray.200'
+                        }
+                        padding={2}
+                        onChange={(e) =>
+                          onFileSelection(row.fileName, e.target.checked)
+                        }
+                      />
+                    </Td>
+                    <Td {...styles.cell}>{row.fileName}</Td>
+                    <Td {...styles.cell}>{row.timeRange}</Td>
+                    <Td {...styles.cell} isNumeric>
+                      {(row.size / 1024 / 1024).toFixed(2)} MB
+                    </Td>
+                    <Td {...styles.cell}>
+                      <DownloadStatus status={row.status} />
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Flex width="100%" alignItems="center">
+                        <DownloadProgress
+                          progress={row.progress}
+                          status={row.status}
+                          processedRows={row.processedRows}
+                          totalRows={row.totalRows}
+                          processingSpeed={row.processingSpeed}
+                          estimatedTimeRemaining={row.estimatedTimeRemaining}
+                          message={row.message}
+                          size="sm"
+                        />
+                      </Flex>
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Flex alignItems="center" justifyContent="center">
+                        <IconButton
+                          aria-label="Download"
+                          icon={<FaDownload />}
+                          size="sm"
+                          colorScheme="blue"
+                          variant="ghost"
+                          isDisabled={
+                            row.status !== 'ready' && row.status !== 'completed'
+                          }
+                          onClick={() => onFileDownload(row.fileName)}
+                        />
+                      </Flex>
+                    </Td>
+                  </Tr>
+                ))}
           </Tbody>
         </Table>
       </Box>

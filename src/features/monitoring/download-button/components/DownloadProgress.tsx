@@ -1,12 +1,10 @@
-import { memo, useMemo } from 'react';
-
 import {
   Box,
+  Flex,
   HStack,
   Progress,
+  Skeleton,
   Text,
-  Tooltip,
-  VStack,
   useColorMode,
 } from '@chakra-ui/react';
 
@@ -15,142 +13,87 @@ import { DownloadStatus } from '@/types/download';
 interface DownloadProgressProps {
   progress: number;
   status: DownloadStatus;
-  processedRows?: number;
-  totalRows?: number;
-  estimatedTimeRemaining?: number;
+  processedRows: number;
+  totalRows: number;
   processingSpeed?: number;
+  estimatedTimeRemaining?: number;
   message?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
+  isLoading?: boolean;
 }
 
-export const DownloadProgress = memo(
-  ({
-    progress,
-    status,
-    processedRows,
-    totalRows,
-    estimatedTimeRemaining,
-    processingSpeed,
-    message,
-    size = 'md',
-  }: DownloadProgressProps) => {
-    const { colorMode } = useColorMode();
-    const spacing = size === 'sm' ? 1 : 2;
-    const fontSize = size === 'sm' ? 'xs' : 'sm';
+const getColorScheme = (status: DownloadStatus): string => {
+  switch (status) {
+    case 'completed':
+      return 'green';
+    case 'failed':
+      return 'red';
+    case 'downloading':
+      return 'blue';
+    case 'ready':
+      return 'teal';
+    case 'generating':
+      return 'purple';
+    case 'progress':
+      return 'purple';
+    default:
+      return 'gray';
+  }
+};
 
-    // Memoize formatted values
-    const formattedValues = useMemo(() => {
-      const speed = processingSpeed
-        ? processingSpeed > 1000
-          ? `${(processingSpeed / 1000).toFixed(1)}k rows/s`
-          : `${Math.round(processingSpeed)} rows/s`
-        : null;
+export const DownloadProgress = ({
+  progress,
+  status,
+  processedRows,
+  totalRows,
+  processingSpeed = 0,
+  estimatedTimeRemaining = 0,
+  message,
+  size = 'md',
+  isLoading = false,
+}: DownloadProgressProps) => {
+  const { colorMode } = useColorMode();
+  const colorScheme = getColorScheme(status);
+  const progressHeight =
+    size === 'sm' ? '8px' : size === 'lg' ? '16px' : '12px';
+  const textHeight = '20px'; // Height of the text container
 
-      const time = estimatedTimeRemaining
-        ? estimatedTimeRemaining < 60
-          ? `${Math.round(estimatedTimeRemaining)}s`
-          : `${Math.floor(estimatedTimeRemaining / 60)}m ${Math.round(estimatedTimeRemaining % 60)}s`
-        : null;
-
-      const rows =
-        processedRows !== undefined && totalRows !== undefined
-          ? `${processedRows.toLocaleString()} / ${totalRows.toLocaleString()}`
-          : null;
-
-      return { speed, time, rows };
-    }, [processingSpeed, estimatedTimeRemaining, processedRows, totalRows]);
-
-    // Memoize progress bar color scheme
-    const colorScheme = useMemo(() => {
-      const scheme = {
-        light: {
-          progress: 'purple',
-          completed: 'green',
-          failed: 'red',
-          paused: 'orange',
-          generating: 'gray',
-          downloading: 'blue',
-          ready: 'teal',
-          pending: 'gray',
-        },
-        dark: {
-          progress: 'purple',
-          completed: 'green',
-          failed: 'red',
-          paused: 'orange',
-          generating: 'gray',
-          downloading: 'blue',
-          ready: 'teal',
-          pending: 'gray',
-        },
-      };
-      return colorMode === 'dark' ? scheme.dark[status] : scheme.light[status];
-    }, [colorMode, status]);
-
-    // Reset progress when transitioning from generating to ready
-    const displayProgress = status === 'ready' ? 0 : progress;
-
+  if (isLoading) {
     return (
-      <VStack spacing={spacing} align="stretch" width="100%" flex="1">
-        <Box pt={2}>
-          <Tooltip
-            label={message || status}
-            isDisabled={!message && status === 'completed'}
-            placement="top"
-            hasArrow
-          >
-            <Progress
-              value={displayProgress}
-              size={size}
-              colorScheme={colorScheme}
-              isIndeterminate={status === 'generating' || status === 'ready'}
-              borderRadius="md"
-              transition="all 0.5s ease-in-out"
-              transitionTimingFunction="ease-in-out"
-              bg={colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.100'}
-            />
-          </Tooltip>
-        </Box>
-        <HStack
-          height="18px"
-          justify="space-between"
-          fontSize={fontSize}
-          color={colorMode === 'dark' ? 'gray.300' : 'gray.600'}
-          spacing={2}
-        >
-          <Text>
-            {status === 'generating'
-              ? 'Generating...'
-              : status === 'ready'
-                ? 'Ready'
-                : `${Math.round(displayProgress)}%`}
-          </Text>
-          {formattedValues.rows && (
-            <Tooltip label="Processed / Total Rows" hasArrow>
-              <Text>{formattedValues.rows}</Text>
-            </Tooltip>
-          )}
-          {formattedValues.speed && status !== 'ready' && (
-            <Tooltip label="Processing Speed" hasArrow>
-              <Text>{formattedValues.speed}</Text>
-            </Tooltip>
-          )}
-          {formattedValues.time && status !== 'ready' && (
-            <Tooltip label="Estimated Time Remaining" hasArrow>
-              <Text>{formattedValues.time}</Text>
-            </Tooltip>
-          )}
-          {message && (
-            <Tooltip label={message} hasArrow>
-              <Text noOfLines={1} maxW="200px">
-                {message}
-              </Text>
-            </Tooltip>
-          )}
-        </HStack>
-      </VStack>
+      <Box width="100%" height={`calc(${progressHeight} + ${textHeight})`}>
+        <Skeleton height={progressHeight} mb={1} borderRadius="full" />
+      </Box>
     );
   }
-);
 
-DownloadProgress.displayName = 'DownloadProgress';
+  return (
+    <Box width="100%">
+      <Progress
+        value={progress}
+        size={size}
+        colorScheme={colorScheme}
+        borderRadius="full"
+        backgroundColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
+        mb={1}
+        transition="width 0.3s ease-in-out"
+        sx={{
+          '& > div:first-of-type': {
+            transition: 'width 0.3s ease-in-out',
+          },
+        }}
+        hasStripe={status === 'downloading' || status === 'generating'}
+        isAnimated={status === 'downloading' || status === 'generating'}
+      />
+      <Flex fontSize="xs" color="gray.500" justifyContent="space-between">
+        <Text fontWeight="medium">{progress.toFixed(1)}%</Text>
+        <HStack spacing={2} gap={2} divider={<Text color="gray.400">•</Text>}>
+          <Text>{processingSpeed.toFixed(1)} rows/s</Text>
+          <Text>{estimatedTimeRemaining.toFixed(1)}s remaining</Text>
+        </HStack>
+        <Text fontWeight="medium">
+          {processedRows.toLocaleString()} / {totalRows.toLocaleString()} rows
+        </Text>
+      </Flex>
+    </Box>
+  );
+};

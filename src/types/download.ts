@@ -5,6 +5,7 @@ export interface OpenSearchSource {
 }
 
 export type DownloadStatus =
+  | 'pending'
   | 'progress'
   | 'generating'
   | 'ready'
@@ -54,16 +55,18 @@ export interface ChunkProgress {
   fileName: string;
   clientFileName?: string;
   downloadId: string;
-  size: number;
-  status: DownloadStatus;
   progress: number;
+  status: DownloadStatus;
   processedRows: number;
   totalRows: number;
-  message: string;
-  searchParams: SearchParams;
   startTime: Date;
+  searchParams: SearchParams;
+  message: string;
   processingSpeed: number;
   estimatedTimeRemaining: number;
+  size: number;
+  firstReceiveTime?: string;
+  lastReceiveTime?: string;
 }
 
 export interface DownloadProgress {
@@ -125,6 +128,9 @@ export interface WebSocketMessage {
   totalRows: number;
   message?: string;
   timestamp: string;
-  speed?: number;
+  processingSpeed?: number;
   estimatedTimeRemaining?: number;
+  size?: number;
+  firstReceiveTime?: string;
+  lastReceiveTime?: string;
 }

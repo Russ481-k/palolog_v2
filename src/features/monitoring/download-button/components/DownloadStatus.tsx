@@ -25,15 +25,11 @@ export const DownloadStatus = memo(({ status }: DownloadStatusProps) => {
         paused: { bg: 'orange.100', color: 'orange.800', shadow: 'orange.50' },
         pending: { bg: 'gray.100', color: 'gray.800', shadow: 'gray.50' },
         generating: {
-          bg: 'gray.100',
-          color: 'gray.800',
-          shadow: 'gray.50',
-        },
-        progress: {
           bg: 'purple.100',
           color: 'purple.800',
           shadow: 'purple.50',
         },
+        progress: { bg: 'gray.100', color: 'gray.800', shadow: 'gray.50' },
         ready: { bg: 'teal.100', color: 'teal.800', shadow: 'teal.50' },
         downloading: { bg: 'blue.100', color: 'blue.800', shadow: 'blue.50' },
       },
@@ -43,15 +39,11 @@ export const DownloadStatus = memo(({ status }: DownloadStatusProps) => {
         paused: { bg: 'orange.800', color: 'orange.100', shadow: 'orange.900' },
         pending: { bg: 'gray.700', color: 'gray.100', shadow: 'gray.800' },
         generating: {
-          bg: 'gray.800',
-          color: 'gray.100',
-          shadow: 'gray.900',
-        },
-        progress: {
           bg: 'purple.800',
           color: 'purple.100',
           shadow: 'purple.900',
         },
+        progress: { bg: 'gray.800', color: 'gray.100', shadow: 'gray.900' },
         ready: { bg: 'teal.800', color: 'teal.100', shadow: 'teal.900' },
         downloading: { bg: 'blue.800', color: 'blue.100', shadow: 'blue.900' },
       },

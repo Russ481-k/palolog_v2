@@ -5,15 +5,9 @@ import { FaDownload } from 'react-icons/fa';
 
 import { trpc } from '@/lib/trpc/client';
 
-import { useDownloadProgress } from '../hooks/useDownloadProgress';
 import { useDownloadState } from '../hooks/useDownloadState';
 import { useWebSocketConnection } from '../hooks/useWebSocketConnection';
-import {
-  DownloadButtonProps,
-  DownloadState,
-  FileStatus,
-  isProgressMessage,
-} from '../types';
+import { DownloadButtonProps, FileStatus, isProgressMessage } from '../types';
 import { DownloadModal } from './DownloadModal';
 
 export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
@@ -37,7 +31,15 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       (message: unknown) => {
         if (!isProgressMessage(message)) return;
 
-        console.log('[DownloadButton] Progress message:', message);
+        console.log('[DownloadButton] Progress message:', {
+          ...message,
+          timeRange:
+            message.firstReceiveTime && message.lastReceiveTime
+              ? `${message.firstReceiveTime} ~ ${message.lastReceiveTime}`
+              : 'Not available',
+          timestamp: new Date().toISOString(),
+        });
+
         const fileStatus: FileStatus = {
           fileName: message.fileName,
           downloadId: message.downloadId,
@@ -47,12 +49,21 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           message: message.message || '',
           processedRows: message.processedRows,
           totalRows: message.totalRows,
-          processingSpeed: message.speed || 0,
+          processingSpeed: message.processingSpeed || 0,
           estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
-          size: 0,
-          searchParams: searchParams,
+          size: message.size || 0,
+          firstReceiveTime: message.firstReceiveTime,
+          lastReceiveTime: message.lastReceiveTime,
         };
-        console.log('[DownloadButton] File status update:', fileStatus);
+
+        console.log('[DownloadButton] File status update:', {
+          ...fileStatus,
+          timeRange:
+            fileStatus.firstReceiveTime && fileStatus.lastReceiveTime
+              ? `${fileStatus.firstReceiveTime} ~ ${fileStatus.lastReceiveTime}`
+              : 'Not available',
+          timestamp: new Date().toISOString(),
+        });
 
         updateFileStatuses(fileStatus);
 
@@ -113,23 +124,114 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       },
     });
 
-    const downloadFile = trpc.download.downloadFile.useMutation({
-      onSuccess: () => {
-        setState((prev) => ({
-          ...prev,
-          status: 'downloading',
-          progress: 0,
-          message: 'Starting download...',
-        }));
+    const downloadFileMutation = trpc.download.downloadFile.useMutation({
+      onSuccess: async ({ downloadId, fileName }) => {
+        try {
+          console.log('[DownloadButton] Starting file download:', {
+            downloadId,
+            fileName,
+            timestamp: new Date().toISOString(),
+          });
+
+          const response = await fetch(`/api/download?file=${fileName}`);
+          if (!response.ok) {
+            throw new Error('Download failed');
+          }
+
+          // Create a blob from the response
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName || '';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+
+          console.log('[DownloadButton] File download completed:', {
+            downloadId,
+            fileName,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.error('[DownloadButton] File download failed:', {
+            error: error instanceof Error ? error.message : String(error),
+            downloadId,
+            fileName,
+            timestamp: new Date().toISOString(),
+          });
+          handleError(new Error('Failed to download file'));
+        }
       },
       onError: (error) => {
-        setState((prev) => ({
-          ...prev,
-          status: 'failed',
-          message: error.message || 'Download failed',
-        }));
+        console.error('[DownloadButton] Download file mutation failed:', {
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        });
+        handleError(new Error(error.message || 'Failed to download file'));
       },
     });
+
+    const handleFileDownload = useCallback(
+      (clientFileName: string) => {
+        if (!state.downloadId) {
+          console.error('[DownloadButton] No download ID available');
+          return;
+        }
+
+        // Check if the download is still active
+        if (!state.isConnectionReady) {
+          console.error('[DownloadButton] WebSocket connection is not ready:', {
+            clientFileName,
+            downloadId: state.downloadId,
+            timestamp: new Date().toISOString(),
+          });
+          handleError(
+            new Error(
+              'Download connection is not ready. Please try starting the download again.'
+            )
+          );
+          return;
+        }
+
+        // Find the file status by clientFileName
+        const fileStatus = Object.values(state.fileStatuses).find(
+          (status) => status.clientFileName === clientFileName
+        );
+
+        if (!fileStatus?.fileName || fileStatus.status !== 'ready') {
+          console.error('[DownloadButton] File not ready for download:', {
+            clientFileName,
+            status: fileStatus?.status,
+            fileName: fileStatus?.fileName,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+
+        console.log('[DownloadButton] Initiating download:', {
+          clientFileName: fileStatus.clientFileName,
+          serverFileName: fileStatus.fileName,
+          status: fileStatus.status,
+          isConnectionReady: state.isConnectionReady,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Use the server file name (e.g., "downloadId_1.csv") for the download request
+        downloadFileMutation.mutate({
+          fileName: fileStatus.fileName,
+          downloadId: state.downloadId,
+        });
+      },
+      [
+        state.downloadId,
+        state.fileStatuses,
+        state.isConnectionReady,
+        downloadFileMutation,
+        handleError,
+      ]
+    );
 
     const cancelDownload = trpc.download.cancelDownload.useMutation();
     const cleanup = trpc.download.cleanup.useMutation();
@@ -146,7 +248,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
 
         const initialFileStatuses = result.files.reduce(
           (acc, file) => {
-            acc[file.fileName] = {
+            acc[file.downloadId] = {
               fileName: file.fileName,
               clientFileName: file.clientFileName,
               downloadId: file.downloadId,
@@ -158,7 +260,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
               processingSpeed: file.processingSpeed || 0,
               estimatedTimeRemaining: file.estimatedTimeRemaining || 0,
               size: 0,
-              searchParams: searchParams,
             };
             return acc;
           },
@@ -169,7 +270,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           ...prev,
           downloadId: result.downloadId,
           fileStatuses: initialFileStatuses,
-          selectedFiles: result.files.map((f) => f.fileName),
+          selectedFiles: result.files.map((f) => f.downloadId),
           status: 'generating',
           isOpen: true,
         }));
@@ -269,19 +370,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       handleError,
     ]);
 
-    const handleFileDownload = useCallback(
-      (downloadId: string) => {
-        const fileStatus = state.fileStatuses[downloadId];
-        if (!fileStatus || fileStatus.status !== 'ready') return;
-
-        downloadFile.mutate({
-          downloadId: fileStatus.downloadId,
-          fileName: fileStatus.fileName,
-        });
-      },
-      [state.fileStatuses, downloadFile]
-    );
-
     const handleFileSelection = useCallback(
       (downloadId: string, selected: boolean) => {
         setState((prev) => ({
@@ -297,8 +385,8 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     const handleDownloadSelected = useCallback(() => {
       state.selectedFiles?.forEach((downloadId) => {
         const fileStatus = state.fileStatuses[downloadId];
-        if (fileStatus?.status === 'ready') {
-          handleFileDownload(downloadId);
+        if (fileStatus?.status === 'ready' && fileStatus.clientFileName) {
+          handleFileDownload(fileStatus.clientFileName);
         }
       });
     }, [state.selectedFiles, state.fileStatuses, handleFileDownload]);

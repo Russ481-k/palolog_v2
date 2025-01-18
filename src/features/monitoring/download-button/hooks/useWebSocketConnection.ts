@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Socket, io } from 'socket.io-client';
 
 import { env } from '@/env.mjs';
-import { WebSocketMessage } from '@/types/download';
+import { DownloadStatus, WebSocketMessage } from '@/types/download';
 import { MenuType } from '@/types/project';
 
 import { useConnectionTimeout } from './websocket/useConnectionTimeout';
@@ -228,17 +228,56 @@ export const useWebSocketConnection = ({
 
       // 0. progress_update
       socket.on('progress_update', (rawMessage: Record<string, unknown>) => {
+        console.log('[Socket.IO] Raw progress_update message:', {
+          ...rawMessage,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Format size to MB
+        const sizeInMB = rawMessage.size
+          ? (rawMessage.size as number) / (1024 * 1024)
+          : 0;
+
+        // Format time range
+        const firstReceiveTime = rawMessage.firstReceiveTime as string;
+        const lastReceiveTime = rawMessage.lastReceiveTime as string;
+        const timeRange =
+          firstReceiveTime && lastReceiveTime
+            ? `${new Date(firstReceiveTime).toLocaleTimeString()} ~ ${new Date(lastReceiveTime).toLocaleTimeString()}`
+            : 'Not available';
+
         const message: WebSocketMessage = {
           type: 'progress',
           downloadId: rawMessage.downloadId as string,
           fileName: rawMessage.fileName as string,
-          status: 'progress',
+          clientFileName: rawMessage.clientFileName as string,
+          status: rawMessage.status as DownloadStatus,
           progress: rawMessage.progress as number,
           processedRows: rawMessage.processedRows as number,
           totalRows: rawMessage.totalRows as number,
+          processingSpeed: rawMessage.processingSpeed as number,
+          estimatedTimeRemaining: rawMessage.estimatedTimeRemaining as number,
+          size: sizeInMB * (1024 * 1024), // Store original size in bytes
+          firstReceiveTime,
+          lastReceiveTime,
+          message: rawMessage.message as string,
           timestamp: new Date().toISOString(),
         };
-        // console.log('[Socket.IO] Progress update:', message);
+
+        console.log('[Socket.IO] Received progress_update message:', {
+          ...message,
+          processingDetails: {
+            speed: message.processingSpeed
+              ? `${message.processingSpeed.toFixed(1)} rows/sec`
+              : 'N/A',
+            estimatedTimeRemaining: message.estimatedTimeRemaining
+              ? `${message.estimatedTimeRemaining.toFixed(1)} sec`
+              : 'N/A',
+          },
+          timeRange,
+          size: `${sizeInMB.toFixed(2)} MB`,
+        });
+
         onMessage(message);
       });
 
@@ -248,18 +287,37 @@ export const useWebSocketConnection = ({
           type: 'file_ready',
           downloadId: rawMessage.downloadId as string,
           fileName: rawMessage.fileName as string,
+          clientFileName: rawMessage.clientFileName as string,
           status: 'ready',
           progress: rawMessage.progress as number,
           processedRows: rawMessage.processedRows as number,
           totalRows: rawMessage.totalRows as number,
+          processingSpeed: rawMessage.speed as number,
+          estimatedTimeRemaining: rawMessage.estimatedTimeRemaining as number,
+          size: rawMessage.size as number,
+          firstReceiveTime: rawMessage.firstReceiveTime as string,
+          lastReceiveTime: rawMessage.lastReceiveTime as string,
+          message: rawMessage.message as string,
           timestamp: new Date().toISOString(),
         };
-        // console.log('[Socket.IO] Generation progress update:', message);
         onMessage(message);
       });
 
       // 2. File Ready
       socket.on('file_ready', (rawMessage: Record<string, unknown>) => {
+        // Format size to MB
+        const sizeInMB = rawMessage.size
+          ? (rawMessage.size as number) / (1024 * 1024)
+          : 0;
+
+        // Format time range
+        const firstReceiveTime = rawMessage.firstReceiveTime as string;
+        const lastReceiveTime = rawMessage.lastReceiveTime as string;
+        const timeRange =
+          firstReceiveTime && lastReceiveTime
+            ? `${new Date(firstReceiveTime).toLocaleTimeString()} ~ ${new Date(lastReceiveTime).toLocaleTimeString()}`
+            : 'Not available';
+
         const message: WebSocketMessage = {
           type: 'file_ready',
           downloadId: rawMessage.downloadId as string,
@@ -269,9 +327,27 @@ export const useWebSocketConnection = ({
           progress: 100,
           processedRows: rawMessage.totalRows as number,
           totalRows: rawMessage.totalRows as number,
+          processingSpeed: rawMessage.processingSpeed as number,
+          estimatedTimeRemaining: 0,
+          size: sizeInMB * (1024 * 1024), // Store original size in bytes
+          firstReceiveTime,
+          lastReceiveTime,
+          message: rawMessage.message as string,
           timestamp: new Date().toISOString(),
         };
-        console.log('[Socket.IO] Received file_ready message:', message);
+
+        console.log('[Socket.IO] Received file_ready message:', {
+          ...message,
+          processingDetails: {
+            speed: message.processingSpeed
+              ? `${message.processingSpeed.toFixed(1)} rows/sec`
+              : 'N/A',
+            estimatedTimeRemaining: '0 sec',
+          },
+          timeRange,
+          size: `${sizeInMB.toFixed(2)} MB`,
+        });
+
         onMessage(message);
       });
 

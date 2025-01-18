@@ -138,10 +138,10 @@ export class DownloadManager {
     }
   }
 
-  updateProgress(downloadId: string, progress: Partial<DownloadFile>): void {
-    const existingFile = this.downloads.get(downloadId);
+  updateProgress(fileName: string, progress: Partial<DownloadFile>): void {
+    const existingFile = this.downloads.get(fileName);
     if (!existingFile) {
-      console.warn(`No download found for ID: ${downloadId}`);
+      console.warn(`[DownloadManager] No download found for file: ${fileName}`);
       return;
     }
 
@@ -181,12 +181,18 @@ export class DownloadManager {
       ),
     };
 
-    this.downloads.set(downloadId, updatedFile);
+    this.downloads.set(fileName, updatedFile);
 
     // Emit progress update
-    this.eventEmitter.emit(`progress:${downloadId}`, downloadId, updatedFile);
+    this.eventEmitter.emit(
+      `progress:${updatedFile.downloadId}`,
+      updatedFile.downloadId,
+      updatedFile
+    );
 
-    console.log(`[DownloadManager] Progress update for ${downloadId}:`, {
+    console.log(`[DownloadManager] Progress update for file:`, {
+      fileName,
+      downloadId: updatedFile.downloadId,
       status: updatedFile.status,
       progress: progressPercentage,
       processedRows,
@@ -198,17 +204,21 @@ export class DownloadManager {
     });
   }
 
-  getProgress(downloadId: string): DownloadFile | undefined {
-    return this.downloads.get(downloadId);
+  getProgress(fileName: string): DownloadFile | undefined {
+    return this.downloads.get(fileName);
   }
 
-  setError(downloadId: string, error: string): void {
-    const progress = this.downloads.get(downloadId);
+  setError(fileName: string, error: string): void {
+    const progress = this.downloads.get(fileName);
     if (progress) {
       progress.error = new Error(error);
       progress.status = 'failed';
-      this.downloads.set(downloadId, progress);
-      this.eventEmitter.emit(`progress:${downloadId}`, downloadId, progress);
+      this.downloads.set(fileName, progress);
+      this.eventEmitter.emit(
+        `progress:${progress.downloadId}`,
+        progress.downloadId,
+        progress
+      );
     }
   }
 
@@ -220,20 +230,26 @@ export class DownloadManager {
     this.eventEmitter.on(eventName, callback);
 
     // Send initial progress if available
-    const progress = this.downloads.get(downloadId);
-    if (progress) {
-      callback(downloadId, {
-        downloadId,
-        files: [progress],
-        timestamp: new Date().toISOString(),
-        overallProgress: {
-          progress: progress.progress,
-          status: progress.status,
-          processedRows: progress.processedRows,
-          totalRows: progress.totalRows,
-          message: progress.message,
-        },
-      });
+    const files = Array.from(this.downloads.values()).filter(
+      (file) => file.downloadId === downloadId
+    );
+
+    if (files.length > 0) {
+      const firstFile = files[0];
+      if (firstFile) {
+        callback(downloadId, {
+          downloadId,
+          files,
+          timestamp: new Date().toISOString(),
+          overallProgress: {
+            progress: firstFile.progress,
+            status: firstFile.status,
+            processedRows: firstFile.processedRows,
+            totalRows: firstFile.totalRows,
+            message: firstFile.message,
+          },
+        });
+      }
     }
 
     return () => {
@@ -241,48 +257,48 @@ export class DownloadManager {
     };
   }
 
-  resumeDownload(downloadId: string): void {
-    const progress = this.downloads.get(downloadId);
+  resumeDownload(fileName: string): void {
+    const progress = this.downloads.get(fileName);
     if (progress) {
-      this.updateProgress(downloadId, { status: 'downloading' });
+      this.updateProgress(fileName, { status: 'downloading' });
     }
   }
 
-  pauseDownload(downloadId: string): void {
-    const progress = this.downloads.get(downloadId);
+  pauseDownload(fileName: string): void {
+    const progress = this.downloads.get(fileName);
     if (progress) {
-      this.updateProgress(downloadId, { status: 'ready' });
+      this.updateProgress(fileName, { status: 'ready' });
     }
   }
 
-  cancelDownload(downloadId: string): void {
-    const progress = this.downloads.get(downloadId);
+  cancelDownload(fileName: string): void {
+    const progress = this.downloads.get(fileName);
     if (progress) {
-      this.updateProgress(downloadId, {
+      this.updateProgress(fileName, {
         status: 'failed',
         error: new Error('Download cancelled'),
       });
-      this.downloads.delete(downloadId);
+      this.downloads.delete(fileName);
     }
   }
 
-  cleanup(downloadId: string): void {
-    const file = this.downloads.get(downloadId);
+  cleanup(fileName: string): void {
+    const file = this.downloads.get(fileName);
     if (!file) return;
 
     // Remove from downloads map
-    this.downloads.delete(downloadId);
+    this.downloads.delete(fileName);
 
     // Cancel any pending cleanup
-    const timeout = this.cleanupTimeouts.get(downloadId);
+    const timeout = this.cleanupTimeouts.get(fileName);
     if (timeout) {
       clearTimeout(timeout);
-      this.cleanupTimeouts.delete(downloadId);
+      this.cleanupTimeouts.delete(fileName);
     }
 
     // Delete the physical file
     try {
-      const filePath = `./downloads/${downloadId}.csv`;
+      const filePath = `./downloads/${fileName}`;
       fs.unlinkSync(filePath);
       console.log(`[DownloadManager] Deleted file ${filePath}`);
     } catch (error) {
@@ -290,7 +306,7 @@ export class DownloadManager {
     }
 
     // Notify clients
-    this.eventEmitter.emit(`cleanup:${downloadId}`, downloadId);
+    this.eventEmitter.emit(`cleanup:${file.downloadId}`, file.downloadId);
   }
 
   private handleError(downloadId: string, error: unknown) {
@@ -326,11 +342,17 @@ export class DownloadManager {
   initializeFiles(downloadId: string, files: DownloadFile[]): void {
     console.log('[DownloadManager] Initializing files:', {
       downloadId,
-      files,
+      files: files.map((f) => ({
+        fileName: f.fileName,
+        clientFileName: f.clientFileName,
+        downloadId: f.downloadId,
+      })),
+      timestamp: new Date().toISOString(),
     });
+
     if (!!files && Array.isArray(files)) {
-      files.map((file) => {
-        this.downloads.set(file.downloadId, file);
+      files.forEach((file) => {
+        this.downloads.set(file.fileName, file);
       });
     }
 

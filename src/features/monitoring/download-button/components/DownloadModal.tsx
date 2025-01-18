@@ -108,23 +108,88 @@ export const DownloadModal = ({
 
   // Memoize rowData to prevent unnecessary re-renders
   const rowData: FileData[] = useMemo(() => {
-    return Object.entries(fileStatuses).map(([name, status]) => ({
+    return Object.entries(fileStatuses).map(([downloadId, status]) => ({
+      id: downloadId,
       downloadId: status.downloadId,
-      clientFileName: status.clientFileName || '',
-      lastModified: new Date().toISOString(),
-      selected: selectedFiles.includes(name),
-      timeRange: `${status.searchParams?.timeFrom || ''} ~ ${status.searchParams?.timeTo || ''}`,
+      fileName: status.clientFileName || '',
+      selected: selectedFiles.includes(downloadId),
+      timeRange:
+        status.firstReceiveTime && status.lastReceiveTime
+          ? `${status.firstReceiveTime} ~ ${status.lastReceiveTime}`
+          : 'Calculating...',
       status: status.status,
       progress: status.progress,
-      message: status.message,
+      message: status.message || '',
       processedRows: status.processedRows,
       totalRows: status.totalRows,
-      processingSpeed: status.processingSpeed,
-      estimatedTimeRemaining: status.estimatedTimeRemaining,
-      size: status.size,
-      searchParams: status.searchParams,
+      processingSpeed: status.processingSpeed || 0,
+      estimatedTimeRemaining: status.estimatedTimeRemaining || 0,
+      size: status.size || 0,
+      firstReceiveTime: status.firstReceiveTime,
+      lastReceiveTime: status.lastReceiveTime,
     }));
   }, [fileStatuses, selectedFiles]);
+
+  // Calculate overall progress excluding pending files
+  const calculatedTotalProgress = useMemo(() => {
+    const activeFiles = Object.values(fileStatuses).filter(
+      (status) => status.status !== 'pending'
+    );
+
+    if (activeFiles.length === 0) {
+      return null;
+    }
+
+    const totalProcessedRows = activeFiles.reduce(
+      (sum, status) => sum + status.processedRows,
+      0
+    );
+    const totalRows = activeFiles.reduce(
+      (sum, status) => sum + status.totalRows,
+      0
+    );
+
+    const progress = totalRows > 0 ? (totalProcessedRows / totalRows) * 100 : 0;
+
+    // Calculate average speed and estimated time
+    const totalSpeed = activeFiles.reduce(
+      (sum, status) => sum + (status.processingSpeed || 0),
+      0
+    );
+    const avgSpeed = totalSpeed / activeFiles.length;
+    const remainingRows = totalRows - totalProcessedRows;
+    const estimatedTime = avgSpeed > 0 ? remainingRows / avgSpeed : 0;
+
+    // Determine overall status
+    let overallStatus: DownloadStatus = 'generating';
+    if (progress >= 100) {
+      overallStatus = 'completed';
+    } else if (activeFiles.some((f) => f.status === 'failed')) {
+      overallStatus = 'failed';
+    } else if (activeFiles.some((f) => f.status === 'downloading')) {
+      overallStatus = 'downloading';
+    } else if (activeFiles.every((f) => f.status === 'ready')) {
+      overallStatus = 'ready';
+    }
+
+    return {
+      status: overallStatus,
+      progress,
+      processedRows: totalProcessedRows,
+      totalRows,
+      processingSpeed: avgSpeed,
+      estimatedTimeRemaining: estimatedTime,
+      message:
+        progress >= 100
+          ? 'All files completed'
+          : `Processing ${activeFiles.length} files...`,
+    };
+  }, [fileStatuses]);
+
+  // Determine if the grid should show loading state
+  const isGridLoading = useMemo(() => {
+    return Object.keys(fileStatuses).length === 0;
+  }, [fileStatuses]);
 
   return (
     <Modal
@@ -140,22 +205,20 @@ export const DownloadModal = ({
         <ModalBody pb={6}>
           <VStack spacing={3} align="stretch">
             <Box>
-              <Text fontSize="sm" mb={2}>
+              <Text fontWeight="bold" mb={2}>
                 Overall Progress
               </Text>
               <DownloadProgress
-                progress={totalProgress?.progress || 0}
-                status={
-                  totalProgress?.status || ('generating' as DownloadStatus)
-                }
-                processedRows={totalProgress?.processedRows || 0}
-                totalRows={totalProgress?.totalRows || 0}
-                processingSpeed={totalProgress?.processingSpeed || 0}
+                status={calculatedTotalProgress?.status ?? 'generating'}
+                progress={calculatedTotalProgress?.progress ?? 0}
+                processedRows={calculatedTotalProgress?.processedRows ?? 0}
+                totalRows={calculatedTotalProgress?.totalRows ?? 0}
+                processingSpeed={calculatedTotalProgress?.processingSpeed ?? 0}
                 estimatedTimeRemaining={
-                  totalProgress?.estimatedTimeRemaining || 0
+                  calculatedTotalProgress?.estimatedTimeRemaining ?? 0
                 }
-                message={totalProgress?.message || 'Preparing files...'}
-                size="md"
+                message={calculatedTotalProgress?.message ?? ''}
+                isLoading={!calculatedTotalProgress}
               />
             </Box>
             <Box>
@@ -174,6 +237,7 @@ export const DownloadModal = ({
               onFileSelection={onFileSelection}
               onFileDownload={onFileDownload}
               gridTheme={gridTheme}
+              isLoading={isGridLoading}
             />
             <Flex justifyContent="flex-end" gap={2}>
               <Button

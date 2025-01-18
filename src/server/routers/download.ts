@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import dayjs from 'dayjs';
 import { Observable, Subscriber } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
@@ -15,6 +16,8 @@ const searchParamsSchema = z
     searchTerm: z.string(),
   })
   .required();
+
+const generateDownloadId = () => uuidv4();
 
 export const downloadRouter = router({
   onProgress: protectedProcedure
@@ -56,72 +59,55 @@ export const downloadRouter = router({
     )
     .mutation(async ({ input }) => {
       const { searchId, totalRows, searchParams } = input;
-      const downloadId = uuidv4();
-      try {
-        console.log('[Download Router] Starting download with params:', {
-          searchId,
-          totalRows,
-          searchParams,
-          timestamp: new Date().toISOString(),
-        });
+      const downloadId = generateDownloadId();
 
-        const download = await downloadManager.createDownload(
-          downloadId,
-          totalRows,
-          searchParams
-        );
+      console.log('[Download Router] Starting download:', {
+        searchId,
+        downloadId,
+        totalRows,
+        timestamp: new Date().toISOString(),
+      });
 
-        // 파일 크기 계산 (500,000 rows per file)
-        const CHUNK_SIZE = 500000;
-        const numFiles = Math.ceil(totalRows / CHUNK_SIZE);
-        const timestamp = dayjs().format('YYYY-MM-DD_HH:mm:ss');
+      // Create download in downloadManager first
+      const { files } = await downloadManager.createDownload(
+        downloadId,
+        totalRows,
+        searchParams
+      );
 
-        // 초기 파일 목록 생성
-        const initialFiles = Array.from({ length: numFiles }, (_, index) => {
-          const clientFileName = `${searchParams.menu}_${timestamp}_${index + 1}of${numFiles}.csv`;
-          return {
-            downloadId,
-            fileName: `${downloadId}.csv`,
-            clientFileName,
-            status: 'generating' as const,
-            progress: 0,
-            processedRows: 0,
-            totalRows: Math.min(CHUNK_SIZE, totalRows - index * CHUNK_SIZE),
-            message: 'Generating file...',
-            startTime: new Date(),
-            lastUpdateTime: Date.now(),
-            lastProcessedCount: 0,
-            processingSpeed: 0,
-            estimatedTimeRemaining: 0,
-          };
-        });
+      // Create and initialize DownloadChunkManager
+      const manager = downloadChunkManager.createManager(
+        downloadId,
+        searchParams
+      );
 
-        // 다운로드 매니저에 초기 상태 설정
-        downloadManager.initializeFiles(
-          download.servedDownloadId,
-          initialFiles
-        );
-
-        return {
-          downloadId: download.servedDownloadId,
-          files: initialFiles.map((file) => ({
-            ...file,
-            fileName: file.clientFileName || file.fileName,
-          })),
-          totalFiles: numFiles,
-          searchParams,
-        };
-      } catch (error) {
-        console.error('[Download Router] Failed to start download:', {
+      // Create chunks for the download
+      await manager.createChunks().catch((error) => {
+        console.error('[Download Router] Failed to create chunks:', {
           error: error instanceof Error ? error.message : String(error),
-          searchId,
-          searchParams,
-          totalRows,
-          timestamp: new Date().toISOString(),
           stack: error instanceof Error ? error.stack : undefined,
+          downloadId,
+          timestamp: new Date().toISOString(),
         });
-        throw error;
-      }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create download chunks',
+        });
+      });
+
+      console.log('[Download Router] Created download managers:', {
+        downloadId,
+        files: files.map((f) => ({
+          fileName: f.fileName,
+          clientFileName: f.clientFileName,
+        })),
+        timestamp: new Date().toISOString(),
+      });
+
+      return {
+        downloadId,
+        files,
+      };
     }),
 
   downloadFile: protectedProcedure
@@ -132,68 +118,74 @@ export const downloadRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { fileName, downloadId } = input;
+      const { downloadId, fileName } = input;
+
       console.log('[Download Router] Attempting to download file:', {
         downloadId,
         fileName,
         timestamp: new Date().toISOString(),
       });
-      console.log(downloadId, downloadChunkManager.getManager(downloadId));
-      const manager = downloadChunkManager.getManager(downloadId);
-      if (!manager) {
-        console.error('[Download Router] Download manager not found:', {
-          downloadId,
-          fileName,
-          timestamp: new Date().toISOString(),
-        });
-        throw new Error('Download manager not found');
-      }
 
-      // Get all chunks and find the one with matching file name
-      const chunks = manager.getProgress();
-      console.log('[Download Router] Available chunks:', {
+      // Get all active managers for debugging
+      const activeManagers = downloadChunkManager.getActiveManagers();
+      console.log('[Download Router] Active download managers:', {
         downloadId,
-        chunks: chunks.map((c) => ({
-          fileName: c.fileName,
-          clientFileName: c.clientFileName,
+        activeManagers: activeManagers.map((m) => ({
+          id: m.downloadId,
+          files: m.getProgress().map((p) => p.fileName),
         })),
-        requestedFile: fileName,
         timestamp: new Date().toISOString(),
       });
 
-      // Try to find the chunk by either server file name or client file name
-      const chunk = chunks.find(
-        (c) => c.fileName === fileName || c.clientFileName === fileName
-      );
-
-      if (!chunk) {
-        console.error('[Download Router] File not found:', {
+      // Get the manager for this download
+      const manager = downloadChunkManager.getManager(downloadId);
+      if (!manager) {
+        console.log('[Download Router] Download manager not found:', {
           downloadId,
           fileName,
-          availableFiles: chunks.map((c) => ({
-            fileName: c.fileName,
-            clientFileName: c.clientFileName,
-          })),
+          activeManagerIds: activeManagers.map((m) => m.downloadId),
           timestamp: new Date().toISOString(),
         });
-        throw new Error('File not found');
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message:
+            'Download manager not found. Please try starting the download again.',
+        });
+      }
+
+      // Get the chunk progress
+      const chunk = manager.getChunk(fileName);
+      if (!chunk) {
+        console.log('[Download Router] Chunk not found:', {
+          downloadId,
+          fileName,
+          availableChunks: manager.getProgress().map((p) => p.fileName),
+          timestamp: new Date().toISOString(),
+        });
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'File not found. Please try starting the download again.',
+        });
       }
 
       if (chunk.status !== 'ready') {
-        console.error('[Download Router] File not ready:', {
+        console.log('[Download Router] File not ready:', {
           downloadId,
           fileName,
-          clientFileName: chunk.clientFileName,
           status: chunk.status,
+          progress: chunk.progress,
           timestamp: new Date().toISOString(),
         });
-        throw new Error('File not ready for download');
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `File is not ready for download. Current status: ${chunk.status}`,
+        });
       }
 
-      // Return both server and client file names
       return {
-        filePath: chunk.fileName,
-        downloadFileName: chunk.clientFileName || chunk.fileName,
+        downloadId,
+        fileName,
+        status: 'success',
       };
     }),
 

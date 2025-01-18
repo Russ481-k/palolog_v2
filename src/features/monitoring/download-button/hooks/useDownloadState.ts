@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { trpc } from '@/lib/trpc/client';
-import { DownloadStatus } from '@/types/download';
+import { DownloadStatus, WebSocketMessage } from '@/types/download';
 
 import type { DownloadState, FileStatus } from '../types';
 
@@ -28,15 +28,6 @@ const initialState: DownloadState = {
   },
 };
 
-const validTransitions: Record<DownloadStatus, DownloadStatus[]> = {
-  progress: ['progress', 'generating', 'ready', 'downloading', 'failed'],
-  generating: ['generating', 'ready', 'failed'],
-  ready: ['ready', 'downloading', 'failed'],
-  downloading: ['downloading', 'completed', 'failed'],
-  completed: ['completed', 'failed'],
-  failed: [],
-};
-
 export const useDownloadState = ({
   onCleanup,
   onCancel,
@@ -46,132 +37,24 @@ export const useDownloadState = ({
 
   const updateFileStatuses = useCallback(
     (update: FileStatus) => {
-      console.log('[useDownloadState] Updating file status:', {
-        downloadId: update.downloadId,
-        clientFileName: update.clientFileName,
-        currentStatus: state.fileStatuses[update.downloadId]?.status,
-        newStatus: update.status,
-        update,
-      });
+      setState((prev) => {
+        const currentFile = prev.fileStatuses[update.downloadId];
+        const updatedFile = {
+          ...currentFile,
+          ...update,
+          clientFileName: update.clientFileName || currentFile?.clientFileName,
+        };
 
-      if (!state.fileStatuses[update.downloadId]) {
-        console.log('[useDownloadState] Creating new file:', {
-          downloadId: update.downloadId,
-          clientFileName: update.clientFileName,
-          initialState: update,
-        });
-
-        setState((prev) => ({
+        return {
           ...prev,
           fileStatuses: {
             ...prev.fileStatuses,
-            [update.downloadId]: {
-              clientFileName: update.clientFileName || update.fileName,
-              fileName: update.fileName,
-              downloadId: update.downloadId,
-              status: update.status || 'generating',
-              progress: update.progress || 0,
-              message: update.message || 'Initializing...',
-              size: update.size || 0,
-              processedRows: update.processedRows || 0,
-              totalRows: update.totalRows || 0,
-              processingSpeed: update.processingSpeed || 0,
-              estimatedTimeRemaining: update.estimatedTimeRemaining || 0,
-              searchParams: update.searchParams || {
-                menu: 'TRAFFIC',
-                timeFrom: '',
-                timeTo: '',
-                searchTerm: '',
-              },
-            },
+            [update.downloadId]: updatedFile,
           },
-        }));
-        return;
-      }
-
-      if (
-        update.status &&
-        state.fileStatuses[update.downloadId]?.status !== update.status
-      ) {
-        const currentStatus =
-          state.fileStatuses[update.downloadId]?.status || 'generating';
-        const allowedTransitions = validTransitions[currentStatus];
-        console.log('[useDownloadState] Validating status transition:', {
-          downloadId: update.downloadId,
-          from: currentStatus,
-          to: update.status,
-          allowed: allowedTransitions,
-        });
-
-        if (!allowedTransitions.includes(update.status)) {
-          console.warn(
-            `[useDownloadState] Invalid status transition from ${state.fileStatuses[update.downloadId]?.status} to ${update.status}`
-          );
-          return;
-        }
-      }
-
-      const updatedFile: FileStatus = {
-        ...state.fileStatuses[update.downloadId],
-        clientFileName: update.clientFileName || update.fileName,
-        fileName: update.fileName,
-        downloadId: update.downloadId,
-        status:
-          update.status ||
-          state.fileStatuses[update.downloadId]?.status ||
-          'generating',
-        progress:
-          update.progress ??
-          state.fileStatuses[update.downloadId]?.progress ??
-          0,
-        message:
-          update.message ??
-          state.fileStatuses[update.downloadId]?.message ??
-          'Initializing...',
-        size: update.size ?? state.fileStatuses[update.downloadId]?.size ?? 0,
-        processedRows:
-          update.processedRows ??
-          state.fileStatuses[update.downloadId]?.processedRows ??
-          0,
-        totalRows:
-          update.totalRows ??
-          state.fileStatuses[update.downloadId]?.totalRows ??
-          0,
-        processingSpeed:
-          update.processingSpeed ??
-          state.fileStatuses[update.downloadId]?.processingSpeed ??
-          0,
-        estimatedTimeRemaining:
-          update.estimatedTimeRemaining ??
-          state.fileStatuses[update.downloadId]?.estimatedTimeRemaining ??
-          0,
-        searchParams: update.searchParams ??
-          state.fileStatuses[update.downloadId]?.searchParams ?? {
-            menu: 'TRAFFIC',
-            timeFrom: '',
-            timeTo: '',
-            searchTerm: '',
-          },
-      };
-
-      console.log('[useDownloadState] Updated file status:', {
-        downloadId: update.downloadId,
-        clientFileName: updatedFile.clientFileName,
-        before: state.fileStatuses[update.downloadId]?.status,
-        after: updatedFile.status,
-        progress: updatedFile.progress,
-        message: updatedFile.message,
+        };
       });
-
-      setState((prev) => ({
-        ...prev,
-        fileStatuses: {
-          ...prev.fileStatuses,
-          [update.downloadId]: updatedFile,
-        },
-      }));
     },
-    [state.fileStatuses]
+    [setState, state.fileStatuses]
   );
 
   const handleFileSelection = (downloadId: string, selected: boolean) => {
@@ -197,15 +80,14 @@ export const useDownloadState = ({
   };
 
   const handleModalClose = () => {
+    console.log('[useDownloadState] Cleaning up and resetting state...');
+
     if (state.downloadId) {
       onCleanup(state.downloadId);
     }
-    setState((prev) => ({
-      ...prev,
-      isOpen: false,
-      isConnecting: false,
-      isConnectionReady: false,
-    }));
+
+    // 상태를 초기값으로 리셋
+    setState(initialState);
   };
 
   const handleDownload = useCallback(
@@ -222,7 +104,7 @@ export const useDownloadState = ({
           downloadId: fileStatus.downloadId,
         });
 
-        if (result.filePath) {
+        if (result.fileName) {
           updateFileStatuses({
             fileName: fileStatus.fileName,
             downloadId: fileStatus.downloadId,
@@ -235,12 +117,6 @@ export const useDownloadState = ({
             totalRows: 0,
             processingSpeed: 0,
             estimatedTimeRemaining: 0,
-            searchParams: state.searchParams || {
-              menu: 'TRAFFIC',
-              timeFrom: '',
-              timeTo: '',
-              searchTerm: '',
-            },
           });
         }
       } catch (error) {
@@ -257,17 +133,40 @@ export const useDownloadState = ({
           totalRows: 0,
           processingSpeed: 0,
           estimatedTimeRemaining: 0,
-          searchParams: state.searchParams || {
-            menu: 'TRAFFIC',
-            timeFrom: '',
-            timeTo: '',
-            searchTerm: '',
-          },
         });
       }
     },
-    [state.fileStatuses, downloadFile, updateFileStatuses, state.searchParams]
+    [state.fileStatuses, downloadFile, updateFileStatuses]
   );
+
+  const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
+    setState((prevState) => {
+      const fileStatuses = { ...prevState.fileStatuses };
+      const currentStatus = fileStatuses[message.downloadId] || {};
+
+      fileStatuses[message.downloadId] = {
+        ...currentStatus,
+        fileName: message.fileName,
+        clientFileName: message.clientFileName,
+        downloadId: message.downloadId,
+        status: message.status,
+        progress: message.progress,
+        processedRows: message.processedRows,
+        totalRows: message.totalRows,
+        message: message.message,
+        processingSpeed: message.processingSpeed,
+        estimatedTimeRemaining: message.estimatedTimeRemaining,
+        firstReceiveTime: message.firstReceiveTime,
+        lastReceiveTime: message.lastReceiveTime,
+        size: message.size,
+      };
+
+      return {
+        ...prevState,
+        fileStatuses,
+      };
+    });
+  }, []);
 
   return {
     state,
@@ -277,5 +176,6 @@ export const useDownloadState = ({
     handleError,
     handleModalClose,
     handleDownload,
+    handleWebSocketMessage,
   };
 };

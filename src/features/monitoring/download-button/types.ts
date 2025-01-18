@@ -24,6 +24,8 @@ export interface BaseProgressMessage {
   searchParams: DownloadSearchParams;
   size: number;
   speed: number;
+  firstReceiveTime?: string;
+  lastReceiveTime?: string;
 }
 
 // For file generation progress updates
@@ -64,9 +66,9 @@ export const isProgressMessage = (
 };
 
 export interface FileData {
-  clientFileName: string;
-  lastModified: string;
+  id: string;
   downloadId: string;
+  fileName: string;
   status: DownloadStatus;
   progress: number;
   message: string;
@@ -77,22 +79,24 @@ export interface FileData {
   size: number;
   selected: boolean;
   timeRange: string;
-  searchParams: DownloadSearchParams;
+  firstReceiveTime?: string;
+  lastReceiveTime?: string;
 }
 
 export interface FileStatus {
   fileName: string;
-  size: number;
+  clientFileName?: string;
+  downloadId: string;
   status: DownloadStatus;
   progress: number;
-  message: string;
   processedRows: number;
   totalRows: number;
-  processingSpeed: number;
-  estimatedTimeRemaining: number;
-  searchParams: DownloadSearchParams;
-  downloadId: string;
-  clientFileName?: string;
+  message?: string;
+  size?: number;
+  firstReceiveTime?: string;
+  lastReceiveTime?: string;
+  processingSpeed?: number;
+  estimatedTimeRemaining?: number;
 }
 
 export type FileStatuses = Record<string, FileStatus>;

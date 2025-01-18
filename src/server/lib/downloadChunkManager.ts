@@ -44,18 +44,17 @@ interface ScrollResponse {
   };
 }
 
-class DownloadChunkManager {
-  private chunks: Map<string, ChunkProgress> = new Map();
-  private downloadId: string;
+export class DownloadChunkManager {
+  public downloadId: string;
   private searchParams: SearchParams;
+  private chunks: Map<string, ChunkProgress> = new Map();
+  private eventEmitter: EventEmitter = new EventEmitter();
   private totalRows: number;
-  private eventEmitter: EventEmitter;
 
   constructor(downloadId: string, searchParams: SearchParams) {
     this.downloadId = downloadId;
     this.searchParams = searchParams;
     this.totalRows = 0;
-    this.eventEmitter = new EventEmitter();
   }
 
   public onFileReady(listener: (message: WebSocketMessage) => void): void {
@@ -107,7 +106,7 @@ class DownloadChunkManager {
           throw new Error(`File information not found for ${serverFileName}`);
         }
 
-        this.chunks.set(serverFileName, {
+        const chunkProgress: ChunkProgress = {
           fileName: serverFileName,
           clientFileName: fileInfo.clientFileName,
           downloadId: this.downloadId,
@@ -121,7 +120,11 @@ class DownloadChunkManager {
           processingSpeed: 0,
           estimatedTimeRemaining: 0,
           size: 0,
-        });
+          firstReceiveTime: undefined,
+          lastReceiveTime: undefined,
+        };
+
+        this.chunks.set(serverFileName, chunkProgress);
 
         console.log(
           `[DownloadChunkManager] Created chunk ${i + 1} of ${numChunks}`,
@@ -356,6 +359,7 @@ class DownloadChunkManager {
         for (const hit of hits) {
           if (processedRows >= chunk.totalRows) break;
 
+          // Track first and last receiveTime
           const row = versionColumnNames
             .map((column) => {
               const value = hit._source[column];
@@ -364,8 +368,58 @@ class DownloadChunkManager {
                 : '';
             })
             .join(',');
+
+          // Get receiveTime from the first column of the row
+          const rowData = row.split(',');
+          const receiveTime = rowData[0]; // First column is receiveTime
+
+          if (processedRows === 0) {
+            chunk.firstReceiveTime = receiveTime;
+            console.log('[DownloadChunkManager] Set firstReceiveTime:', {
+              fileName: chunk.fileName,
+              firstReceiveTime: chunk.firstReceiveTime,
+              receiveTime,
+              timestamp: new Date().toISOString(),
+            });
+          }
+
+          // Always update lastReceiveTime as we process each row
+          chunk.lastReceiveTime = receiveTime;
+
+          if (processedRows === chunk.totalRows - 1) {
+            console.log('[DownloadChunkManager] Set lastReceiveTime:', {
+              fileName: chunk.fileName,
+              lastReceiveTime: chunk.lastReceiveTime,
+              receiveTime,
+              timestamp: new Date().toISOString(),
+            });
+          }
+
           writeStream.write(row + '\n');
           processedRows++;
+
+          // Update file size every 1000 rows
+          if (processedRows % 10000 === 0) {
+            try {
+              const stats = fs.statSync(filePath);
+              chunk.size = stats.size; // Store size in bytes
+              console.log('[DownloadChunkManager] Updated file size:', {
+                fileName: chunk.fileName,
+                sizeInBytes: chunk.size,
+                sizeInMB: (chunk.size / (1024 * 1024)).toFixed(2) + ' MB',
+                processedRows,
+                totalRows: chunk.totalRows,
+                timestamp: new Date().toISOString(),
+              });
+            } catch (error) {
+              console.error('[DownloadChunkManager] Error getting file size:', {
+                error: error instanceof Error ? error.message : String(error),
+                filePath,
+                downloadId: this.downloadId,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
         }
 
         // Update progress
@@ -422,6 +476,11 @@ class DownloadChunkManager {
         progress: 100,
         processedRows: chunk.totalRows,
         totalRows: chunk.totalRows,
+        processingSpeed: chunk.processingSpeed,
+        estimatedTimeRemaining: 0,
+        size: chunk.size,
+        firstReceiveTime: chunk.firstReceiveTime,
+        lastReceiveTime: chunk.lastReceiveTime,
         message: 'File is ready for download',
         timestamp: new Date().toISOString(),
       });
@@ -468,41 +527,42 @@ class DownloadChunkManager {
       processedRows: chunk.processedRows,
       totalRows: chunk.totalRows,
       progress: `${chunk.progress.toFixed(1)}%`,
-      speed: `${processingSpeed.toFixed(1)} rows/sec`,
+      processingSpeed: `${processingSpeed.toFixed(1)} rows/sec`,
       estimatedTimeRemaining: `${estimatedTimeRemaining.toFixed(1)} sec`,
       downloadId: this.downloadId,
       timestamp: new Date().toISOString(),
     });
 
     // Emit progress update event
-    this.eventEmitter.emit('progress_update', {
-      type: 'progress_update',
+    const progressMessage = {
+      type: 'progress',
       downloadId: this.downloadId,
       fileName: chunk.fileName,
       clientFileName: chunk.clientFileName,
+      status: chunk.status,
+      progress: chunk.progress,
       processedRows: chunk.processedRows,
       totalRows: chunk.totalRows,
-      progress: chunk.progress,
-      speed: chunk.processingSpeed,
+      processingSpeed: chunk.processingSpeed,
       estimatedTimeRemaining: chunk.estimatedTimeRemaining,
-      status: chunk.status,
+      size: chunk.size,
+      firstReceiveTime: chunk.firstReceiveTime,
+      lastReceiveTime: chunk.lastReceiveTime,
       message: chunk.message,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log('[DownloadChunkManager] Emitting progress_update event:', {
+      ...progressMessage,
+      sizeInMB: (chunk.size / (1024 * 1024)).toFixed(2) + ' MB',
+      timeRange:
+        chunk.firstReceiveTime && chunk.lastReceiveTime
+          ? `${new Date(chunk.firstReceiveTime).toLocaleTimeString()} ~ ${new Date(chunk.lastReceiveTime).toLocaleTimeString()}`
+          : 'Not available',
       timestamp: new Date().toISOString(),
     });
 
-    console.log('[DownloadChunkManager] Emitting progress_update event:', {
-      downloadId: this.downloadId,
-      fileName: chunk.fileName,
-      clientFileName: chunk.clientFileName,
-      processedRows: chunk.processedRows,
-      totalRows: chunk.totalRows,
-      progress: chunk.progress,
-      speed: chunk.processingSpeed,
-      estimatedTimeRemaining: chunk.estimatedTimeRemaining,
-      status: chunk.status,
-      message: chunk.message,
-      timestamp: new Date().toISOString(),
-    });
+    this.eventEmitter.emit('progress_update', progressMessage);
   }
 
   public getProgress(): ChunkProgress[] {
@@ -603,19 +663,39 @@ class DownloadChunkManagerInstance {
   private eventEmitter: EventEmitter = new EventEmitter();
 
   getManager(downloadId: string): DownloadChunkManager | undefined {
+    console.log('[DownloadChunkManager] Getting manager:', {
+      downloadId,
+      managers: Array.from(this.managers.keys()),
+      timestamp: new Date().toISOString(),
+    });
+
     return this.managers.get(downloadId);
+  }
+
+  getActiveManagers(): DownloadChunkManager[] {
+    return Array.from(this.managers.values());
   }
 
   createManager(
     downloadId: string,
     searchParams: SearchParams
   ): DownloadChunkManager {
+    console.log('[DownloadChunkManager] Creating new manager:', {
+      downloadId,
+      existingManagers: Array.from(this.managers.keys()),
+      timestamp: new Date().toISOString(),
+    });
+
     const manager = new DownloadChunkManager(downloadId, searchParams);
     this.managers.set(downloadId, manager);
 
     // Forward events from the manager to the instance's event emitter
     manager.onFileReady((message: WebSocketMessage) => {
       this.eventEmitter.emit('file_ready', message);
+    });
+
+    manager.onProgressUpdate((message: WebSocketMessage) => {
+      this.eventEmitter.emit('progress_update', message);
     });
 
     return manager;
