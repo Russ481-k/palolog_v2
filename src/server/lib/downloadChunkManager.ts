@@ -3,24 +3,28 @@ import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
+import { createWriteStream } from 'fs';
 import { join } from 'path';
 
+import { DOWNLOAD_CONFIG } from '@/config/constants';
 import { getColumnNames } from '@/features/monitoring/columns';
-import { ChunkProgress, DownloadStatus, SearchParams } from '@/types/download';
+import {
+  ChunkProgress,
+  DownloadStatus,
+  SearchParams,
+  WebSocketMessage,
+} from '@/types/download';
 import { getCurrentVersion } from '@/utils/version';
 
 import { downloadManager } from './downloadManager';
-import { FileManager } from './fileManager';
 import { OpenSearchClient } from './opensearch';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const CHUNK_SIZE = 500000;
-
 interface ChunkConfig {
   downloadId: string;
-  fileId: string;
+  fileName: string;
   searchParams: SearchParams;
 }
 
@@ -40,78 +44,36 @@ interface ScrollResponse {
   };
 }
 
-interface WebSocketMessage {
-  type: 'connected' | 'progress';
-  fileName?: string;
-  clientFileName?: string;
-  downloadId?: string;
-  progress?: number;
-  status?: DownloadStatus;
-  message?: string;
-  processedRows?: number;
-  totalRows?: number;
-  size?: number;
-  processingSpeed?: number;
-  estimatedTimeRemaining?: number;
-  timestamp?: string;
-  searchParams?: {
-    timeFrom: string;
-    timeTo: string;
-  };
-  totalProgress?: {
-    progress: number;
-    status: DownloadStatus;
-    processedRows: number;
-    totalRows: number;
-    processingSpeed: number;
-    estimatedTimeRemaining: number;
-    message: string;
-  };
-  chunks?: Array<{
-    fileName: string;
-    progress: number;
-    status: DownloadStatus;
-    message: string;
-    processedRows: number;
-    totalRows: number;
-    size: number;
-  }>;
-}
-
 class DownloadChunkManager {
   private chunks: Map<string, ChunkProgress> = new Map();
   private downloadId: string;
   private searchParams: SearchParams;
   private totalRows: number;
   private eventEmitter: EventEmitter;
-  private fileManager: FileManager;
 
   constructor(downloadId: string, searchParams: SearchParams) {
     this.downloadId = downloadId;
     this.searchParams = searchParams;
     this.totalRows = 0;
     this.eventEmitter = new EventEmitter();
-    this.fileManager = new FileManager();
   }
 
   public onFileReady(listener: (message: WebSocketMessage) => void): void {
     this.eventEmitter.on('file_ready', listener);
   }
 
-  public offFileReady(listener: (message: WebSocketMessage) => void): void {
-    this.eventEmitter.off('file_ready', listener);
+  public onProgressUpdate(listener: (message: WebSocketMessage) => void): void {
+    this.eventEmitter.on('progress_update', listener);
   }
 
-  public onGenerationProgress(
+  public offProgressUpdate(
     listener: (message: WebSocketMessage) => void
   ): void {
-    this.eventEmitter.on('generation_progress', listener);
+    this.eventEmitter.off('progress_update', listener);
   }
 
-  public offGenerationProgress(
-    listener: (message: WebSocketMessage) => void
-  ): void {
-    this.eventEmitter.off('generation_progress', listener);
+  private generateShortId(): string {
+    return Math.random().toString(36).substring(2, 15);
   }
 
   public async createChunks(): Promise<void> {
@@ -123,60 +85,54 @@ class DownloadChunkManager {
         throw new Error('No records found matching the search criteria');
       }
 
+      const CHUNK_SIZE = 500000;
       const numChunks = Math.ceil(totalCount / CHUNK_SIZE);
       console.log(
         `[DownloadChunkManager] Creating ${numChunks} chunks for ${totalCount} records`
       );
 
-      const timestamp = dayjs().format('YYYY-MM-DD_HH:mm:ss');
-
       for (let i = 0; i < numChunks; i++) {
-        const fileInfo = this.fileManager.createFile(
-          this.searchParams.menu,
-          timestamp,
-          i + 1,
-          numChunks
-        );
+        const startRow = i * CHUNK_SIZE;
+        const chunkSize = Math.min(CHUNK_SIZE, totalCount - startRow);
+        const clientFileName = `${this.searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_${i + 1}of${numChunks}.csv`;
+        const serverFileName = `${this.downloadId}_${i + 1}.csv`;
 
-        const chunkProgress: ChunkProgress = {
-          fileName: fileInfo.displayName,
-          fileInfo,
+        this.chunks.set(serverFileName, {
+          fileName: serverFileName,
+          clientFileName,
           downloadId: this.downloadId,
           progress: 0,
-          status: 'pending',
+          status: 'generating',
           processedRows: 0,
-          totalRows: Math.min(CHUNK_SIZE, totalCount - i * CHUNK_SIZE),
+          totalRows: chunkSize,
           startTime: new Date(),
           searchParams: this.searchParams,
+          message: 'Initializing...',
           processingSpeed: 0,
           estimatedTimeRemaining: 0,
-          message: 'Initializing...',
-        };
+          size: 0,
+        });
 
-        this.chunks.set(fileInfo.id, chunkProgress);
-      }
+        console.log(
+          `[DownloadChunkManager] Created chunk ${i + 1} of ${numChunks}`,
+          {
+            downloadId: this.downloadId,
+            fileName: serverFileName,
+            clientFileName,
+            status: 'generating',
+            startRow,
+            chunkSize,
+            timestamp: new Date().toISOString(),
+          }
+        );
 
-      console.log(`[DownloadChunkManager] Created ${numChunks} chunks`, {
-        downloadId: this.downloadId,
-        totalRows: totalCount,
-        timestamp: new Date().toISOString(),
-      });
-
-      const chunkConfigs = Array.from(this.chunks.entries()).map(
-        ([fileId, chunk]) => ({
+        // Process each chunk serially
+        await this.downloadChunk({
           downloadId: this.downloadId,
-          fileId,
-          searchParams: {
-            ...this.searchParams,
-            from: 0,
-            size: chunk.totalRows,
-          },
-        })
-      );
-
-      await Promise.all(
-        chunkConfigs.map((config) => this.downloadChunk(config))
-      );
+          fileName: serverFileName,
+          searchParams: this.searchParams,
+        });
+      }
     } catch (error) {
       console.error('[DownloadChunkManager] Error creating chunks:', error);
       throw error;
@@ -273,28 +229,34 @@ class DownloadChunkManager {
   }
 
   private async downloadChunk(config: ChunkConfig): Promise<void> {
-    const { fileId, searchParams } = config;
+    const { fileName, searchParams } = config;
     if (!searchParams) throw new Error('Search parameters are required');
 
-    const chunk = this.chunks.get(fileId);
+    const chunk = this.chunks.get(fileName);
     if (!chunk) throw new Error('Chunk not found');
-
-    let writeStream: fs.WriteStream | null = null;
-    let retryCount = 0;
-    const MAX_RETRIES = 3;
 
     try {
       console.log('[DownloadChunkManager] Starting chunk download:', {
-        fileId,
-        fileName: chunk.fileInfo.displayName,
+        fileName,
         searchParams,
         downloadId: this.downloadId,
         timestamp: new Date().toISOString(),
+        chunkDetails: {
+          totalRows: chunk.totalRows,
+          processedRows: chunk.processedRows,
+          status: chunk.status,
+        },
       });
 
       // Update status to generating
       chunk.status = 'generating';
       this.updateProgress(chunk, 0);
+
+      const downloadDir = join(process.cwd(), 'downloads');
+      await fs.promises.mkdir(downloadDir, { recursive: true }).catch((err) => {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        throw new Error(`Failed to create download directory: ${errorMessage}`);
+      });
 
       const client = OpenSearchClient.getInstance();
       const timeFrom = dayjs(searchParams.timeFrom).tz('Asia/Seoul').format();
@@ -303,131 +265,123 @@ class DownloadChunkManager {
       // Get current version and column names
       const currentVersion = getCurrentVersion();
       const allColumnNames = getColumnNames(currentVersion);
+      const versionColumnNames = allColumnNames.filter(
+        (column) => column !== 'message'
+      );
 
-      // Create write stream
-      writeStream = this.fileManager.createWriteStream(chunk.fileInfo);
+      console.log('[DownloadChunkManager] OpenSearch query parameters:', {
+        timeFrom,
+        timeTo,
+        menu: searchParams.menu,
+        searchTerm: searchParams.searchTerm,
+        downloadId: this.downloadId,
+        fileName,
+        chunkSize: chunk.totalRows,
+        timestamp: new Date().toISOString(),
+      });
 
-      let processedRows = 0;
-      let scrollId: string | null = null;
-
-      // Process data in batches with retry logic
-      do {
-        try {
-          // Get batch of data
-          const response: ScrollResponse = await client.request<ScrollResponse>(
-            {
-              path: scrollId ? '/_search/scroll' : '/*/_search?scroll=5m',
-              method: 'POST',
-              body: scrollId
-                ? {
-                    scroll: '5m',
-                    scroll_id: scrollId,
-                  }
-                : {
-                    query: {
-                      bool: {
-                        must: [
-                          {
-                            range: {
-                              '@timestamp': {
-                                gte: timeFrom,
-                                lte: timeTo,
-                                format: 'strict_date_time',
-                                time_zone: '+09:00',
-                              },
-                            },
-                          },
-                          {
-                            match: {
-                              logType: searchParams.menu,
-                            },
-                          },
-                          {
-                            exists: {
-                              field: 'message',
-                            },
-                          },
-                        ],
+      // Initialize scroll with chunk-specific parameters
+      const response = await client
+        .request<ScrollResponse>({
+          path: '/*/_search?scroll=5m',
+          method: 'POST',
+          body: {
+            query: {
+              bool: {
+                must: [
+                  {
+                    range: {
+                      '@timestamp': {
+                        gte: timeFrom,
+                        lte: timeTo,
+                        format: 'strict_date_time',
+                        time_zone: '+09:00',
                       },
                     },
-                    _source: allColumnNames,
-                    sort: [{ '@timestamp': 'asc' }],
-                    size: 10000,
-                    track_total_hits: true,
                   },
-            }
-          );
-
-          scrollId = response._scroll_id;
-          const hits = response.hits.hits;
-
-          if (hits.length === 0) break;
-
-          // Reset retry count on successful request
-          retryCount = 0;
-
-          // Process hits and write to file
-          await new Promise<void>((resolve, reject) => {
-            let buffer = '';
-            hits.forEach((hit: OpenSearchHit) => {
-              const row = allColumnNames
-                .map((column) => {
-                  const value = hit._source[column];
-                  return value !== undefined
-                    ? String(value).replace(/,/g, ';')
-                    : '';
-                })
-                .join(',');
-              buffer += row + '\n';
-            });
-
-            writeStream!.write(buffer, (error: Error | null | undefined) => {
-              if (error) reject(error);
-              else resolve();
-            });
-          });
-
-          processedRows += hits.length;
-          this.updateProgress(chunk, processedRows);
-        } catch (error) {
-          console.error('[DownloadChunkManager] Error in batch processing:', {
-            error: error instanceof Error ? error.message : String(error),
-            retryCount,
-            scrollId,
-            downloadId: this.downloadId,
-            timestamp: new Date().toISOString(),
-          });
-
-          if (retryCount >= MAX_RETRIES) {
-            throw new Error(
-              `Failed after ${MAX_RETRIES} retries: ${error instanceof Error ? error.message : String(error)}`
-            );
-          }
-
-          retryCount++;
-          // Exponential backoff
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.pow(2, retryCount) * 1000)
-          );
-          continue;
-        }
-      } while (scrollId);
-
-      // Clean up scroll if exists
-      if (scrollId) {
-        await client.request({
-          path: `/_search/scroll/${scrollId}`,
-          method: 'DELETE',
+                  {
+                    match: {
+                      logType: searchParams.menu,
+                    },
+                  },
+                  {
+                    exists: {
+                      field: 'message',
+                    },
+                  },
+                ],
+              },
+            },
+            _source: versionColumnNames,
+            sort: [{ '@timestamp': 'asc' }],
+            size: Math.min(10000, chunk.totalRows - chunk.processedRows),
+            from: chunk.processedRows,
+            track_total_hits: true,
+          },
+        })
+        .catch((err) => {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          throw new Error(`OpenSearch query failed: ${errorMessage}`);
         });
+
+      // Process the response and write to file
+      const filePath = join(downloadDir, fileName);
+      const writeStream = createWriteStream(filePath);
+
+      // Write headers only if this is the first chunk
+      const headers = versionColumnNames.join(',') + '\n';
+      writeStream.write(headers);
+
+      let scrollId = response._scroll_id;
+      let processedRows = 0;
+      let hits = response.hits.hits;
+
+      while (hits.length > 0 && processedRows < chunk.totalRows) {
+        // Process hits
+        for (const hit of hits) {
+          if (processedRows >= chunk.totalRows) break;
+
+          const row = versionColumnNames
+            .map((column) => {
+              const value = hit._source[column];
+              return value !== undefined
+                ? String(value).replace(/,/g, ';')
+                : '';
+            })
+            .join(',');
+          writeStream.write(row + '\n');
+          processedRows++;
+        }
+
+        // Update progress
+        this.updateProgress(chunk, processedRows);
+
+        // Break if we've reached the chunk's limit
+        if (processedRows >= chunk.totalRows) break;
+
+        // Get next batch with remaining size
+        const remainingRows = chunk.totalRows - processedRows;
+        const scrollResponse = await client.request<ScrollResponse>({
+          path: '/_search/scroll',
+          method: 'POST',
+          body: {
+            scroll: '5m',
+            scroll_id: scrollId,
+          },
+        });
+
+        scrollId = scrollResponse._scroll_id;
+        hits = scrollResponse.hits.hits;
       }
 
-      // Close write stream
-      await new Promise<void>((resolve, reject) => {
-        writeStream!.end((error: Error | null | undefined) => {
-          if (error) reject(error);
-          else resolve();
-        });
+      // Clean up scroll
+      await client.request({
+        path: `/_search/scroll/${scrollId}`,
+        method: 'DELETE',
       });
+
+      // Close write stream
+      writeStream.end();
 
       // Update final status
       chunk.status = 'ready';
@@ -435,201 +389,126 @@ class DownloadChunkManager {
       chunk.processedRows = chunk.totalRows;
       this.updateProgress(chunk, chunk.totalRows);
 
-      console.log('[DownloadChunkManager] File generation completed:', {
-        fileId: chunk.fileInfo.id,
-        fileName: chunk.fileInfo.displayName,
-        status: chunk.status,
+      console.log('[DownloadChunkManager] File ready:', {
+        fileName,
         downloadId: this.downloadId,
+        processedRows,
+        totalRows: chunk.totalRows,
         timestamp: new Date().toISOString(),
       });
 
-      // Update DownloadManager status and emit events
-      try {
-        const fileStatus = {
-          fileName: chunk.fileInfo.displayName,
-          status: 'ready' as const,
-          progress: 100,
-          processedRows: chunk.totalRows,
-          totalRows: chunk.totalRows,
-          message: 'File is ready for download',
-          downloadId: this.downloadId,
-          fileInfo: chunk.fileInfo,
-        };
-
-        console.log(
-          '[DownloadChunkManager] Updating DownloadManager with status:',
-          {
-            fileStatus,
-            downloadId: this.downloadId,
-            timestamp: new Date().toISOString(),
-          }
-        );
-
-        downloadManager.updateProgress(this.downloadId, fileStatus);
-
-        console.log('[DownloadChunkManager] Emitting file_ready event:', {
-          type: 'file_ready',
-          fileName: chunk.fileInfo.displayName,
-          status: 'ready',
-          downloadId: this.downloadId,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Emit file_ready event
-        this.eventEmitter.emit('file_ready', {
-          type: 'file_ready',
-          ...fileStatus,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error) {
-        console.error(
-          '[DownloadChunkManager] Failed to update download status:',
-          {
-            error: error instanceof Error ? error.message : String(error),
-            fileName: chunk.fileInfo.displayName,
-            downloadId: this.downloadId,
-            timestamp: new Date().toISOString(),
-          }
-        );
-
-        // Retry update after a short delay
-        setTimeout(() => {
-          try {
-            downloadManager.updateProgress(this.downloadId, {
-              fileName: chunk.fileInfo.displayName,
-              status: 'ready',
-              progress: 100,
-              processedRows: chunk.totalRows,
-              totalRows: chunk.totalRows,
-              message: 'File is ready for download',
-              downloadId: this.downloadId,
-            });
-          } catch (retryError) {
-            console.error('[DownloadChunkManager] Retry failed:', {
-              error:
-                retryError instanceof Error
-                  ? retryError.message
-                  : String(retryError),
-              fileName: chunk.fileInfo.displayName,
-              downloadId: this.downloadId,
-              timestamp: new Date().toISOString(),
-            });
-          }
-        }, 1000);
-      }
+      // Emit file_ready event
+      this.eventEmitter.emit('file_ready', {
+        type: 'file_ready',
+        downloadId: this.downloadId,
+        fileName: chunk.fileName,
+        clientFileName: chunk.clientFileName,
+        status: 'ready',
+        progress: 100,
+        processedRows: chunk.totalRows,
+        totalRows: chunk.totalRows,
+        message: 'File is ready for download',
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('[DownloadChunkManager] Error downloading chunk:', {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        fileId,
-        fileName: chunk.fileInfo.displayName,
+        fileName,
         downloadId: this.downloadId,
         timestamp: new Date().toISOString(),
       });
 
-      chunk.status = 'failed';
-      chunk.message = error instanceof Error ? error.message : String(error);
-      this.updateProgress(chunk, chunk.processedRows);
+      const chunk = this.chunks.get(fileName);
+      if (chunk) {
+        chunk.status = 'failed';
+        chunk.message = error instanceof Error ? error.message : String(error);
+        this.updateProgress(chunk, chunk.processedRows);
+      }
 
       throw error;
-    } finally {
-      // Ensure write stream is closed in case of error
-      if (writeStream) {
-        writeStream.end();
-      }
-    }
-  }
-
-  private getProgressMessage(
-    status: DownloadStatus,
-    processedRows: number,
-    totalRows: number
-  ): string {
-    switch (status) {
-      case 'completed':
-        return 'File is ready for download';
-      case 'failed':
-        return 'File generation failed';
-      case 'generating':
-        return `Generating file... ${processedRows.toLocaleString()} of ${totalRows.toLocaleString()} rows`;
-      case 'downloading':
-        return `Processing ${processedRows.toLocaleString()} of ${totalRows.toLocaleString()} rows`;
-      default:
-        return 'Preparing file...';
     }
   }
 
   private updateProgress(chunk: ChunkProgress, processedRows: number): void {
-    const currentTime = Date.now();
-    const elapsedTime = (currentTime - chunk.startTime.getTime()) / 1000;
-    const speed = elapsedTime > 0 ? processedRows / elapsedTime : 0;
+    const now = new Date();
+    const elapsedTime = (now.getTime() - chunk.startTime.getTime()) / 1000; // in seconds
+    const processingSpeed = processedRows / elapsedTime; // rows per second
+
+    chunk.processedRows = processedRows;
+    chunk.progress = Math.min(100, (processedRows / chunk.totalRows) * 100);
+
+    // Calculate estimated time remaining
     const remainingRows = chunk.totalRows - processedRows;
-    const estimatedTimeRemaining = speed > 0 ? remainingRows / speed : 0;
-    const progress = (processedRows / chunk.totalRows) * 100;
+    const estimatedTimeRemaining = remainingRows / processingSpeed; // in seconds
 
-    const updatedChunk: ChunkProgress = {
-      fileName: chunk.fileInfo.displayName,
-      fileInfo: chunk.fileInfo,
-      downloadId: chunk.downloadId,
-      progress,
-      status: chunk.status,
-      processedRows,
-      totalRows: chunk.totalRows,
-      startTime: chunk.startTime,
-      searchParams: chunk.searchParams,
-      processingSpeed: speed,
-      estimatedTimeRemaining,
-      message: this.getProgressMessage(
-        chunk.status,
-        processedRows,
-        chunk.totalRows
-      ),
-    };
+    chunk.processingSpeed = processingSpeed;
+    chunk.estimatedTimeRemaining = estimatedTimeRemaining;
 
-    this.chunks.set(chunk.fileInfo.id, updatedChunk);
-
-    // Emit generation_progress event
-    if (chunk.status === 'generating' || chunk.status === 'ready') {
-      this.eventEmitter.emit('generation_progress', {
-        type: 'generation_progress',
-        downloadId: this.downloadId,
-        fileName: chunk.fileInfo.displayName,
-        status: chunk.status,
-        progress,
-        processedRows,
-        totalRows: chunk.totalRows,
-        message: updatedChunk.message,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Update DownloadManager with the same status
-      downloadManager.updateProgress(this.downloadId, {
-        fileName: chunk.fileInfo.displayName,
-        status: chunk.status,
-        progress,
-        processedRows,
-        totalRows: chunk.totalRows,
-        message: updatedChunk.message,
-      });
-    }
+    // Update message with detailed progress information
+    chunk.message = `Processing ${processedRows.toLocaleString()} of ${chunk.totalRows.toLocaleString()} rows (${chunk.progress.toFixed(1)}%) at ${processingSpeed.toFixed(1)} rows/sec`;
 
     console.log('[DownloadChunkManager] Progress updated:', {
-      fileName: chunk.fileInfo.displayName,
-      processedRows,
+      fileName: chunk.fileName,
+      processedRows: chunk.processedRows,
       totalRows: chunk.totalRows,
-      progress: `${progress.toFixed(1)}%`,
-      speed: `${speed.toFixed(1)} rows/sec`,
+      progress: `${chunk.progress.toFixed(1)}%`,
+      speed: `${processingSpeed.toFixed(1)} rows/sec`,
       estimatedTimeRemaining: `${estimatedTimeRemaining.toFixed(1)} sec`,
       downloadId: this.downloadId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Emit progress update event
+    this.eventEmitter.emit('progress_update', {
+      type: 'progress_update',
+      downloadId: this.downloadId,
+      fileName: chunk.fileName,
+      processedRows: chunk.processedRows,
+      totalRows: chunk.totalRows,
+      progress: chunk.progress,
+      speed: chunk.processingSpeed,
+      estimatedTimeRemaining: chunk.estimatedTimeRemaining,
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log('[DownloadChunkManager] Emitting progress_update event:', {
+      downloadId: this.downloadId,
+      fileName: chunk.fileName,
+      processedRows: chunk.processedRows,
+      totalRows: chunk.totalRows,
+      progress: chunk.progress,
+      speed: chunk.processingSpeed,
+      estimatedTimeRemaining: chunk.estimatedTimeRemaining,
       timestamp: new Date().toISOString(),
     });
   }
 
   public getProgress(): ChunkProgress[] {
-    return Array.from(this.chunks.values());
+    const chunks = Array.from(this.chunks.values());
+    console.log('[DownloadChunkManager] Current chunks:', {
+      downloadId: this.downloadId,
+      chunks: chunks.map((c) => ({
+        fileName: c.fileName,
+        clientFileName: c.clientFileName,
+        status: c.status,
+        progress: c.progress,
+      })),
+      timestamp: new Date().toISOString(),
+    });
+    return chunks;
   }
 
   public getChunk(fileName: string): ChunkProgress | undefined {
+    console.log('[DownloadChunkManager] Looking for chunk:', {
+      searchFileName: fileName,
+      availableFiles: Array.from(this.chunks.entries()).map(([key, chunk]) => ({
+        fileName: chunk.fileName,
+        clientFileName: chunk.clientFileName,
+        status: chunk.status,
+      })),
+      timestamp: new Date().toISOString(),
+    });
     return this.chunks.get(fileName);
   }
 
@@ -660,99 +539,47 @@ class DownloadChunkManager {
     const failedChunks = chunks.filter(
       (chunk) => chunk.status === 'failed'
     ).length;
-    const generatingChunks = chunks.filter(
-      (chunk) => chunk.status === 'generating'
-    ).length;
-    const readyChunks = chunks.filter(
-      (chunk) => chunk.status === 'ready'
-    ).length;
     const processingChunks = chunks.filter(
       (chunk) => chunk.status === 'downloading'
     ).length;
 
-    let status: DownloadStatus = 'pending';
+    let status: DownloadStatus = 'generating';
     if (completedChunks === chunks.length) {
       status = 'completed';
     } else if (failedChunks > 0) {
       status = 'failed';
-    } else if (generatingChunks > 0) {
-      status = 'generating';
-    } else if (readyChunks > 0) {
-      status = 'ready';
     } else if (processingChunks > 0) {
       status = 'downloading';
     }
 
     const progress = chunks.length > 0 ? totalProgress / chunks.length : 0;
 
-    // Use the first chunk's information if available
+    // Use the first chunk's filename if available, otherwise generate a new one
     const firstChunk = chunks[0];
-    const chunkProgress: ChunkProgress = {
-      fileName: firstChunk?.fileName || '',
-      fileInfo: firstChunk?.fileInfo || {
-        id: this.downloadId,
-        displayName: '',
-        path: '',
-      },
+    const fileName =
+      firstChunk?.fileName ||
+      `${this.searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_1of1.csv`;
+
+    return {
+      fileName,
       downloadId: this.downloadId,
-      progress,
+      progress: Math.min(100, progress),
       status,
       processedRows: totalProcessedRows,
-      totalRows: firstChunk?.totalRows || 0,
-      startTime: firstChunk?.startTime || new Date(),
-      searchParams: firstChunk?.searchParams || this.searchParams,
-      processingSpeed: firstChunk?.processingSpeed || 0,
-      estimatedTimeRemaining: firstChunk?.estimatedTimeRemaining || 0,
-      message: this.getProgressMessage(
-        status,
-        totalProcessedRows,
-        firstChunk?.totalRows || 0
-      ),
+      totalRows: this.totalRows,
+      startTime: new Date(),
+      searchParams: this.searchParams,
+      message: `Processing ${totalProcessedRows} of ${this.totalRows} rows...`,
+      processingSpeed: 0,
+      estimatedTimeRemaining: 0,
+      size: 0,
     };
-
-    return chunkProgress;
   }
 }
 
 class DownloadChunkManagerInstance {
   private managers: Map<string, DownloadChunkManager> = new Map();
   private eventEmitter: EventEmitter = new EventEmitter();
-  private cleanupInterval: NodeJS.Timeout;
-  private readonly CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
-  private readonly MAX_AGE = 30 * 60 * 1000; // 30 minutes
-
-  constructor() {
-    this.cleanupInterval = setInterval(
-      () => this.cleanupOldManagers(),
-      this.CLEANUP_INTERVAL
-    );
-  }
-
-  private cleanupOldManagers(): void {
-    const now = Date.now();
-    for (const [downloadId, manager] of this.managers.entries()) {
-      const chunks = Array.from(manager['chunks'].values());
-      const lastUpdated = Math.max(
-        ...chunks.map((chunk) => chunk.startTime.getTime())
-      );
-
-      if (now - lastUpdated > this.MAX_AGE) {
-        console.log('[DownloadChunkManagerInstance] Cleaning up old manager:', {
-          downloadId,
-          age: Math.round((now - lastUpdated) / 1000 / 60) + ' minutes',
-          timestamp: new Date().toISOString(),
-        });
-
-        this.managers.delete(downloadId);
-      }
-    }
-  }
-
-  public cleanup(): void {
-    clearInterval(this.cleanupInterval);
-    this.managers.clear();
-    this.eventEmitter.removeAllListeners();
-  }
 
   getManager(downloadId: string): DownloadChunkManager | undefined {
     return this.managers.get(downloadId);
@@ -767,30 +594,7 @@ class DownloadChunkManagerInstance {
 
     // Forward events from the manager to the instance's event emitter
     manager.onFileReady((message: WebSocketMessage) => {
-      console.log(
-        '[DownloadChunkManagerInstance] Forwarding file_ready event:',
-        {
-          downloadId: message.downloadId,
-          fileName: message.fileName,
-          status: message.status,
-          timestamp: new Date().toISOString(),
-        }
-      );
       this.eventEmitter.emit('file_ready', message);
-    });
-
-    manager.onGenerationProgress((message: WebSocketMessage) => {
-      console.log(
-        '[DownloadChunkManagerInstance] Forwarding generation_progress event:',
-        {
-          downloadId: message.downloadId,
-          fileName: message.fileName,
-          status: message.status,
-          progress: message.progress,
-          timestamp: new Date().toISOString(),
-        }
-      );
-      this.eventEmitter.emit('generation_progress', message);
     });
 
     return manager;

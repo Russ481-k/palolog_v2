@@ -1,38 +1,39 @@
 import { useCallback, useState } from 'react';
 
+import { trpc } from '@/lib/trpc/client';
 import { DownloadStatus } from '@/types/download';
-import { MenuType } from '@/types/project';
 
-import type { DownloadSearchParams, DownloadState, FileStatus } from '../types';
+import type { DownloadState, FileStatus } from '../types';
 
 interface UseDownloadStateProps {
   onCleanup: (id: string) => void;
   onCancel: (id: string) => void;
 }
 
-interface UpdateFileStatusProps {
-  fileName: string;
-  update: Partial<FileStatus>;
-  searchParams?: DownloadSearchParams;
-}
-
 const initialState: DownloadState = {
+  clientFileName: '',
+  status: 'generating',
   downloadId: '',
   fileStatuses: {},
   selectedFiles: [],
   isOpen: false,
   isConnecting: false,
   isConnectionReady: false,
-  totalProgress: undefined,
-  searchParams: undefined,
+  size: 0,
+  searchParams: {
+    menu: 'TRAFFIC',
+    timeFrom: '',
+    timeTo: '',
+    searchTerm: '',
+  },
 };
 
 const validTransitions: Record<DownloadStatus, DownloadStatus[]> = {
-  pending: ['generating'],
-  generating: ['ready', 'failed'],
-  ready: ['downloading', 'failed'],
-  downloading: ['completed', 'failed'],
-  completed: [],
+  progress: ['progress', 'generating', 'ready', 'downloading', 'failed'],
+  generating: ['generating', 'ready', 'failed'],
+  ready: ['ready', 'downloading', 'failed'],
+  downloading: ['downloading', 'completed', 'failed'],
+  completed: ['completed', 'failed'],
   failed: [],
 };
 
@@ -40,103 +41,139 @@ export const useDownloadState = ({
   onCleanup,
   onCancel,
 }: UseDownloadStateProps) => {
+  const downloadFile = trpc.download.downloadFile.useMutation();
   const [state, setState] = useState<DownloadState>(initialState);
 
-  const updateFileStatus = useCallback(
-    ({ fileName, update, searchParams }: UpdateFileStatusProps) => {
-      setState((prev) => {
-        const currentStatus = prev.fileStatuses[fileName];
+  const updateFileStatuses = useCallback(
+    (update: FileStatus) => {
+      console.log('[useDownloadState] Updating file status:', {
+        fileName: update.fileName,
+        currentStatus: state.fileStatuses[update.fileName]?.status,
+        newStatus: update.status,
+        update,
+      });
 
-        // 상태나 진행률이 변경되지 않았다면 업데이트 스킵
-        if (
-          currentStatus &&
-          update.status === currentStatus.status &&
-          update.progress === currentStatus.progress
-        ) {
-          console.log('[useDownloadState] Skipping duplicate update:', {
-            fileName,
-            status: update.status,
-            progress: update.progress,
-            timestamp: new Date().toISOString(),
-          });
-          return prev;
-        }
+      const displayFileName = update.clientFileName || update.fileName;
 
-        // 상태 전환 검증
-        if (currentStatus?.status && update?.status) {
-          const allowedTransitions = validTransitions[currentStatus.status];
-          if (
-            allowedTransitions &&
-            !allowedTransitions.includes(update.status)
-          ) {
-            console.warn('[useDownloadState] Invalid state transition:', {
-              fileName,
-              currentStatus: currentStatus.status,
-              newStatus: update.status,
-              allowedTransitions,
-              timestamp: new Date().toISOString(),
-            });
-            return prev;
-          }
-        }
-
-        // 새 파일이거나 상태가 변경된 경우에만 업데이트
-        const baseStatus: FileStatus = {
-          status: 'pending',
-          progress: 0,
-          message: 'Initializing...',
-          size: 0,
-          processedRows: 0,
-          totalRows: 0,
-          processingSpeed: 0,
-          estimatedTimeRemaining: 0,
-          searchParams: {
-            timeFrom: '',
-            timeTo: '',
-            menu: 'TRAFFIC' as MenuType,
-            searchTerm: '',
-          },
-        };
-
-        // 새 파일인 경우에만 임시 파일명 사용
-        const targetFileName = currentStatus
-          ? fileName
-          : `${searchParams?.menu || 'TRAFFIC'}_${new Date().toISOString().replace('T', '_').slice(0, 19)}_pending.csv`;
-
-        const newStatus: FileStatus = {
-          ...(currentStatus || baseStatus),
-          ...update,
-          searchParams:
-            searchParams ||
-            currentStatus?.searchParams ||
-            baseStatus.searchParams,
-        };
-
-        console.log('[useDownloadState] Updating file status:', {
-          fileName,
-          targetFileName,
-          currentStatus: currentStatus?.status,
-          newStatus: update?.status,
-          currentProgress: currentStatus?.progress,
-          newProgress: update?.progress,
-          timestamp: new Date().toISOString(),
+      if (!state.fileStatuses[update.fileName]) {
+        console.log('[useDownloadState] Creating new file:', {
+          fileName: displayFileName,
+          initialState: update,
         });
 
-        // update가 undefined인 경우 이전 상태 유지
-        if (!update) {
-          return prev;
-        }
-
-        return {
+        setState((prev) => ({
           ...prev,
           fileStatuses: {
             ...prev.fileStatuses,
-            [targetFileName]: newStatus,
+            [update.fileName]: {
+              clientFileName: update.clientFileName || update.fileName,
+              fileName: update.fileName,
+              downloadId: update.downloadId || prev.downloadId, // 기본값 제공
+              status: update.status || 'generating',
+              progress: update.progress || 0,
+              message: update.message || 'Initializing...',
+              size: update.size || 0,
+              processedRows: update.processedRows || 0,
+              totalRows: update.totalRows || 0,
+              processingSpeed: update.processingSpeed || 0,
+              estimatedTimeRemaining: update.estimatedTimeRemaining || 0,
+              searchParams: update.searchParams || {
+                menu: 'TRAFFIC',
+                timeFrom: '',
+                timeTo: '',
+                searchTerm: '',
+              },
+            },
           },
-        };
+        }));
+        return;
+      }
+
+      // For existing files, v
+
+      if (
+        update.status &&
+        state.fileStatuses[update.fileName]?.status !== update.status
+      ) {
+        const currentStatus =
+          state.fileStatuses[update.fileName]?.status || 'generating';
+        const allowedTransitions = validTransitions[currentStatus];
+        console.log('[useDownloadState] Validating status transition:', {
+          fileName: update.fileName,
+          from: currentStatus,
+          to: update.status,
+          allowed: allowedTransitions,
+        });
+
+        if (!allowedTransitions.includes(update.status)) {
+          console.warn(
+            `[useDownloadState] Invalid status transition from ${state.fileStatuses[update.fileName]?.status} to ${update.status}`
+          );
+          return;
+        }
+      }
+
+      const updatedFile: FileStatus = {
+        ...state.fileStatuses[update.fileName],
+        clientFileName: update.clientFileName || update.fileName,
+        fileName: update.fileName,
+        downloadId:
+          update.downloadId ||
+          state.fileStatuses[update.fileName]?.downloadId ||
+          '',
+        status:
+          update.status ||
+          state.fileStatuses[update.fileName]?.status ||
+          'generating',
+        progress:
+          update.progress ?? state.fileStatuses[update.fileName]?.progress ?? 0,
+        message:
+          update.message ??
+          state.fileStatuses[update.fileName]?.message ??
+          'Initializing...',
+        size: update.size ?? state.fileStatuses[update.fileName]?.size ?? 0,
+        processedRows:
+          update.processedRows ??
+          state.fileStatuses[update.fileName]?.processedRows ??
+          0,
+        totalRows:
+          update.totalRows ??
+          state.fileStatuses[update.fileName]?.totalRows ??
+          0,
+        processingSpeed:
+          update.processingSpeed ??
+          state.fileStatuses[update.fileName]?.processingSpeed ??
+          0,
+        estimatedTimeRemaining:
+          update.estimatedTimeRemaining ??
+          state.fileStatuses[update.fileName]?.estimatedTimeRemaining ??
+          0,
+        searchParams: update.searchParams ??
+          state.fileStatuses[update.fileName]?.searchParams ?? {
+            menu: 'TRAFFIC',
+            timeFrom: '',
+            timeTo: '',
+            searchTerm: '',
+          },
+      };
+
+      console.log('[useDownloadState] Updated file status:', {
+        fileName: update.fileName,
+        before: state.fileStatuses[update.fileName]?.status,
+        after: updatedFile.status,
+        progress: updatedFile.progress,
+        message: updatedFile.message,
       });
+
+      setState((prev) => ({
+        ...prev,
+        fileStatuses: {
+          ...prev.fileStatuses,
+          [update.fileName]: updatedFile,
+        },
+      }));
     },
-    []
+    [state.fileStatuses]
   );
 
   const handleFileSelection = (fileName: string, selected: boolean) => {
@@ -173,12 +210,78 @@ export const useDownloadState = ({
     }));
   };
 
+  const handleDownload = useCallback(
+    async (fileName: string) => {
+      const fileStatus = state.fileStatuses[fileName];
+      if (!fileStatus) {
+        console.error('[useDownloadState] File not found:', fileName);
+        return;
+      }
+
+      try {
+        const result = await downloadFile.mutateAsync({
+          fileName,
+          downloadId: state.downloadId,
+        });
+
+        if (result.filePath) {
+          updateFileStatuses({
+            fileName,
+            downloadId: state.downloadId,
+            status: 'downloading',
+            message: 'Starting download...',
+            size: 0,
+            progress: 0,
+            processedRows: 0,
+            totalRows: 0,
+            processingSpeed: 0,
+            estimatedTimeRemaining: 0,
+            searchParams: state.searchParams || {
+              menu: 'TRAFFIC',
+              timeFrom: '',
+              timeTo: '',
+              searchTerm: '',
+            },
+          });
+        }
+      } catch (error) {
+        console.error('[useDownloadState] Download error:', error);
+        updateFileStatuses({
+          fileName,
+          downloadId: state.downloadId,
+          status: 'failed',
+          message: error instanceof Error ? error.message : 'Download failed',
+          size: 0,
+          progress: 0,
+          processedRows: 0,
+          totalRows: 0,
+          processingSpeed: 0,
+          estimatedTimeRemaining: 0,
+          searchParams: state.searchParams || {
+            menu: 'TRAFFIC',
+            timeFrom: '',
+            timeTo: '',
+            searchTerm: '',
+          },
+        });
+      }
+    },
+    [
+      state.fileStatuses,
+      state.downloadId,
+      downloadFile,
+      updateFileStatuses,
+      state.searchParams,
+    ]
+  );
+
   return {
     state,
     setState,
-    updateFileStatus,
+    updateFileStatuses,
     handleFileSelection,
     handleError,
     handleModalClose,
+    handleDownload,
   };
 };

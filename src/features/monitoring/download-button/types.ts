@@ -8,88 +8,40 @@ export interface DownloadSearchParams {
   searchTerm: string;
 }
 
-export interface SearchParams {
-  timeFrom: string;
-  timeTo: string;
-  menu: string;
-  searchTerm: string;
-}
-
 // Base interface for all progress-related messages
-interface BaseProgressMessage {
+export interface BaseProgressMessage {
   type: 'progress';
+  downloadId: string;
   fileName: string;
+  status: DownloadStatus;
+  progress: number;
+  message: string;
   processedRows: number;
   totalRows: number;
+  processingSpeed: number;
+  estimatedTimeRemaining: number;
 }
 
 // For file generation progress updates
 export interface GenerationProgressMessage extends BaseProgressMessage {
   status: 'generating';
-  progress: number;
-  processingSpeed: number;
-  estimatedTimeRemaining: number;
-  message: string;
-  searchParams: DownloadSearchParams;
 }
 
 // For download progress updates
 export interface DownloadProgressMessage extends BaseProgressMessage {
   status: 'downloading' | 'completed' | 'failed';
-  progress: number;
-  size: number;
-  processingSpeed: number;
-  estimatedTimeRemaining: number;
-  message: string;
-  searchParams: DownloadSearchParams;
 }
 
 // For file ready notification
 export interface FileReadyMessage extends BaseProgressMessage {
   status: 'ready';
-  progress: number;
-  size: number;
-  message: string;
-  searchParams: DownloadSearchParams;
-}
-
-// For total progress updates
-export interface TotalProgressMessage {
-  type: 'progress';
-  totalProgress: {
-    progress: number;
-    status: DownloadStatus;
-    processedRows: number;
-    totalRows: number;
-    processingSpeed: number;
-    estimatedTimeRemaining: number;
-    message: string;
-  };
-}
-
-// For new files notification
-export interface NewFilesMessage {
-  type: 'progress';
-  newFiles: Array<{
-    fileName: string;
-    clientFileName?: string;
-    status: DownloadStatus;
-    progress: number;
-    message: string;
-    processedRows: number;
-    totalRows: number;
-    size: number;
-    searchParams: DownloadSearchParams;
-  }>;
 }
 
 // Union type for all possible progress messages
 export type ProgressMessage =
   | GenerationProgressMessage
   | DownloadProgressMessage
-  | FileReadyMessage
-  | TotalProgressMessage
-  | NewFilesMessage;
+  | FileReadyMessage;
 
 export const isProgressMessage = (
   message: unknown
@@ -102,44 +54,31 @@ export const isProgressMessage = (
   ) {
     return false;
   }
-
-  // Check for total progress message
-  if ('totalProgress' in message) {
-    return true;
-  }
-
-  // Check for new files message
-  if ('newFiles' in message) {
-    return true;
-  }
-
-  // Check for file-specific messages
   const msg = message as Partial<BaseProgressMessage>;
-  return (
-    typeof msg.fileName === 'string' &&
-    typeof msg.processedRows === 'number' &&
-    typeof msg.totalRows === 'number'
-  );
+
+  return true;
 };
 
 export interface FileData {
   fileName: string;
-  clientFileName?: string;
-  size: number;
   lastModified: string;
-  selected: boolean;
+  downloadId: string;
+  clientFileName: string;
   status: DownloadStatus;
   progress: number;
-  message?: string;
+  message: string;
   processedRows: number;
   totalRows: number;
+  processingSpeed: number;
+  estimatedTimeRemaining: number;
+  size: number;
+  selected: boolean;
   timeRange: string;
-  processingSpeed?: number;
-  estimatedTimeRemaining?: number;
   searchParams: DownloadSearchParams;
 }
 
 export interface FileStatus {
+  fileName: string;
   size: number;
   status: DownloadStatus;
   progress: number;
@@ -149,12 +88,17 @@ export interface FileStatus {
   processingSpeed: number;
   estimatedTimeRemaining: number;
   searchParams: DownloadSearchParams;
+  downloadId: string;
+  clientFileName?: string;
 }
 
 export type FileStatuses = Record<string, FileStatus>;
 
 export interface DownloadState {
   downloadId: string;
+  size: number;
+  clientFileName: string;
+  status: DownloadStatus;
   fileStatuses: FileStatuses;
   selectedFiles: string[];
   isOpen: boolean;
@@ -179,8 +123,22 @@ export interface DownloadButtonProps {
   isLoading: boolean;
 }
 
-export interface UpdateFileStatusProps {
-  fileName: string;
-  update: Partial<FileStatus>;
-  searchParams?: DownloadSearchParams;
+export interface DownloadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  totalProgress?: {
+    progress: number;
+    status: DownloadStatus;
+    processedRows: number;
+    totalRows: number;
+    processingSpeed: number;
+    estimatedTimeRemaining: number;
+    message: string;
+  };
+  fileStatuses: FileStatuses;
+  selectedFiles: string[];
+  onFileSelection: (fileName: string, selected: boolean) => void;
+  onFileDownload: (fileName: string) => void;
+  onDownloadSelected: () => void;
+  gridTheme: string;
 }

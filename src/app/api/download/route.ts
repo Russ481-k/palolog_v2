@@ -9,7 +9,6 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const filePath = url.searchParams.get('file');
-    const displayName = url.searchParams.get('displayName');
 
     if (!filePath) {
       return new NextResponse('File path is required', {
@@ -35,7 +34,7 @@ export async function GET(req: NextRequest) {
     }
 
     const stream = createReadStream(fullPath);
-    const fileName = displayName || filePath.split('/').pop();
+    const fileName = filePath.split('/').pop();
 
     // Node.js ReadStream을 Web ReadableStream으로 변환
     const webStream = new ReadableStream({

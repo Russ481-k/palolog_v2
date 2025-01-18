@@ -1,13 +1,10 @@
 import dayjs from 'dayjs';
-import path from 'path';
-import process from 'process';
 import { Observable, Subscriber } from 'rxjs';
+import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
-import { ChunkProgress, DownloadProgress } from '@/types/download';
-
 import { downloadChunkManager } from '../lib/downloadChunkManager';
-import { downloadManager } from '../lib/downloadManager';
+import { TotalProgress, downloadManager } from '../lib/downloadManager';
 import { protectedProcedure, router } from '../trpc';
 
 const searchParamsSchema = z
@@ -23,12 +20,23 @@ export const downloadRouter = router({
   onProgress: protectedProcedure
     .input(z.object({ downloadId: z.string() }))
     .subscription(({ input }) => {
-      return new Observable<DownloadProgress>(
-        (emit: Subscriber<DownloadProgress>) => {
+      return new Observable<TotalProgress>(
+        (emit: Subscriber<TotalProgress>) => {
           const interval = setInterval(() => {
             const progress = downloadManager.getProgress(input.downloadId);
             if (progress) {
-              emit.next(progress);
+              emit.next({
+                downloadId: input.downloadId,
+                files: [progress],
+                timestamp: new Date().toISOString(),
+                overallProgress: {
+                  progress: progress.progress,
+                  status: progress.status,
+                  processedRows: progress.processedRows,
+                  totalRows: progress.totalRows,
+                  message: progress.message,
+                },
+              });
             }
           }, 200);
 
@@ -47,82 +55,68 @@ export const downloadRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { searchId, totalRows: expectedRows, searchParams } = input;
+      const { searchId, totalRows, searchParams } = input;
+      const downloadId = uuidv4();
       try {
         console.log('[Download Router] Starting download with params:', {
           searchId,
-          expectedRows,
+          totalRows,
           searchParams,
           timestamp: new Date().toISOString(),
         });
 
-        // 실제 OpenSearch에서 카운트 조회
-        const actualCount = await downloadManager.getActualCount(searchParams);
-
-        console.log('[Download Router] Actual count from OpenSearch:', {
-          expectedRows,
-          actualCount,
-          searchId,
-          timestamp: new Date().toISOString(),
-        });
-
         const download = await downloadManager.createDownload(
-          searchId,
-          actualCount,
+          downloadId,
+          totalRows,
           searchParams
         );
 
         // 파일 크기 계산 (500,000 rows per file)
         const CHUNK_SIZE = 500000;
-        const numFiles = Math.ceil(actualCount / CHUNK_SIZE);
+        const numFiles = Math.ceil(totalRows / CHUNK_SIZE);
         const timestamp = dayjs().format('YYYY-MM-DD_HH:mm:ss');
 
         // 초기 파일 목록 생성
-        const initialFiles: ChunkProgress[] = Array.from(
-          { length: numFiles },
-          (_, index) => {
-            const internalFileName = `${download.id}_${index + 1}of${numFiles}.csv`;
-            const clientFileName = `${searchParams.menu}_${timestamp}.csv`;
-            return {
-              fileName: internalFileName,
-              clientFileName,
-              downloadId: download.id,
-              size: 0,
-              status: 'pending' as const,
-              progress: 0,
-              processedRows: 0,
-              totalRows: Math.min(CHUNK_SIZE, actualCount - index * CHUNK_SIZE),
-              message: 'Initializing...',
-              searchParams,
-              startTime: new Date(),
-              processingSpeed: 0,
-              estimatedTimeRemaining: 0,
-              fileInfo: {
-                id: `${download.id}_${index + 1}of${numFiles}`,
-                displayName: clientFileName,
-                path: path.join(process.cwd(), 'downloads', internalFileName),
-              },
-            };
-          }
-        );
+        const initialFiles = Array.from({ length: numFiles }, (_, index) => {
+          const clientFileName = `${searchParams.menu}_${timestamp}_${index + 1}of${numFiles}.csv`;
+          return {
+            downloadId,
+            fileName: `${downloadId}.csv`,
+            clientFileName,
+            status: 'generating' as const,
+            progress: 0,
+            processedRows: 0,
+            totalRows: Math.min(CHUNK_SIZE, totalRows - index * CHUNK_SIZE),
+            message: 'Generating file...',
+            startTime: new Date(),
+            lastUpdateTime: Date.now(),
+            lastProcessedCount: 0,
+            processingSpeed: 0,
+            estimatedTimeRemaining: 0,
+          };
+        });
 
         // 다운로드 매니저에 초기 상태 설정
-        downloadManager.initializeFiles(download.id, initialFiles);
+        downloadManager.initializeFiles(
+          download.servedDownloadId,
+          initialFiles
+        );
 
         return {
-          downloadId: download.id,
-          files: initialFiles,
+          downloadId: download.servedDownloadId,
+          files: initialFiles.map((file) => ({
+            ...file,
+            fileName: file.clientFileName || file.fileName,
+          })),
           totalFiles: numFiles,
           searchParams,
-          expectedRows,
-          actualCount,
         };
       } catch (error) {
         console.error('[Download Router] Failed to start download:', {
           error: error instanceof Error ? error.message : String(error),
           searchId,
           searchParams,
-          totalRows: expectedRows,
+          totalRows,
           timestamp: new Date().toISOString(),
           stack: error instanceof Error ? error.stack : undefined,
         });
@@ -139,12 +133,68 @@ export const downloadRouter = router({
     )
     .mutation(async ({ input }) => {
       const { fileName, downloadId } = input;
+      console.log('[Download Router] Attempting to download file:', {
+        downloadId,
+        fileName,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(downloadId, downloadChunkManager.getManager(downloadId));
       const manager = downloadChunkManager.getManager(downloadId);
-      if (!manager) throw new Error('Download manager not found');
+      if (!manager) {
+        console.error('[Download Router] Download manager not found:', {
+          downloadId,
+          fileName,
+          timestamp: new Date().toISOString(),
+        });
+        throw new Error('Download manager not found');
+      }
 
-      const chunk = manager.getChunk(fileName);
-      if (!chunk) throw new Error('File not found');
-      return { filePath: fileName };
+      // Get all chunks and find the one with matching file name
+      const chunks = manager.getProgress();
+      console.log('[Download Router] Available chunks:', {
+        downloadId,
+        chunks: chunks.map((c) => ({
+          fileName: c.fileName,
+          clientFileName: c.clientFileName,
+        })),
+        requestedFile: fileName,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Try to find the chunk by either server file name or client file name
+      const chunk = chunks.find(
+        (c) => c.fileName === fileName || c.clientFileName === fileName
+      );
+
+      if (!chunk) {
+        console.error('[Download Router] File not found:', {
+          downloadId,
+          fileName,
+          availableFiles: chunks.map((c) => ({
+            fileName: c.fileName,
+            clientFileName: c.clientFileName,
+          })),
+          timestamp: new Date().toISOString(),
+        });
+        throw new Error('File not found');
+      }
+
+      if (chunk.status !== 'ready') {
+        console.error('[Download Router] File not ready:', {
+          downloadId,
+          fileName,
+          clientFileName: chunk.clientFileName,
+          status: chunk.status,
+          timestamp: new Date().toISOString(),
+        });
+        throw new Error('File not ready for download');
+      }
+
+      // Return both server and client file names
+      return {
+        filePath: chunk.fileName,
+        downloadFileName: chunk.clientFileName || chunk.fileName,
+      };
     }),
 
   pauseDownload: protectedProcedure

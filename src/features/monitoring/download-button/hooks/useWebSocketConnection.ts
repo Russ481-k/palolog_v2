@@ -3,9 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Socket, io } from 'socket.io-client';
 
 import { env } from '@/env.mjs';
+import { WebSocketMessage } from '@/types/download';
 import { MenuType } from '@/types/project';
 
-import { WebSocketMessage } from '../../types';
 import { useConnectionTimeout } from './websocket/useConnectionTimeout';
 
 enum ConnectionState {
@@ -87,7 +87,7 @@ export const useWebSocketConnection = ({
   );
 
   const eventHandlers = useCallback(
-    (): SocketEventHandlers => ({
+    (downloadId: string): SocketEventHandlers => ({
       handleConnectError: (
         socket: Socket,
         error: Error,
@@ -167,17 +167,22 @@ export const useWebSocketConnection = ({
       },
 
       handleProgress: (message: WebSocketMessage) => {
+        console.log('==========[Socket.IO] handleProgress called:', {
+          message,
+          timestamp: new Date().toISOString(),
+        });
         if (!mountedRef.current) return;
 
-        if ('totalProgress' in message && message.totalProgress) {
-          console.log('[Socket.IO] Total progress update:', {
-            progress: message.totalProgress.progress,
-            status: message.totalProgress.status,
-            processedRows: message.totalProgress.processedRows,
-            totalRows: message.totalProgress.totalRows,
-            timestamp: new Date().toISOString(),
-          });
-        } else if (message.fileName) {
+        // if ('totalProgress' in message && message.totalProgress) {
+        //   console.log('[Socket.IO] Total progress update:', {
+        //     progress: message.totalProgress.progress,
+        //     status: message.totalProgress.status,
+        //     processedRows: message.totalProgress.processedRows,
+        //     totalRows: message.totalProgress.totalRows,
+        //     timestamp: new Date().toISOString(),
+        //   });
+        // } else
+        if (message.fileName) {
           console.log('[Socket.IO] File progress update:', {
             fileName: message.fileName,
             status: message.status,
@@ -192,7 +197,6 @@ export const useWebSocketConnection = ({
       },
     }),
     [
-      downloadId,
       searchId,
       searchParams,
       totalRows,
@@ -205,11 +209,12 @@ export const useWebSocketConnection = ({
 
   const setupSocketListeners = useCallback(
     (
+      downloadId: string,
       socket: Socket,
       resolve: (socket: Socket) => void,
       reject: (error: Error) => void
     ) => {
-      const handlers = eventHandlers();
+      const handlers = eventHandlers(downloadId);
 
       socket.on('connect_error', (error) =>
         handlers.handleConnectError(socket, error, reject)
@@ -221,161 +226,150 @@ export const useWebSocketConnection = ({
       );
       socket.on('error', handlers.handleError);
 
+      // 0. progress_update
+      socket.on('progress_update', (rawMessage: Record<string, unknown>) => {
+        const message: WebSocketMessage = {
+          type: 'progress',
+          downloadId: rawMessage.downloadId as string,
+          fileName: rawMessage.fileName as string,
+          status: 'progress',
+          progress: rawMessage.progress as number,
+          processedRows: rawMessage.processedRows as number,
+          totalRows: rawMessage.totalRows as number,
+          timestamp: new Date().toISOString(),
+        };
+        // console.log('[Socket.IO] Progress update:', message);
+        onMessage(message);
+      });
+
       // 1. Generation Progress
-      socket.on(
-        'generation_progress',
-        (rawMessage: Record<string, unknown>) => {
-          const message: WebSocketMessage = {
-            type: 'progress',
-            ...rawMessage,
-          };
-          console.log(
-            '[Socket.IO] Received generation_progress message:',
-            message
-          );
-          handlers.handleProgress(message);
-          setConnectionState(ConnectionState.ACKNOWLEDGED);
-          onMessage({
-            ...message,
-            type: 'progress',
-            progress: message.progress || 0,
-            fileName: message.clientFileName || message.fileName,
-          });
-        }
-      );
+      socket.on('generation', (rawMessage: Record<string, unknown>) => {
+        const message: WebSocketMessage = {
+          type: 'file_ready',
+          downloadId: rawMessage.downloadId as string,
+          fileName: rawMessage.fileName as string,
+          status: 'ready',
+          progress: rawMessage.progress as number,
+          processedRows: rawMessage.processedRows as number,
+          totalRows: rawMessage.totalRows as number,
+          timestamp: new Date().toISOString(),
+        };
+        // console.log('[Socket.IO] Generation progress update:', message);
+        onMessage(message);
+      });
 
       // 2. File Ready
       socket.on('file_ready', (rawMessage: Record<string, unknown>) => {
         const message: WebSocketMessage = {
-          type: 'progress',
-          ...rawMessage,
+          type: 'file_ready',
+          downloadId: rawMessage.downloadId as string,
+          fileName: rawMessage.fileName as string,
+          clientFileName: rawMessage.clientFileName as string,
+          status: 'ready',
+          progress: 100,
+          processedRows: rawMessage.totalRows as number,
+          totalRows: rawMessage.totalRows as number,
+          timestamp: new Date().toISOString(),
         };
         console.log('[Socket.IO] Received file_ready message:', message);
-        handlers.handleProgress(message);
-        setConnectionState(ConnectionState.ACKNOWLEDGED);
-        onMessage({
-          ...message,
-          type: 'progress',
-          progress: message.progress || 100,
-          fileName: message.clientFileName || message.fileName,
-        });
+        onMessage(message);
       });
 
       // 3. Download Progress
       socket.on('download_progress', (rawMessage: Record<string, unknown>) => {
-        const message: WebSocketMessage = {
-          type: 'progress',
-          ...rawMessage,
-        };
-        console.log('[Socket.IO] Received download_progress message:', message);
-        handlers.handleProgress(message);
-        onMessage({
-          ...message,
-          type: 'progress',
-          progress: message.progress || 0,
-          fileName: message.clientFileName || message.fileName,
+        console.log('[Socket.IO] Download progress update:', {
+          rawMessage,
+          timestamp: new Date().toISOString(),
         });
       });
 
       // Generic Progress
       socket.on('progress', (rawMessage: Record<string, unknown>) => {
-        const message: WebSocketMessage = {
-          type: 'progress',
-          ...rawMessage,
-        };
-        console.log('[Socket.IO] Received generic progress message:', message);
-        handlers.handleProgress(message);
-
-        // Only forward progress updates for the current status
-        if (message.status) {
-          onMessage({
-            ...message,
-            type: 'progress',
-            progress: message.progress || 0,
-            fileName: message.clientFileName || message.fileName,
-          });
-        }
+        // Skip generic progress updates
       });
     },
     [eventHandlers, onMessage]
   );
 
-  const connect = useCallback(() => {
-    console.log('[Socket.IO] Connect called:', {
-      currentDownloadId: downloadId,
-      refDownloadId: downloadIdRef.current,
-      hasSocket: !!socketRef.current,
-      isSocketConnected: socketRef.current?.connected,
-      connectionState,
-      timestamp: new Date().toISOString(),
-    });
-
-    return new Promise<Socket>((resolve, reject) => {
-      if (
-        socketRef.current?.connected &&
-        downloadIdRef.current === downloadId
-      ) {
-        console.log('[Socket.IO] Reusing existing connection:', {
-          downloadId,
-          socketId: socketRef.current.id,
-          timestamp: new Date().toISOString(),
-        });
-        resolve(socketRef.current);
-        return;
-      }
-
-      if (connectionState === ConnectionState.CONNECTING) {
-        console.log('[Socket.IO] Connection already in progress', {
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-        const checkConnection = () => {
-          if (socketRef.current?.connected) {
-            resolve(socketRef.current);
-          } else {
-            setTimeout(checkConnection, 100);
-          }
-        };
-        checkConnection();
-        return;
-      }
-
-      setConnectionState(ConnectionState.CONNECTING);
-
-      if (socketRef.current) {
-        console.log('[Socket.IO] Cleaning up existing socket:', {
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-        socketRef.current.removeAllListeners();
-        socketRef.current.close();
-        socketRef.current = null;
-      }
-
-      const wsPort = env.NEXT_PUBLIC_WS_PORT || 3001;
-      const baseUrl = env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const wsUrl = baseUrl.replace(/:\d+/, `:${wsPort}`);
-
-      const socket = io(wsUrl, {
-        path: '/api/ws/download',
-        transports: ['websocket', 'polling'],
-        autoConnect: false,
-        reconnection: true,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 1000,
-        timeout: 20000,
-        forceNew: true,
-        auth: {
-          downloadId: downloadId || downloadIdRef.current,
-        },
+  const connect = useCallback(
+    (downloadId: string) => {
+      console.log('[Socket.IO] Connect called:', {
+        currentDownloadId: downloadId,
+        refDownloadId: downloadIdRef.current,
+        hasSocket: !!socketRef.current,
+        isSocketConnected: socketRef.current?.connected,
+        connectionState,
+        timestamp: new Date().toISOString(),
       });
 
-      socketRef.current = socket;
-      setupSocketListeners(socket, resolve, reject);
-      startTimeout();
-      socket.connect();
-    });
-  }, [downloadId, connectionState, setupSocketListeners, startTimeout]);
+      return new Promise<Socket>((resolve, reject) => {
+        if (
+          socketRef.current?.connected &&
+          downloadIdRef.current === downloadId
+        ) {
+          console.log('[Socket.IO] Reusing existing connection:', {
+            downloadId,
+            socketId: socketRef.current.id,
+            timestamp: new Date().toISOString(),
+          });
+          resolve(socketRef.current);
+          return;
+        }
+
+        if (connectionState === ConnectionState.CONNECTING) {
+          console.log('[Socket.IO] Connection already in progress', {
+            downloadId,
+            timestamp: new Date().toISOString(),
+          });
+          const checkConnection = () => {
+            if (socketRef.current?.connected) {
+              resolve(socketRef.current);
+            } else {
+              setTimeout(checkConnection, 100);
+            }
+          };
+          checkConnection();
+          return;
+        }
+
+        setConnectionState(ConnectionState.CONNECTING);
+
+        if (socketRef.current) {
+          console.log('[Socket.IO] Cleaning up existing socket:', {
+            downloadId,
+            timestamp: new Date().toISOString(),
+          });
+          socketRef.current.removeAllListeners();
+          socketRef.current.close();
+          socketRef.current = null;
+        }
+
+        const wsPort = env.NEXT_PUBLIC_WS_PORT || 3001;
+        const baseUrl = env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const wsUrl = baseUrl.replace(/:\d+/, `:${wsPort}`);
+
+        const socket = io(wsUrl, {
+          path: '/api/ws/download',
+          transports: ['websocket', 'polling'],
+          autoConnect: false,
+          reconnection: true,
+          reconnectionAttempts: 3,
+          reconnectionDelay: 1000,
+          timeout: 20000,
+          forceNew: true,
+          auth: {
+            downloadId: downloadId,
+          },
+        });
+
+        socketRef.current = socket;
+        setupSocketListeners(downloadId, socket, resolve, reject);
+        startTimeout();
+        socket.connect();
+      });
+    },
+    [connectionState, setupSocketListeners, startTimeout]
+  );
 
   useEffect(() => {
     downloadIdRef.current = downloadId;
@@ -405,7 +399,7 @@ export const useWebSocketConnection = ({
   }, [clearTimeout]);
 
   const startDownload = useCallback(() => {
-    const currentDownloadId = downloadId || downloadIdRef.current;
+    const currentDownloadId = downloadIdRef.current;
 
     if (!socketRef.current?.connected) {
       console.error('[Socket.IO] Cannot start download: not connected');
@@ -430,7 +424,7 @@ export const useWebSocketConnection = ({
       totalRows,
       timestamp: new Date().toISOString(),
     });
-  }, [downloadId, searchId, searchParams, totalRows]);
+  }, [searchId, searchParams, totalRows]);
 
   return {
     connect,

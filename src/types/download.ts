@@ -1,5 +1,3 @@
-import { FileInfo } from '@/server/lib/fileManager';
-
 import { MenuType } from './project';
 
 export interface OpenSearchSource {
@@ -7,7 +5,7 @@ export interface OpenSearchSource {
 }
 
 export type DownloadStatus =
-  | 'pending'
+  | 'progress'
   | 'generating'
   | 'ready'
   | 'downloading'
@@ -18,7 +16,7 @@ export type WebSocketEventType =
   | 'subscribe'
   | 'connected'
   | 'error'
-  | 'generation_progress'
+  | 'generation'
   | 'file_ready'
   | 'download_progress'
   | 'count_update';
@@ -54,17 +52,18 @@ export interface SearchParams {
 
 export interface ChunkProgress {
   fileName: string;
-  fileInfo: FileInfo;
+  clientFileName?: string;
   downloadId: string;
-  progress: number;
+  size: number;
   status: DownloadStatus;
+  progress: number;
   processedRows: number;
   totalRows: number;
-  startTime: Date;
+  message: string;
   searchParams: SearchParams;
+  startTime: Date;
   processingSpeed: number;
   estimatedTimeRemaining: number;
-  message: string;
 }
 
 export interface DownloadProgress {
@@ -113,4 +112,17 @@ export interface DownloadProgressState {
   estimatedTimeRemaining: number;
   lastUpdateTime: number;
   lastProcessedCount: number;
+}
+
+export interface WebSocketMessage {
+  type: 'progress' | 'file_ready';
+  downloadId: string;
+  fileName: string;
+  clientFileName?: string;
+  status: DownloadStatus;
+  progress: number;
+  processedRows: number;
+  totalRows: number;
+  message?: string;
+  timestamp: string;
 }

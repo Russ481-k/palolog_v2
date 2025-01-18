@@ -39,6 +39,7 @@ interface DownloadModalProps {
   selectedFiles: string[];
   onFileSelection: (fileName: string, selected: boolean) => void;
   onFileDownload: (fileName: string) => void;
+  onDownloadSelected: () => void;
   gridTheme: string;
 }
 
@@ -50,11 +51,12 @@ export const DownloadModal = ({
   selectedFiles,
   onFileSelection,
   onFileDownload,
+  onDownloadSelected,
   gridTheme,
 }: DownloadModalProps) => {
   // Track fileStatuses changes
   useEffect(() => {
-    Object.entries(fileStatuses).forEach(([fileName, status]) => {
+    Object.entries(fileStatuses)?.forEach(([fileName, status]) => {
       console.log('[DownloadModal] File status update:', {
         fileName,
         status: status.status,
@@ -68,6 +70,8 @@ export const DownloadModal = ({
   // Memoize rowData to prevent unnecessary re-renders
   const rowData: FileData[] = useMemo(() => {
     return Object.entries(fileStatuses).map(([name, status]) => ({
+      downloadId: status.downloadId,
+      clientFileName: status.clientFileName || '',
       fileName: name,
       lastModified: new Date().toISOString(),
       selected: selectedFiles.includes(name),
@@ -83,23 +87,6 @@ export const DownloadModal = ({
       searchParams: status.searchParams,
     }));
   }, [fileStatuses, selectedFiles]);
-
-  const handleDownloadSelected = () => {
-    selectedFiles.forEach((fileName) => {
-      const fileStatus = fileStatuses[fileName];
-      if (
-        fileStatus &&
-        (fileStatus.status === 'ready' || fileStatus.status === 'completed')
-      ) {
-        console.log('[DownloadModal] Attempting download:', {
-          fileName,
-          status: fileStatus.status,
-          message: fileStatus.message,
-        });
-        onFileDownload(fileName);
-      }
-    });
-  };
 
   return (
     <Modal
@@ -120,7 +107,9 @@ export const DownloadModal = ({
               </Text>
               <DownloadProgress
                 progress={totalProgress?.progress || 0}
-                status={totalProgress?.status || ('pending' as DownloadStatus)}
+                status={
+                  totalProgress?.status || ('generating' as DownloadStatus)
+                }
                 processedRows={totalProgress?.processedRows || 0}
                 totalRows={totalProgress?.totalRows || 0}
                 processingSpeed={totalProgress?.processingSpeed || 0}
@@ -152,7 +141,7 @@ export const DownloadModal = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleDownloadSelected}
+                onClick={onDownloadSelected}
                 isDisabled={selectedFiles.length === 0}
               >
                 Download Selected ({selectedFiles.length})

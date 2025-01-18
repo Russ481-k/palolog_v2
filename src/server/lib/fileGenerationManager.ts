@@ -57,7 +57,7 @@ export class FileGenerationManager {
 
     // 마지막 progress 업데이트 (100%)
     const finalProgress: WebSocketEvent = {
-      type: 'generation_progress',
+      type: 'generation',
       downloadId,
       fileName: state.fileName,
       progress: 100,
@@ -71,7 +71,7 @@ export class FileGenerationManager {
     };
 
     // Progress 100% 이벤트 발송
-    state.socket.emit('generation_progress', finalProgress);
+    state.socket.emit('generation', finalProgress);
 
     // 상태를 ready로 변경하고 이벤트 발송
     state.status = 'ready';
@@ -100,7 +100,7 @@ export class FileGenerationManager {
     if (!state) return;
 
     const errorEvent: WebSocketEvent = {
-      type: 'generation_progress',
+      type: 'generation',
       downloadId,
       fileName: state.fileName,
       status: 'failed',
@@ -112,7 +112,7 @@ export class FileGenerationManager {
       searchParams: state.searchParams,
     };
 
-    state.socket.emit('generation_progress', errorEvent);
+    state.socket.emit('generation', errorEvent);
     await this.cleanupFiles(downloadId);
   }
 
@@ -157,7 +157,7 @@ export class FileGenerationManager {
       processingSpeed > 0 ? remainingRows / processingSpeed : 0;
 
     const event: WebSocketEvent = {
-      type: 'generation_progress',
+      type: 'generation',
       downloadId,
       fileName: state.fileName,
       progress,
@@ -171,7 +171,7 @@ export class FileGenerationManager {
       searchParams: state.searchParams,
     };
 
-    state.socket.emit('generation_progress', event);
+    state.socket.emit('generation', event);
     this.lastEmitTime.set(downloadId, now);
   }
 

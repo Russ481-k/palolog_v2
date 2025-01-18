@@ -342,7 +342,7 @@ export default function PageProjects() {
                 onGridReady={(params) => {
                   setTimeout(() => {
                     const allColumnIds: string[] = [];
-                    params.api.getAllGridColumns().forEach((column) => {
+                    params.api.getAllGridColumns()?.forEach((column) => {
                       allColumnIds.push(column.getId());
                     });
                     params.api.autoSizeColumns(allColumnIds);

@@ -25,15 +25,15 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
   const chartData = useMemo(() => {
     // 모든 시간대 추출
     const timeSet = new Set<string>();
-    data.forEach((domain) => {
-      domain.data.forEach((item) => timeSet.add(item.time));
+    data?.forEach((domain) => {
+      domain.data?.forEach((item) => timeSet.add(item.time));
     });
     const times = Array.from(timeSet).sort();
 
     // 차트 데이터 구성
     return times.map((time) => {
       const entry: Record<string, string | number> = { time };
-      data.forEach((domain) => {
+      data?.forEach((domain) => {
         const monthData = domain.data.find((d) => d.time === time);
         entry[domain.domain] = monthData?.total ?? 0;
       });

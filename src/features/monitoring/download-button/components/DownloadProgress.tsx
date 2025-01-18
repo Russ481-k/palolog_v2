@@ -64,6 +64,7 @@ export const DownloadProgress = memo(
     const colorScheme = useMemo(() => {
       const scheme = {
         light: {
+          progress: 'gray',
           completed: 'green',
           failed: 'red',
           paused: 'orange',
@@ -73,6 +74,7 @@ export const DownloadProgress = memo(
           pending: 'gray',
         },
         dark: {
+          progress: 'gray',
           completed: 'green',
           failed: 'red',
           paused: 'orange',
@@ -101,7 +103,7 @@ export const DownloadProgress = memo(
               value={displayProgress}
               size={size}
               colorScheme={colorScheme}
-              isIndeterminate={status === 'pending' || status === 'generating'}
+              isIndeterminate={status === 'generating' || status === 'ready'}
               borderRadius="md"
               transition="all 0.2s"
               bg={colorMode === 'dark' ? 'whiteAlpha.100' : 'blackAlpha.100'}
@@ -116,13 +118,11 @@ export const DownloadProgress = memo(
           spacing={2}
         >
           <Text>
-            {status === 'pending'
-              ? 'Preparing...'
-              : status === 'generating'
-                ? 'Generating...'
-                : status === 'ready'
-                  ? 'Ready'
-                  : `${Math.round(displayProgress)}%`}
+            {status === 'generating'
+              ? 'Generating...'
+              : status === 'ready'
+                ? 'Ready'
+                : `${Math.round(displayProgress)}%`}
           </Text>
           {formattedValues.rows && (
             <Tooltip label="Processed / Total Rows" hasArrow>

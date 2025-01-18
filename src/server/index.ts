@@ -6,7 +6,11 @@ import { env } from '@/env.mjs';
 import { DownloadProgress as ClientDownloadProgress } from '@/types/download';
 
 import { downloadChunkManager } from './lib/downloadChunkManager';
-import { TotalProgress, downloadManager } from './lib/downloadManager';
+import {
+  DownloadFile,
+  TotalProgress,
+  downloadManager,
+} from './lib/downloadManager';
 
 console.log('[Server] Starting Socket.IO server initialization...');
 console.log('NEXT_PUBLIC_ENV_NAME : ', env.NEXT_PUBLIC_ENV_NAME);
@@ -46,7 +50,8 @@ console.log('[Server] Socket.IO server configuration:', {
       env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3000',
-      'http://localhost:8080',
+      'http://localhost:8000',
+      'http://localhost:8001',
     ],
   },
   path: '/api/ws/download',
@@ -116,53 +121,69 @@ io.on('connection', (socket) => {
     const unsubscribe = downloadManager.onProgressUpdate(
       downloadId,
       (downloadId: string, progress: TotalProgress) => {
-        progress.files.forEach(
-          (file: ClientDownloadProgress & { clientFileName?: string }) => {
-            if (file.status === 'generating') {
-              socket.emit('generation_progress', {
-                type: 'generation_progress',
-                downloadId,
-                fileName: file.fileName,
-                clientFileName: file.clientFileName,
-                status: file.status,
-                progress: file.progress,
-                processedRows: file.processedRows,
-                totalRows: file.totalRows,
-                message: file.message,
-                timestamp: new Date().toISOString(),
-              });
-            } else if (file.status === 'ready') {
-              socket.emit('file_ready', {
-                type: 'file_ready',
-                downloadId,
-                fileName: file.fileName,
-                clientFileName: file.clientFileName,
-                status: file.status,
-                progress: 100,
-                processedRows: file.totalRows,
-                totalRows: file.totalRows,
-                message: 'File is ready for download',
-                timestamp: new Date().toISOString(),
-              });
-            } else if (
-              file.status === 'downloading' ||
-              file.status === 'completed'
-            ) {
-              socket.emit('download_progress', {
-                type: 'download_progress',
-                downloadId,
-                fileName: file.fileName,
-                clientFileName: file.clientFileName,
-                status: file.status,
-                progress: file.progress,
-                processedRows: file.processedRows,
-                totalRows: file.totalRows,
-                message: file.message,
-                timestamp: new Date().toISOString(),
-              });
-            }
+        console.log('[Socket.IO] Download progress update:', {
+          downloadId,
+          progress,
+          timestamp: new Date().toISOString(),
+        });
+        progress.files?.forEach((file: DownloadFile) => {
+          if (file.status === 'progress') {
+            socket.emit('progress_update', {
+              type: 'progress',
+              downloadId,
+              fileName: file.fileName,
+              clientFileName: file.clientFileName,
+              status: file.status,
+              progress: file.progress,
+              processedRows: file.processedRows,
+              totalRows: file.totalRows,
+              message: file.message,
+              timestamp: new Date().toISOString(),
+            });
+          } else if (file.status === 'generating') {
+            socket.emit('generation', {
+              type: 'generation',
+              downloadId,
+              fileName: file.downloadId,
+              clientFileName: file.clientFileName,
+              status: file.status,
+              progress: file.progress,
+              processedRows: file.processedRows,
+              totalRows: file.totalRows,
+              message: file.message,
+              timestamp: new Date().toISOString(),
+            });
+          } else if (file.status === 'ready') {
+            socket.emit('file_ready', {
+              type: 'file_ready',
+              downloadId,
+              fileName: file.fileName,
+              clientFileName: file.clientFileName,
+              status: file.status,
+              progress: 100,
+              processedRows: file.totalRows,
+              totalRows: file.totalRows,
+              message: 'File is ready for download',
+              timestamp: new Date().toISOString(),
+            });
+          } else if (
+            file.status === 'downloading' ||
+            file.status === 'completed'
+          ) {
+            socket.emit('download_progress', {
+              type: 'download_progress',
+              downloadId,
+              fileName: file.fileName,
+              clientFileName: file.clientFileName,
+              status: file.status,
+              progress: file.progress,
+              processedRows: file.processedRows,
+              totalRows: file.totalRows,
+              message: file.message,
+              timestamp: new Date().toISOString(),
+            });
           }
-        );
+        });
       }
     );
 
@@ -191,26 +212,36 @@ io.on('connection', (socket) => {
       });
 
       // Start download process
-      const { id } = await downloadManager.createDownload(
+      const { servedDownloadId } = await downloadManager.createDownload(
         downloadId,
         actualCount,
         searchParams
       );
 
-      const manager = downloadChunkManager.createManager(id, searchParams);
+      const manager = downloadChunkManager.createManager(
+        servedDownloadId,
+        searchParams
+      );
+
+      // Add progress_update event listener
+      manager.onProgressUpdate((message) => {
+        socket.emit('progress_update', message);
+      });
+
       await manager.createChunks();
 
       // Send initial progress with client file names
-      socket.emit('generation_progress', {
-        type: 'generation_progress',
+
+      socket.emit('file_ready', {
+        type: 'file_ready',
         downloadId,
         fileName: `${downloadId}.csv`,
         clientFileName: `${searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_1of1.csv`,
         progress: 0,
-        status: 'generating',
+        status: 'ready',
         processedRows: 0,
         totalRows: actualCount,
-        message: 'Starting file generation...',
+        message: 'File ready for download',
         searchParams,
         timestamp: new Date().toISOString(),
       });
@@ -227,7 +258,8 @@ io.on('connection', (socket) => {
       socket.emit('error', {
         type: 'error',
         downloadId,
-        fileName: `download-${downloadId}.csv`,
+        fileName: `${downloadId}.csv`,
+        clientFileName: `${searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_1of1.csv`,
         status: 'failed',
         progress: 0,
         processedRows: 0,

@@ -1,14 +1,10 @@
-import { WebSocketMessage } from '../../../types';
-import { DownloadSearchParams } from '../../types';
-import { ConnectionState } from './constants';
+import {
+  DownloadStatus,
+  SearchParams,
+  WebSocketMessage,
+} from '@/types/download';
 
-export type DownloadStatus =
-  | 'pending'
-  | 'generating'
-  | 'ready'
-  | 'downloading'
-  | 'completed'
-  | 'failed';
+import { ConnectionState } from './constants';
 
 interface MessageValidationConfig {
   connectionState: ConnectionState;
@@ -113,10 +109,6 @@ export const useMessageProcessor = () => {
         processedRows: rawMessage.processedRows as number,
         totalRows: rawMessage.totalRows as number,
         message: (rawMessage.message as string) || 'Processing...',
-        searchParams: rawMessage.searchParams as DownloadSearchParams,
-        processingSpeed: (rawMessage.processingSpeed as number) || 0,
-        estimatedTimeRemaining:
-          (rawMessage.estimatedTimeRemaining as number) || 0,
         timestamp: new Date().toISOString(),
         ...baseFields,
       };

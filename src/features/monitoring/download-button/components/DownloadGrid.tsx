@@ -44,7 +44,7 @@ export const DownloadGrid = memo(
     useEffect(() => {
       const newUpdatedRows = new Set<string>();
 
-      rowData.forEach((row) => {
+      rowData?.forEach((row) => {
         const prevRow = prevRowDataRef.current.find(
           (r) => r.fileName === row.fileName
         );
@@ -123,13 +123,13 @@ export const DownloadGrid = memo(
       (checked: boolean) => {
         setSelectAll(checked);
         if (checked) {
-          rowData.forEach((row) => {
+          rowData?.forEach((row) => {
             if (!selectedFiles.includes(row.fileName)) {
               onFileSelection(row.fileName, true);
             }
           });
         } else {
-          selectedFiles.forEach((fileName) => {
+          selectedFiles?.forEach((fileName) => {
             onFileSelection(fileName, false);
           });
         }
@@ -226,9 +226,9 @@ export const DownloadGrid = memo(
                       status={row.status}
                       processedRows={row.processedRows}
                       totalRows={row.totalRows}
-                      processingSpeed={row.processingSpeed}
-                      estimatedTimeRemaining={row.estimatedTimeRemaining}
-                      message={row.message}
+                      processingSpeed={row.processingSpeed || 0}
+                      estimatedTimeRemaining={row.estimatedTimeRemaining || 0}
+                      message={row.message || ''}
                       size="sm"
                     />
                   </Flex>
