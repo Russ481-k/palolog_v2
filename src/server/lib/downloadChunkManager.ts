@@ -268,6 +268,10 @@ export class DownloadChunkManager {
 
       // Update status to generating
       chunk.status = 'generating';
+      console.log('[DownloadChunkManager] Updated updateProgress 1:', {
+        fileName: chunk.fileName,
+        timestamp: new Date().toISOString(),
+      });
       this.updateProgress(chunk, 0);
 
       const downloadDir = join(process.cwd(), 'downloads');
@@ -403,14 +407,6 @@ export class DownloadChunkManager {
             try {
               const stats = fs.statSync(filePath);
               chunk.size = stats.size; // Store size in bytes
-              console.log('[DownloadChunkManager] Updated file size:', {
-                fileName: chunk.fileName,
-                sizeInBytes: chunk.size,
-                sizeInMB: (chunk.size / (1024 * 1024)).toFixed(2) + ' MB',
-                processedRows,
-                totalRows: chunk.totalRows,
-                timestamp: new Date().toISOString(),
-              });
             } catch (error) {
               console.error('[DownloadChunkManager] Error getting file size:', {
                 error: error instanceof Error ? error.message : String(error),
@@ -421,15 +417,16 @@ export class DownloadChunkManager {
             }
           }
         }
-
+        console.log('[DownloadChunkManager] Updated updateProgress 2:', {
+          fileName: chunk.fileName,
+          timestamp: new Date().toISOString(),
+        });
         // Update progress
         this.updateProgress(chunk, processedRows);
 
         // Break if we've reached the chunk's limit
         if (processedRows >= chunk.totalRows) break;
 
-        // Get next batch with remaining size
-        const remainingRows = chunk.totalRows - processedRows;
         const scrollResponse = await client.request<ScrollResponse>({
           path: '/_search/scroll',
           method: 'POST',
@@ -456,6 +453,11 @@ export class DownloadChunkManager {
       chunk.status = 'ready';
       chunk.progress = 100;
       chunk.processedRows = chunk.totalRows;
+
+      console.log('[DownloadChunkManager] Updated updateProgress 3:', {
+        fileName: chunk.fileName,
+        timestamp: new Date().toISOString(),
+      });
       this.updateProgress(chunk, chunk.totalRows);
 
       console.log('[DownloadChunkManager] File ready:', {
@@ -497,6 +499,10 @@ export class DownloadChunkManager {
       if (chunk) {
         chunk.status = 'failed';
         chunk.message = error instanceof Error ? error.message : String(error);
+        console.log('[DownloadChunkManager] Updated updateProgress 4:', {
+          fileName: chunk.fileName,
+          timestamp: new Date().toISOString(),
+        });
         this.updateProgress(chunk, chunk.processedRows);
       }
 
@@ -505,6 +511,12 @@ export class DownloadChunkManager {
   }
 
   private updateProgress(chunk: ChunkProgress, processedRows: number): void {
+    // console.log('======[DownloadChunkManager] updateProgress======:', {
+    //   chunk,
+    //   fileName: chunk.fileName,
+    //   processedRows,
+    //   timestamp: new Date().toISOString(),
+    // });
     const now = new Date();
     const elapsedTime = (now.getTime() - chunk.startTime.getTime()) / 1000; // in seconds
     const processingSpeed = processedRows / elapsedTime; // rows per second
@@ -521,17 +533,6 @@ export class DownloadChunkManager {
 
     // Update message with detailed progress information
     chunk.message = `Processing ${processedRows.toLocaleString()} of ${chunk.totalRows.toLocaleString()} rows (${chunk.progress.toFixed(1)}%) at ${processingSpeed.toFixed(1)} rows/sec`;
-
-    console.log('[DownloadChunkManager] Progress updated:', {
-      fileName: chunk.fileName,
-      processedRows: chunk.processedRows,
-      totalRows: chunk.totalRows,
-      progress: `${chunk.progress.toFixed(1)}%`,
-      processingSpeed: `${processingSpeed.toFixed(1)} rows/sec`,
-      estimatedTimeRemaining: `${estimatedTimeRemaining.toFixed(1)} sec`,
-      downloadId: this.downloadId,
-      timestamp: new Date().toISOString(),
-    });
 
     // Emit progress update event
     const progressMessage = {
@@ -553,13 +554,13 @@ export class DownloadChunkManager {
     };
 
     console.log('[DownloadChunkManager] Emitting progress_update event:', {
-      ...progressMessage,
-      sizeInMB: (chunk.size / (1024 * 1024)).toFixed(2) + ' MB',
-      timeRange:
-        chunk.firstReceiveTime && chunk.lastReceiveTime
-          ? `${new Date(chunk.firstReceiveTime).toLocaleTimeString()} ~ ${new Date(chunk.lastReceiveTime).toLocaleTimeString()}`
-          : 'Not available',
-      timestamp: new Date().toISOString(),
+      // ...progressMessage,
+      // sizeInMB: (chunk.size / (1024 * 1024)).toFixed(2) + ' MB',
+      // timeRange:
+      //   chunk.firstReceiveTime && chunk.lastReceiveTime
+      //     ? `${new Date(chunk.firstReceiveTime).toLocaleTimeString()} ~ ${new Date(chunk.lastReceiveTime).toLocaleTimeString()}`
+      //     : 'Not available',
+      // timestamp: new Date().toISOString(),
     });
 
     this.eventEmitter.emit('progress_update', progressMessage);
@@ -583,7 +584,7 @@ export class DownloadChunkManager {
   public getChunk(fileName: string): ChunkProgress | undefined {
     console.log('[DownloadChunkManager] Looking for chunk:', {
       searchFileName: fileName,
-      availableFiles: Array.from(this.chunks.entries()).map(([key, chunk]) => ({
+      availableFiles: Array.from(this.chunks.entries()).map(([_, chunk]) => ({
         fileName: chunk.fileName,
         clientFileName: chunk.clientFileName,
         status: chunk.status,

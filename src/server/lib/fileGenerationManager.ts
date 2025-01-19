@@ -124,6 +124,10 @@ export class FileGenerationManager {
         return;
       }
 
+      console.log('[FileGenerationManager] startProgressTracking 1:', {
+        downloadId,
+        timestamp: new Date().toISOString(),
+      });
       this.updateProgress(downloadId);
     }, this.progressInterval);
 
@@ -180,6 +184,11 @@ export class FileGenerationManager {
     if (!state) return;
 
     state.processedRows = processedRows;
+    console.log('[FileGenerationManager] updateProcessedRows 2:', {
+      downloadId,
+      processedRows,
+      timestamp: new Date().toISOString(),
+    });
     this.updateProgress(downloadId);
   }
 

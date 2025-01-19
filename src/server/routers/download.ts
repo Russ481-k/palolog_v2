@@ -68,34 +68,14 @@ export const downloadRouter = router({
         timestamp: new Date().toISOString(),
       });
 
-      // Create download in downloadManager first
+      // Create empty files in downloadManager first
       const { files } = await downloadManager.createDownload(
         downloadId,
         totalRows,
         searchParams
       );
 
-      // Create and initialize DownloadChunkManager
-      const manager = downloadChunkManager.createManager(
-        downloadId,
-        searchParams
-      );
-
-      // Create chunks for the download
-      await manager.createChunks().catch((error) => {
-        console.error('[Download Router] Failed to create chunks:', {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          downloadId,
-          timestamp: new Date().toISOString(),
-        });
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create download chunks',
-        });
-      });
-
-      console.log('[Download Router] Created download managers:', {
+      console.log('[Download Router] Created empty files:', {
         downloadId,
         files: files.map((f) => ({
           fileName: f.fileName,

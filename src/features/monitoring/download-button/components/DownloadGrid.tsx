@@ -14,7 +14,6 @@ import {
   Tr,
   useColorMode,
 } from '@chakra-ui/react';
-import dayjs from 'dayjs';
 import { FaDownload } from 'react-icons/fa';
 
 import { FileData } from '../types';
@@ -36,7 +35,6 @@ export const DownloadGrid = memo(
     selectedFiles,
     onFileSelection,
     onFileDownload,
-    gridTheme,
     isLoading = false,
   }: DownloadGridProps) => {
     const { colorMode } = useColorMode();
@@ -189,7 +187,7 @@ export const DownloadGrid = memo(
           </Thead>
           <Tbody>
             {isLoading
-              ? [...Array(10)].map((_, index) => (
+              ? [...Array(20)].map((_, index) => (
                   <Tr
                     key={index}
                     _hover={{
@@ -203,28 +201,34 @@ export const DownloadGrid = memo(
                         alignItems="center"
                         justifyContent="center"
                         w="100%"
-                        height={8}
+                        height={6}
                       >
-                        <Skeleton height={3} width={3} />
+                        <Skeleton height={4} width={4} />
                       </Flex>
                     </Td>
                     <Td {...styles.cell}>
-                      <Skeleton height={3} width="200px" />
+                      <Skeleton height={3} width="240px" />
                     </Td>
                     <Td {...styles.cell}>
-                      <Skeleton height={3} width="220px" />
+                      <Skeleton height={3} width="280px" />
                     </Td>
                     <Td {...styles.cell}>
                       <Skeleton height={3} width="80px" />
                     </Td>
                     <Td {...styles.cell}>
-                      <Skeleton height={4} width="100px" />
+                      <Skeleton height={4} width="100px" borderRadius="5px" />
                     </Td>
                     <Td {...styles.cell}>
                       <Skeleton height={3} width="360px" />
                     </Td>
                     <Td {...styles.cell}>
-                      <Skeleton height={4} width={4} />
+                      <Flex
+                        width="100px"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <Skeleton height={7} width={7} />
+                      </Flex>
                     </Td>
                   </Tr>
                 ))
@@ -252,7 +256,11 @@ export const DownloadGrid = memo(
                       />
                     </Td>
                     <Td {...styles.cell}>{row.fileName}</Td>
-                    <Td {...styles.cell}>{row.timeRange}</Td>
+                    <Td {...styles.cell}>
+                      <Flex width="280px" alignItems="center">
+                        {row.timeRange}
+                      </Flex>
+                    </Td>
                     <Td {...styles.cell} isNumeric>
                       {(row.size / 1024 / 1024).toFixed(2)} MB
                     </Td>
@@ -260,7 +268,7 @@ export const DownloadGrid = memo(
                       <DownloadStatus status={row.status} />
                     </Td>
                     <Td {...styles.cell}>
-                      <Flex width="100%" alignItems="center">
+                      <Flex width="360px" alignItems="center">
                         <DownloadProgress
                           progress={row.progress}
                           status={row.status}

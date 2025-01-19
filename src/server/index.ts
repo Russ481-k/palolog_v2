@@ -110,102 +110,150 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('subscribe', async (message) => {
-    const { downloadId, searchId } = message;
-    console.log('[Socket.IO] Client subscribing to download updates:', {
-      socketId: socket.id,
-      downloadId,
-      searchId,
-      timestamp: new Date().toISOString(),
-    });
+  socket.on('subscribe', async ({ downloadId, searchId }) => {
+    try {
+      console.log('[Socket.IO] Client subscribing to download updates:', {
+        socketId: socket.id,
+        downloadId,
+        searchId,
+        timestamp: new Date().toISOString(),
+      });
 
-    // Store downloadId in socket data
-    socket.data.downloadId = downloadId;
+      // Check if download manager already exists
+      const existingManager = downloadChunkManager.getManager(downloadId);
 
-    // Send connected response
-    socket.emit('connected', {
-      downloadId,
-      timestamp: new Date().toISOString(),
-    });
+      // Store downloadId in socket data
+      socket.data.downloadId = downloadId;
 
-    // Handle download progress updates
-    const unsubscribe = downloadManager.onProgressUpdate(
-      downloadId,
-      (downloadId: string, progress: TotalProgress) => {
-        console.log('[Socket.IO] Download progress update:', {
-          downloadId,
-          progress,
-          timestamp: new Date().toISOString(),
-        });
-        progress.files?.forEach((file: DownloadFile) => {
-          if (file.status === 'progress') {
-            socket.emit('progress_update', {
-              type: 'progress',
-              downloadId,
-              fileName: file.fileName,
-              clientFileName: file.clientFileName,
-              status: file.status,
-              progress: file.progress,
-              processedRows: file.processedRows,
-              totalRows: file.totalRows,
-              message: file.message,
-              timestamp: new Date().toISOString(),
-            });
-          } else if (file.status === 'generating') {
-            socket.emit('generation', {
-              type: 'generation',
-              downloadId,
-              fileName: file.downloadId,
-              clientFileName: file.clientFileName,
-              status: file.status,
-              progress: file.progress,
-              processedRows: file.processedRows,
-              totalRows: file.totalRows,
-              message: file.message,
-              timestamp: new Date().toISOString(),
-            });
-          } else if (file.status === 'ready') {
-            socket.emit('file_ready', {
-              type: 'file_ready',
-              downloadId,
-              fileName: file.fileName,
-              clientFileName: file.clientFileName,
-              status: file.status,
-              progress: 100,
-              processedRows: file.totalRows,
-              totalRows: file.totalRows,
-              message: 'File is ready for download',
-              timestamp: new Date().toISOString(),
-            });
-          } else if (
-            file.status === 'downloading' ||
-            file.status === 'completed'
-          ) {
-            socket.emit('download_progress', {
-              type: 'download_progress',
-              downloadId,
-              fileName: file.fileName,
-              clientFileName: file.clientFileName,
-              status: file.status,
-              progress: file.progress,
-              processedRows: file.processedRows,
-              totalRows: file.totalRows,
-              message: file.message,
-              timestamp: new Date().toISOString(),
-            });
-          }
-        });
-      }
-    );
-
-    socket.on('disconnect', () => {
-      console.log('[Socket.IO] Client disconnected:', {
-        id: socket.id,
+      // Send connected response
+      socket.emit('connected', {
         downloadId,
         timestamp: new Date().toISOString(),
       });
-      unsubscribe();
-    });
+
+      if (existingManager) {
+        console.log('[Socket.IO] Using existing download manager:', {
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // Get download information
+      const download = await downloadManager.getDownload(downloadId);
+      if (!download) {
+        throw new Error('Download information not found');
+      }
+
+      // Create and initialize DownloadChunkManager
+      const manager = downloadChunkManager.createManager(
+        downloadId,
+        download.searchParams
+      );
+
+      // Create chunks for the download
+      await manager.createChunks().catch((error) => {
+        console.error('[Socket.IO] Failed to create chunks:', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+        throw new Error('Failed to create download chunks');
+      });
+
+      console.log('[Socket.IO] Created download manager and chunks:', {
+        downloadId,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Handle download progress updates
+      const unsubscribe = downloadManager.onProgressUpdate(
+        downloadId,
+        (downloadId: string, progress: TotalProgress) => {
+          console.log('[Socket.IO] Download progress update:', {
+            downloadId,
+            progress,
+            timestamp: new Date().toISOString(),
+          });
+
+          progress.files?.forEach((file: DownloadFile) => {
+            if (file.status === 'progress') {
+              socket.emit('progress_update', {
+                type: 'progress',
+                downloadId,
+                fileName: file.fileName,
+                clientFileName: file.clientFileName,
+                status: file.status,
+                progress: file.progress,
+                processedRows: file.processedRows,
+                totalRows: file.totalRows,
+                message: file.message,
+                timestamp: new Date().toISOString(),
+              });
+            } else if (file.status === 'generating') {
+              socket.emit('generation', {
+                type: 'generation',
+                downloadId,
+                fileName: file.downloadId,
+                clientFileName: file.clientFileName,
+                status: file.status,
+                progress: file.progress,
+                processedRows: file.processedRows,
+                totalRows: file.totalRows,
+                message: file.message,
+                timestamp: new Date().toISOString(),
+              });
+            } else if (file.status === 'ready') {
+              socket.emit('file_ready', {
+                type: 'file_ready',
+                downloadId,
+                fileName: file.fileName,
+                clientFileName: file.clientFileName,
+                status: file.status,
+                progress: 100,
+                processedRows: file.totalRows,
+                totalRows: file.totalRows,
+                message: 'File is ready for download',
+                timestamp: new Date().toISOString(),
+              });
+            } else if (
+              file.status === 'downloading' ||
+              file.status === 'completed'
+            ) {
+              socket.emit('download_progress', {
+                type: 'download_progress',
+                downloadId,
+                fileName: file.fileName,
+                clientFileName: file.clientFileName,
+                status: file.status,
+                progress: file.progress,
+                processedRows: file.processedRows,
+                totalRows: file.totalRows,
+                message: file.message,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          });
+        }
+      );
+
+      socket.on('disconnect', () => {
+        console.log('[Socket.IO] Client disconnected:', {
+          id: socket.id,
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+        unsubscribe();
+      });
+    } catch (error) {
+      console.error('[Socket.IO] Error in subscribe handler:', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        downloadId,
+        timestamp: new Date().toISOString(),
+      });
+    }
   });
 
   socket.on('start_download', async (message) => {

@@ -260,6 +260,10 @@ export class DownloadManager {
   resumeDownload(fileName: string): void {
     const progress = this.downloads.get(fileName);
     if (progress) {
+      console.log('[DownloadManager] Resuming download 1:', {
+        fileName,
+        timestamp: new Date().toISOString(),
+      });
       this.updateProgress(fileName, { status: 'downloading' });
     }
   }
@@ -267,6 +271,10 @@ export class DownloadManager {
   pauseDownload(fileName: string): void {
     const progress = this.downloads.get(fileName);
     if (progress) {
+      console.log('[DownloadManager] Pausing download 2:', {
+        fileName,
+        timestamp: new Date().toISOString(),
+      });
       this.updateProgress(fileName, { status: 'ready' });
     }
   }
@@ -274,6 +282,10 @@ export class DownloadManager {
   cancelDownload(fileName: string): void {
     const progress = this.downloads.get(fileName);
     if (progress) {
+      console.log('[DownloadManager] Cancelling download 3:', {
+        fileName,
+        timestamp: new Date().toISOString(),
+      });
       this.updateProgress(fileName, {
         status: 'failed',
         error: new Error('Download cancelled'),
