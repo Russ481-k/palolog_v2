@@ -362,6 +362,10 @@ export const useWebSocketConnection = ({
       // Generic Progress
       socket.on('progress', (rawMessage: Record<string, unknown>) => {
         // Skip generic progress updates
+        console.log('[Socket.IO] Generic progress update:', {
+          rawMessage,
+          timestamp: new Date().toISOString(),
+        });
       });
     },
     [eventHandlers, onMessage]

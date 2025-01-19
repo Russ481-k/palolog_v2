@@ -1,8 +1,4 @@
-import {
-  DownloadStatus,
-  SearchParams,
-  WebSocketMessage,
-} from '@/types/download';
+import { DownloadStatus, WebSocketMessage } from '@/types/download';
 
 import { ConnectionState } from './constants';
 
