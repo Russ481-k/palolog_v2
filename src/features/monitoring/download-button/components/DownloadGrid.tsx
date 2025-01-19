@@ -361,7 +361,7 @@ export const DownloadGrid = memo(
                             )
                           }
                           size="sm"
-                          colorScheme="green"
+                          colorScheme="teal"
                           variant="ghost"
                           isDisabled={
                             (row.status !== 'ready' &&
