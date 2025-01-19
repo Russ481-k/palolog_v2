@@ -56,16 +56,8 @@
     sudo sysctl -p /etc/sysctl.d/99-network-tune.conf
 
     
-    pm2 delete palolog ;
-    sudo lsof -i :8000
-    sudo kill -9 $(sudo lsof -t -i:8000)
-
-    pnpm build;
-    docker stop $(docker ps -aq); docker rm $(docker ps -aq); pnpm dk:init;
-
-    sudo chown -R vtek:vtek /home/vtek/palolog_v2/.next
-    sudo chmod -R 755 /home/vtek/palolog_v2/.next
-    pm2 start pnpm --name 'palolog' --log '/home/vtek/palolog_v2/log.txt' -- start;
+    pnpm prod   
+    
     ```
 
 
@@ -105,4 +97,15 @@
         sleep 1
     done
     
+    ```
+
+
+    ```
+        prod:clean: 기존 PM2 프로세스와 포트 사용 정리
+        build: Next.js 앱과 웹소켓 서버를 동시에 빌드
+        prod:docker: 도커 컨테이너 재시작
+        prod:permissions: .next 디렉토리 권한 설정
+        prod:start: PM2로 Next.js 앱과 웹소켓 서버 시작
+
+        prod:clean; build; prod:docker; prod:permissions; prod:start;
     ```

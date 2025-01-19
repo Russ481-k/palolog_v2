@@ -462,7 +462,7 @@ curl -X GET "https://localhost:9200/_cat/indices?v&pretty" -u "admin:admin" --in
 
 # 최근 10개 데이터 출력
 
-curl -X GET "https://localhost:9200/logstash-logs-*/_search?pretty" \
+curl -X GET "https://localhost:9200/domain_index/_search?pretty" \
 -H 'Content-Type: application/json' \
 -d '{
   "size": 10,
