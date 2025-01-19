@@ -1,0 +1,104 @@
+{
+  "feedbacks": {
+    "activateDatabaseSuccess": {
+      "title": "Database Imewezeshwa",
+      "description": "Database \"{{login}}\" imewezeshwa kwa mafanikio"
+    },
+    "deactivateDatabaseSuccess": {
+      "title": "Database Imesitishwa",
+      "description": "Database \"{{login}}\" imesitishwa kwa mafanikio"
+    },
+    "activateDatabaseError": {
+      "title": "Umezuia Uwezeshaji",
+      "description": "Imeshindwa kuwezesha mtumiaji \"{{login}}\""
+    },
+    "deactivateDatabaseError": {
+      "title": "Umezuia Usitishaji",
+      "description": "Imeshindwa kusitisha mtumiaji \"{{login}}\""
+    },
+    "deleteDatabaseError": {
+      "title": "Imeshindwa Kufuta",
+      "description": "Imeshindwa kufuta mtumiaji \"{{login}}\""
+    },
+    "loadingDatabaseError": {
+      "title": "Imeshindwa kupakia database"
+    }
+  },
+  "list": {
+    "title": "Usimamizi wa Database",
+    "actions": {
+      "createDatabase": "Unda Database"
+    },
+    "loadMore": {
+      "button": "Ongeza",
+      "display": "Inaonyesha {{loaded}} database kati ya {{total}}"
+    }
+  },
+  "data": {
+    "id": {
+      "label": "Barua pepe",
+      "required": "Barua pepe inahitajika",
+      "invalid": "Barua pepe sio sahihi",
+      "alreadyUsed": "Barua pepe tayari inatumika"
+    },
+    "status": {
+      "activated": "Imewezeshwa",
+      "deactivated": "Haijawezeshwa"
+    },
+    "description": {
+      "label": "Maelezo",
+      "required": "Maelezo yanahitajika"
+    },
+    "name": {
+      "label": "Jina",
+      "required": "Jina linahitajika"
+    },
+    "language": {
+      "label": "Lugha",
+      "value": "sw"
+    },
+    "authorizations": {
+      "label": "Idhini",
+      "options": {
+        "ADMIN": "Msimamizi",
+        "APP": "Programu"
+      },
+      "required": "Angalau idhini moja inahitajika"
+    },
+    "createdAt": {
+      "ago": "Imeundwa <dateAgo />"
+    }
+  },
+  "update": {
+    "action": {
+      "save": "Hifadhi"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Imeshindwa Kusasisha"
+      },
+      "updateSuccess": {
+        "title": "Imesasishwa kwa Mafanikio"
+      }
+    }
+  },
+  "create": {
+    "title": "Database Mpya",
+    "action": {
+      "save": "Unda"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Imeshindwa Kuunda"
+      },
+      "updateSuccess": {
+        "title": "Database Imeundwa kwa Mafanikio"
+      }
+    }
+  },
+  "deleteModal": {
+    "message": "Je, unataka kufuta \"{{name}}\"?\nUfutaji utakuwa wa kudumu.",
+    "title": "Thibitisha Kufuta Database"
+  },
+  "you": "wewe"
+}

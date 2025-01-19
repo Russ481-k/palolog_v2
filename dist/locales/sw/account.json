@@ -1,0 +1,94 @@
+{
+  "title": "Akaunti",
+  "nav": {
+    "profile": "Wasifu",
+    "email": "Barua pepe",
+    "password": "Nywila",
+    "myAccount": "Akaunti yangu"
+  },
+  "admin": {
+    "button": "Fungua Utawala",
+    "title": "Mtumiaji wa msimamizi"
+  },
+  "profile": {
+    "feedbacks": {
+      "updateSuccess": {
+        "title": "Imesasishwa"
+      },
+      "updateError": {
+        "title": "Usasishaji haukufaulu"
+      }
+    },
+    "actions": {
+      "update": "Sasisha"
+    },
+    "title": "Maelezo ya wasifu"
+  },
+  "password": {
+    "title": "Nywila",
+    "actions": {
+      "update": "Sasisha"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Usasishaji haukufaulu"
+      },
+      "updateSuccess": {
+        "title": "Nywila imesasishwa"
+      }
+    }
+  },
+  "preferences": {
+    "theme": {
+      "dark": "Hali ya giza",
+      "light": "Hali ya mwanga"
+    },
+    "title": "Mapendeleo"
+  },
+  "email": {
+    "actions": {
+      "update": "Sasisha"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Usasishaji haukufaulu"
+      },
+      "updateSuccess": {
+        "title": "Barua pepe imesasishwa"
+      }
+    },
+    "title": "Sasisha barua pepe yako"
+  },
+  "logout": {
+    "button": "Ondoka",
+    "confirm": {
+      "button": "Ondoka",
+      "message": "Unakaribia kumaliza kipindi chako",
+      "title": "Kuondoka kwa akaunti"
+    }
+  },
+  "data": {
+    "id": {
+      "label": "Kitambulisho"
+    },
+    "password": {
+      "label": "Nywila"
+    },
+    "newPassword": {
+      "label": "Nywila mpya"
+    },
+    "passwordConfirm": {
+      "label": "Thibitisha nywila"
+    },
+    "name": {
+      "label": "Jina"
+    },
+    "email": {
+      "label": "Barua pepe",
+      "current": "Hii ndiyo barua pepe yako ya sasa"
+    },
+    "language": {
+      "label": "Lugha"
+    }
+  }
+}

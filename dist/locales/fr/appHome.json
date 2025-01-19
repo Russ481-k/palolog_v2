@@ -1,0 +1,12 @@
+{
+  "links": {
+    "documentation": "Documentation",
+    "github": "Dépôt GitHub",
+    "openIssue": "Ouvrir une issue"
+  },
+  "welcome": {
+    "author": "— Par l'<strong>équipe BearStudio</strong>",
+    "description": "Un démarreur d'interface utilisateur avisé avec React, Chakra UI, React Query",
+    "title": "Bienvenue dans PaloLog [web]"
+  }
+}

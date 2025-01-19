@@ -62,7 +62,7 @@ services:
       - '9600:9600'
     environment:
       - discovery.type=single-node
-      - 'OPENSEARCH_JAVA_OPTS=-Xms24g -Xmx24g'
+      - 'OPENSEARCH_JAVA_OPTS=-Xms42g -Xmx42g'
       - TZ=Asia/Seoul
       - 'search.max_open_scroll_context=2000'
       - 'indices.memory.index_buffer_size=20%'
@@ -74,8 +74,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '12'
-          memory: '36G'
+          cpus: '20'
+          memory: '84G'
         reservations:
           cpus: '8'
           memory: '28G'
@@ -109,8 +109,8 @@ services:
       pipeline.ordered: 'false'
       pipeline.unsafe_shutdown: 'true'
       pipeline.ecs_compatibility: disabled
-      queue.type: persisted
-      queue.max_bytes: '16gb' # 감소
+      queue.type: memory
+      queue.max_bytes: '60gb' # 감소
       queue.checkpoint.writes: '100000' # 감소
       queue.checkpoint.acks: '100000' # 감소
       queue.checkpoint.interval: '1000'
@@ -122,11 +122,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '24' # 32코어의 75%
-          memory: '80G' # 전체 메모리의 ~64%
+          cpus: '12' # 32코어의 75%
+          memory: '40G' # 전체 메모리의 ~64%
         reservations:
-          cpus: '16'
-          memory: '64G'
+          cpus: '10'
+          memory: '24G'
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline
     command: logstash -f /usr/share/logstash/pipeline/logstash.conf --config.reload.automatic

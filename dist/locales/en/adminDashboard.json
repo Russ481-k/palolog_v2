@@ -1,0 +1,13 @@
+{
+  "title": "Dashboard",
+  "welcome": {
+    "title": "Welcome to PaloLog [web]",
+    "description": "An opinionated UI starter with React, Chakra UI, React Query & React Hook Form",
+    "author": "— From the <strong>VisionTech</strong>"
+  },
+  "links": {
+    "github": "GitHub Repository",
+    "openIssue": "Open Issue",
+    "documentation": "Documentation"
+  }
+}

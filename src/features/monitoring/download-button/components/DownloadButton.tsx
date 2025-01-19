@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useState } from 'react';
 
-import { Box, Button, Spinner, useColorMode, useToast } from '@chakra-ui/react';
+import { Box, Button, Spinner, useColorMode } from '@chakra-ui/react';
 import { FaDownload } from 'react-icons/fa';
 
 import { trpc } from '@/lib/trpc/client';
@@ -30,8 +30,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       onCleanup: (id) => cleanup.mutateAsync({ downloadId: id }),
       onCancel: (id) => cancelDownload.mutate({ downloadId: id }),
     });
-
-    const toast = useToast();
 
     // 실패한 다운로드를 추적하기 위한 상태 추가
     const [failedDownloads, setFailedDownloads] = useState<Set<string>>(
@@ -230,15 +228,6 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
             next.delete(serverFileName);
             return next;
           });
-
-          toast({
-            title: '다운로드 완료',
-            description: `${clientFileName} 파일이 다운로드되었습니다.`,
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-            position: 'top',
-          });
         } catch (error) {
           console.error('[DownloadButton] File download failed:', error);
           // 다운로드 실패 시 실패 목록에 추가
@@ -250,7 +239,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           handleError(new Error('파일 다운로드에 실패했습니다.'));
         }
       },
-      [downloadFileMutation, handleError, toast, state.fileStatuses]
+      [downloadFileMutation, handleError, state.fileStatuses]
     );
 
     const cancelDownload = trpc.download.cancelDownload.useMutation();
@@ -618,7 +607,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           aria-label="Download"
           isLoading={isConnectingWs || isLoading}
           loadingText="Connecting..."
-          disabled={isConnectingWs || isLoading}
+          disabled={isConnectingWs || isLoading || !searchId || !totalRows}
           width="120px"
           className="download-button"
         >

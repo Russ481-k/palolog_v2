@@ -1,9 +1,13 @@
-import { execSync } from 'child_process';
 import fs from 'fs-extra';
 import inquirer from 'inquirer';
-import path from 'path';
+import { execSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { type PANOSVersion, VERSIONS } from '../src/config/versions';
+import { type PANOSVersion, VERSIONS } from '../src/config/versions.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function resolvePath(relativePath: string) {
   return path.isAbsolute(relativePath)

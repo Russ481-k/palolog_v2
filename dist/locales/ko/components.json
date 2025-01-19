@@ -1,0 +1,93 @@
+{
+  "datalist": {
+    "retry": "재시도",
+    "errorTitle": "오류가 발생했습니다",
+    "emptyTitle": "데이터 없음",
+    "noResultsTitle": "\"{{searchTerm}}\"에 대한 결과가 없습니다"
+  },
+  "dateAgo": {
+    "format": "YYYY년 MM월 DD일, hh:mm a"
+  },
+  "actionsButton": {
+    "label": "동작"
+  },
+  "confirmMenuItem": {
+    "confirmText": "확인하려면 클릭"
+  },
+  "confirmModal": {
+    "confirmText": "확인",
+    "heading": "확인하시겠습니까?"
+  },
+  "confirmPopover": {
+    "confirmText": "확인",
+    "heading": "확인하시겠습니까?"
+  },
+  "errorBoundary": {
+    "title": "예기치 않은 오류가 발생했습니다.",
+    "actions": {
+      "expand": "세부 정보 표시"
+    }
+  },
+  "errorPage": {
+    "403": {
+      "title": "권한 없음",
+      "description": "죄송합니다, 이 페이지에 액세스할 수 없습니다."
+    },
+    "404": {
+      "title": "페이지를 찾을 수 없음",
+      "description": "페이지가 존재하지 않거나 URL이 변경되었습니다."
+    },
+    "errorCode": "오류 {{code}}",
+    "default": {
+      "title": "오류",
+      "description": "오류가 발생했습니다 😞"
+    }
+  },
+  "pagination": {
+    "showing": "<box>표시 중</box> <strong>{{firstItemOnPage}}</strong> <span>에서</span> <strong>{{lastItemOnPage}}</strong> <span>까지</span> <strong>{{totalItems}}</strong> <box>결과</box>",
+    "loading": "<spinner></spinner> <box>로드 중</box> <strong>{{firstItemOnPage}}</strong> <span>에서</span> <strong>{{lastItemOnPage}}</strong> <span>까지</span> <strong>{{totalItems}}</strong> <box>결과</box>",
+    "firstPage": "첫 페이지",
+    "prevPage": "이전 페이지",
+    "lastPage": "마지막 페이지",
+    "nextPage": "다음 페이지"
+  },
+  "searchInput": {
+    "placeholder": "검색...",
+    "clear": "검색 지우기"
+  },
+  "formField": {
+    "optional": "선택 사항"
+  },
+  "fieldDayPicker": {
+    "invalidMessage": "유효하지 않은 날짜"
+  },
+  "fieldMultiSelect": {
+    "noOption": "옵션이 없음"
+  },
+  "sort": {
+    "sortAscending": "오름차순",
+    "sortDescending": "내림차순",
+    "sortBy": "정렬 기준",
+    "order": "순서"
+  },
+  "dayPicker": {
+    "today": "오늘"
+  },
+  "monthPicker": {
+    "today": "오늘",
+    "months": {
+      "january": "1월",
+      "february": "2월",
+      "march": "3월",
+      "april": "4월",
+      "may": "5월",
+      "june": "6월",
+      "july": "7월",
+      "august": "8월",
+      "september": "9월",
+      "october": "10월",
+      "november": "11월",
+      "december": "12월"
+    }
+  }
+}

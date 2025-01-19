@@ -112,7 +112,11 @@ export const createOpenApiFetchHandler = async <TRouter extends OpenApiRouter>(
     createContext,
     onError: opts.onError,
     responseMeta: opts.responseMeta,
-  } as CreateOpenApiNodeHttpHandlerOptions<TRouter, TODO, TODO>);
+  } as CreateOpenApiNodeHttpHandlerOptions<
+    TRouter,
+    IncomingMessage,
+    ServerResponse
+  >);
 
   return new Promise<Response>((resolve) => {
     let statusCode: number | undefined;

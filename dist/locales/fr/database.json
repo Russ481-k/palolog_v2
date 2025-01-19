@@ -1,0 +1,103 @@
+{
+  "feedbacks": {
+    "activateDatabaseSuccess": {
+      "title": "Base de données activée",
+      "description": "La base de données \"{{login}}\" a été activée avec succès"
+    },
+    "deactivateDatabaseSuccess": {
+      "title": "Base de données désactivée",
+      "description": "La base de données \"{{login}}\" a été désactivée avec succès"
+    },
+    "activateDatabaseError": {
+      "title": "Échec de l'activation",
+      "description": "Échec de l'activation de l'utilisateur \"{{login}}\""
+    },
+    "deactivateDatabaseError": {
+      "title": "Échec de la désactivation",
+      "description": "Échec de la désactivation de l'utilisateur \"{{login}}\""
+    },
+    "deleteDatabaseError": {
+      "title": "Échec de la suppression",
+      "description": "Échec de la suppression de l'utilisateur \"{{login}}\""
+    },
+    "loadingDatabaseError": {
+      "title": "Échec du chargement de la base de données"
+    }
+  },
+  "list": {
+    "title": "Gestion de la base de données",
+    "actions": {
+      "createDatabase": "Créer une base de données"
+    },
+    "loadMore": {
+      "button": "Charger plus",
+      "display": "Affichage de {{loaded}} base de données sur {{total}}"
+    }
+  },
+  "data": {
+    "id": {
+      "label": "Email",
+      "required": "L'email est requis",
+      "invalid": "L'email est invalide",
+      "alreadyUsed": "L'email est déjà utilisé"
+    },
+    "status": {
+      "activated": "Activé",
+      "deactivated": "Non activé"
+    },
+    "description": {
+      "label": "Description",
+      "required": "La description est requise"
+    },
+    "name": {
+      "label": "Nom",
+      "required": "Le nom est requis"
+    },
+    "language": {
+      "label": "Langue"
+    },
+    "authorizations": {
+      "label": "Autorisations",
+      "options": {
+        "ADMIN": "Administrateur",
+        "APP": "Application"
+      },
+      "required": "Au moins une autorisation est requise"
+    },
+    "createdAt": {
+      "ago": "Créé il y a <dateAgo />"
+    }
+  },
+  "update": {
+    "action": {
+      "save": "Enregistrer"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Échec de la mise à jour"
+      },
+      "updateSuccess": {
+        "title": "Mise à jour réussie"
+      }
+    }
+  },
+  "create": {
+    "title": "Nouvelle base de données",
+    "action": {
+      "save": "Créer"
+    },
+    "feedbacks": {
+      "updateError": {
+        "title": "Échec de la création"
+      },
+      "updateSuccess": {
+        "title": "Base de données créée avec succès"
+      }
+    }
+  },
+  "deleteModal": {
+    "message": "Voulez-vous supprimer \"{{name}}\"?\nLa suppression sera définitive.",
+    "title": "Confirmer la suppression de la base de données"
+  },
+  "you": "vous"
+}
