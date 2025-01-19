@@ -3,7 +3,6 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 
 import { env } from '@/env.mjs';
-import { DownloadProgress as ClientDownloadProgress } from '@/types/download';
 
 import { downloadChunkManager } from './lib/downloadChunkManager';
 import {
@@ -287,21 +286,20 @@ io.on('connection', (socket) => {
         socket.emit('progress_update', message);
       });
 
+      // Add file_ready event listener
+      manager.onFileReady((message) => {
+        socket.emit('file_ready', {
+          ...message,
+          downloadId,
+          timestamp: new Date().toISOString(),
+        });
+      });
+
       await manager.createChunks();
 
-      // Send initial progress with client file names
-
-      socket.emit('file_ready', {
-        type: 'file_ready',
+      console.log('[Socket.IO] Started download process:', {
         downloadId,
-        fileName: `${downloadId}.csv`,
-        clientFileName: `${searchParams.menu}_${dayjs().format('YYYY-MM-DD_HH:mm:ss')}_1of1.csv`,
-        progress: 0,
-        status: 'ready',
-        processedRows: 0,
-        totalRows: actualCount,
-        message: 'File ready for download',
-        searchParams,
+        servedDownloadId,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

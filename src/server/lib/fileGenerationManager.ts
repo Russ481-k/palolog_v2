@@ -16,7 +16,7 @@ interface GenerationState {
 
 export class FileGenerationManager {
   private readonly activeGenerations = new Map<string, GenerationState>();
-  private readonly progressInterval = 500; // 0.5초마다 진행상황 업데이트
+  private readonly progressInterval = 700; // 0.5초마다 진행상황 업데이트
   private lastEmitTime = new Map<string, number>();
   private intervals = new Map<string, NodeJS.Timeout>();
 

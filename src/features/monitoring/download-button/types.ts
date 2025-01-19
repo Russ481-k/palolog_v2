@@ -1,3 +1,4 @@
+import { TotalProgress } from '@/server/lib/downloadManager';
 import { DownloadStatus } from '@/types/download';
 import { MenuType } from '@/types/project';
 
@@ -60,7 +61,7 @@ export const isProgressMessage = (
   ) {
     return false;
   }
-  const msg = message as Partial<BaseProgressMessage>;
+  message as Partial<BaseProgressMessage>;
 
   return true;
 };
@@ -69,6 +70,7 @@ export interface FileData {
   id: string;
   downloadId: string;
   fileName: string;
+  serverFileName: string;
   status: DownloadStatus;
   progress: number;
   message: string;
@@ -133,19 +135,11 @@ export interface DownloadButtonProps {
 export interface DownloadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  totalProgress?: {
-    progress: number;
-    status: DownloadStatus;
-    processedRows: number;
-    totalRows: number;
-    processingSpeed: number;
-    estimatedTimeRemaining: number;
-    message: string;
-  };
-  fileStatuses: FileStatuses;
+  totalProgress: TotalProgress;
+  fileStatuses: Record<string, FileStatus>;
   selectedFiles: string[];
-  onFileSelection: (fileName: string, selected: boolean) => void;
-  onFileDownload: (fileName: string) => void;
+  onFileSelection: (selectedFiles: string[]) => void;
+  onFileDownload: (serverFileName: string, clientFileName: string) => void;
   onDownloadSelected: () => void;
   gridTheme: string;
 }

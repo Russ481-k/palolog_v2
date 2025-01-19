@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Box,
@@ -8,21 +8,17 @@ import {
   ModalBody,
   ModalCloseButton,
   ModalContent,
-  ModalFooter,
   ModalHeader,
   ModalOverlay,
   Text,
   VStack,
 } from '@chakra-ui/react';
-import { ICellRendererParams } from 'ag-grid-community';
-import { AgGridReact } from 'ag-grid-react';
 
 import type { DownloadStatus } from '@/types/download';
 
 import type { FileData, FileStatuses } from '../types';
 import { DownloadGrid } from './DownloadGrid';
 import { DownloadProgress } from './DownloadProgress';
-import { DownloadStatus as DownloadStatusComponent } from './DownloadStatus';
 
 interface DownloadModalProps {
   isOpen: boolean;
@@ -42,33 +38,24 @@ interface DownloadModalProps {
   fileStatuses: FileStatuses;
   selectedFiles: string[];
   onFileSelection: (fileName: string, selected: boolean) => void;
-  onFileDownload: (fileName: string) => void;
+  onFileDownload: (serverFileName: string, clientFileName: string) => void;
   onDownloadSelected: () => void;
   gridTheme: string;
+  failedDownloads: Set<string>;
 }
 
-interface GridRowData {
-  id: string;
-  fileName: string;
-  status: DownloadStatus;
-  progress: number;
-  processedRows: number;
-  totalRows: number;
-  message: string;
-  selected: boolean;
-}
-
-export const DownloadModal = ({
+export const DownloadModal: React.FC<DownloadModalProps> = ({
   isOpen,
   onClose,
-  totalProgress,
   fileStatuses,
   selectedFiles,
   onFileSelection,
   onFileDownload,
   onDownloadSelected,
   gridTheme,
-}: DownloadModalProps) => {
+}) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+
   // Track fileStatuses changes
   useEffect(() => {
     Object.entries(fileStatuses)?.forEach(([downloadId, status]) => {
@@ -112,6 +99,7 @@ export const DownloadModal = ({
       id: downloadId,
       downloadId: status.downloadId,
       fileName: status.clientFileName || '',
+      serverFileName: status.fileName,
       selected: selectedFiles.includes(downloadId),
       timeRange:
         status.firstReceiveTime && status.lastReceiveTime
@@ -191,6 +179,15 @@ export const DownloadModal = ({
     return Object.keys(fileStatuses).length === 0;
   }, [fileStatuses]);
 
+  const handleDownloadSelected = async () => {
+    setIsDownloading(true);
+    try {
+      await onDownloadSelected();
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -200,14 +197,11 @@ export const DownloadModal = ({
     >
       <ModalOverlay />
       <ModalContent maxW="90vw" m="auto">
-        <ModalHeader>Download Progress</ModalHeader>
+        <ModalHeader>Download Center</ModalHeader>
         <ModalCloseButton />
         <ModalBody pb={6}>
           <VStack spacing={3} align="stretch">
             <Box>
-              <Text fontWeight="bold" mb={2}>
-                Overall Progress
-              </Text>
               <DownloadProgress
                 status={calculatedTotalProgress?.status ?? 'generating'}
                 progress={calculatedTotalProgress?.progress ?? 0}
@@ -225,10 +219,10 @@ export const DownloadModal = ({
               <Text fontSize="sm" color="gray.600">
                 {
                   Object.values(fileStatuses).filter(
-                    (f) => f.status === 'completed'
+                    (f) => f.status === 'ready'
                   ).length
                 }{' '}
-                / {Object.keys(fileStatuses).length} files completed
+                / {Object.keys(fileStatuses).length} files ready
               </Text>
             </Box>
             <DownloadGrid
@@ -243,8 +237,10 @@ export const DownloadModal = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onDownloadSelected}
+                onClick={handleDownloadSelected}
                 isDisabled={selectedFiles.length === 0}
+                isLoading={isDownloading}
+                loadingText="Downloading..."
               >
                 Download Selected ({selectedFiles.length})
               </Button>

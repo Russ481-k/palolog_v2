@@ -1,13 +1,15 @@
-import { forwardRef, useCallback, useEffect } from 'react';
+import { forwardRef, useCallback, useEffect, useState } from 'react';
 
-import { Box, Button, Spinner, useColorMode } from '@chakra-ui/react';
+import { Box, Button, Spinner, useColorMode, useToast } from '@chakra-ui/react';
 import { FaDownload } from 'react-icons/fa';
 
 import { trpc } from '@/lib/trpc/client';
+import { getServerFileName } from '@/server/utils/fileNaming';
+import { WebSocketMessage } from '@/types/download';
 
 import { useDownloadState } from '../hooks/useDownloadState';
 import { useWebSocketConnection } from '../hooks/useWebSocketConnection';
-import { DownloadButtonProps, FileStatus, isProgressMessage } from '../types';
+import { DownloadButtonProps, FileStatus } from '../types';
 import { DownloadModal } from './DownloadModal';
 
 export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
@@ -20,19 +22,33 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       state,
       setState,
       updateFileStatuses,
+      handleFileSelection,
       handleError,
       handleModalClose,
+      initializeFileStatuses,
     } = useDownloadState({
       onCleanup: (id) => cleanup.mutateAsync({ downloadId: id }),
       onCancel: (id) => cancelDownload.mutate({ downloadId: id }),
     });
 
-    const handleProgressMessage = useCallback(
-      (message: unknown) => {
-        if (!isProgressMessage(message)) return;
+    const toast = useToast();
 
-        console.log('[DownloadButton] Progress message:', {
-          ...message,
+    // 실패한 다운로드를 추적하기 위한 상태 추가
+    const [failedDownloads, setFailedDownloads] = useState<Set<string>>(
+      new Set()
+    );
+    const [, setCompletedDownloads] = useState<Set<string>>(new Set());
+
+    const handleProgressMessage = useCallback(
+      (message: WebSocketMessage) => {
+        console.log('[DownloadButton] Progress message received:', {
+          downloadId: message.downloadId,
+          fileName: message.fileName,
+          clientFileName: message.clientFileName,
+          status: message.status,
+          progress: message.progress,
+          processedRows: message.processedRows,
+          totalRows: message.totalRows,
           timeRange:
             message.firstReceiveTime && message.lastReceiveTime
               ? `${message.firstReceiveTime} ~ ${message.lastReceiveTime}`
@@ -40,32 +56,45 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           timestamp: new Date().toISOString(),
         });
 
-        const fileStatus: FileStatus = {
-          fileName: message.fileName,
-          downloadId: message.downloadId,
-          clientFileName: message.clientFileName,
-          status: message.status,
-          progress: message.progress,
-          message: message.message || '',
-          processedRows: message.processedRows,
-          totalRows: message.totalRows,
-          processingSpeed: message.processingSpeed || 0,
-          estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
-          size: message.size || 0,
-          firstReceiveTime: message.firstReceiveTime,
-          lastReceiveTime: message.lastReceiveTime,
-        };
+        // 초기 파일 목록을 받았을 때 상태 초기화
+        if (message.type === 'file_ready') {
+          const fileStatus: FileStatus = {
+            fileName: message.fileName,
+            downloadId: message.downloadId,
+            clientFileName: message.clientFileName || '',
+            status: message.status,
+            progress: message.progress,
+            message: message.message || '',
+            processedRows: message.processedRows,
+            totalRows: message.totalRows,
+            processingSpeed: message.processingSpeed || 0,
+            estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
+            size: message.size || 0,
+            firstReceiveTime: message.firstReceiveTime,
+            lastReceiveTime: message.lastReceiveTime,
+          };
 
-        console.log('[DownloadButton] File status update:', {
-          ...fileStatus,
-          timeRange:
-            fileStatus.firstReceiveTime && fileStatus.lastReceiveTime
-              ? `${fileStatus.firstReceiveTime} ~ ${fileStatus.lastReceiveTime}`
-              : 'Not available',
-          timestamp: new Date().toISOString(),
-        });
+          initializeFileStatuses([fileStatus]);
+        } else {
+          // 진행 상황 업데이트
+          const fileStatus: FileStatus = {
+            fileName: message.fileName,
+            downloadId: message.downloadId,
+            clientFileName: message.clientFileName || '',
+            status: message.status,
+            progress: message.progress,
+            message: message.message || '',
+            processedRows: message.processedRows,
+            totalRows: message.totalRows,
+            processingSpeed: message.processingSpeed || 0,
+            estimatedTimeRemaining: message.estimatedTimeRemaining || 0,
+            size: message.size || 0,
+            firstReceiveTime: message.firstReceiveTime,
+            lastReceiveTime: message.lastReceiveTime,
+          };
 
-        updateFileStatuses(fileStatus);
+          updateFileStatuses(fileStatus);
+        }
 
         const totalFiles = Object.keys(state.fileStatuses).length;
         const completedFiles = Object.values(state.fileStatuses).filter(
@@ -100,7 +129,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           totalProgress,
         }));
       },
-      [state, searchParams, updateFileStatuses, setState]
+      [state, updateFileStatuses, setState, initializeFileStatuses]
     );
 
     const {
@@ -125,10 +154,9 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     });
 
     const downloadFileMutation = trpc.download.downloadFile.useMutation({
-      onSuccess: ({ downloadId, fileName }) => {
+      onSuccess: (result) => {
         console.log('[DownloadButton] Download mutation successful:', {
-          downloadId,
-          fileName,
+          result,
           timestamp: new Date().toISOString(),
         });
       },
@@ -141,67 +169,89 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       },
     });
 
-    const handleFileDownload = async (fileName: string) => {
-      const fileStatus = Object.values(state.fileStatuses).find(
-        (status) => status.clientFileName === fileName
-      );
+    const handleFileDownload = useCallback(
+      async (serverFileName: string, clientFileName: string) => {
+        try {
+          if (!serverFileName) {
+            throw new Error('서버 파일명이 필요합니다.');
+          }
 
-      if (!fileStatus?.clientFileName || !fileStatus?.fileName) {
-        console.error('[DownloadButton] Required file information not found:', {
-          fileName,
-          availableFiles: Object.keys(state.fileStatuses),
-        });
-        return;
-      }
+          // 파일명에서 인덱스 추출 (예: xxx_2.csv -> 2)
+          const match = serverFileName.match(/_(\d+)\.csv$/);
+          console.log('[DownloadButton] Extracted file info:', {
+            serverFileName,
+            match,
+            matchGroups: match ? Array.from(match) : null,
+            timestamp: new Date().toISOString(),
+          });
 
-      if (fileStatus.status !== 'ready' && fileStatus.status !== 'completed') {
-        console.warn('[DownloadButton] File not ready for download:', {
-          fileName,
-          status: fileStatus.status,
-        });
-        return;
-      }
+          const index = match?.[1] ? parseInt(match[1], 10) - 1 : 0;
 
-      try {
-        const result = await downloadFileMutation.mutateAsync({
-          fileName: fileStatus.fileName,
-          downloadId: fileStatus.downloadId,
-        });
+          // downloadId는 파일명에서 _1.csv 부분을 제외한 나머지
+          const downloadId = serverFileName.replace(/_\d+\.csv$/, '');
+          console.log('[DownloadButton] Extracted download info:', {
+            serverFileName,
+            downloadId,
+            index,
+            fileStatus: state.fileStatuses[serverFileName],
+            timestamp: new Date().toISOString(),
+          });
 
-        console.log('[DownloadButton] Starting file download:', {
-          serverFileName: result.fileName,
-          clientFileName: fileStatus.clientFileName,
-          status: result.status,
-        });
+          const fileName = getServerFileName(downloadId, index);
+          const result = await downloadFileMutation.mutateAsync({
+            fileName,
+          });
 
-        const response = await fetch(`/api/download?file=${result.fileName}`);
-        if (!response.ok) {
-          throw new Error('Download failed');
+          console.log('[DownloadButton] Download mutation result:', {
+            requestedFileName: fileName,
+            requestedDownloadId: downloadId,
+            result,
+            timestamp: new Date().toISOString(),
+          });
+
+          const response = await fetch(`/api/download?file=${fileName}`);
+
+          if (!response.ok) {
+            throw new Error('파일 다운로드에 실패했습니다.');
+          }
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = clientFileName;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+
+          // 다운로드 성공 시 실패 목록에서 제거
+          setFailedDownloads((prev) => {
+            const next = new Set(prev);
+            next.delete(serverFileName);
+            return next;
+          });
+
+          toast({
+            title: '다운로드 완료',
+            description: `${clientFileName} 파일이 다운로드되었습니다.`,
+            status: 'success',
+            duration: 3000,
+            isClosable: true,
+            position: 'top',
+          });
+        } catch (error) {
+          console.error('[DownloadButton] File download failed:', error);
+          // 다운로드 실패 시 실패 목록에 추가
+          setFailedDownloads((prev) => {
+            const next = new Set(prev);
+            next.add(serverFileName);
+            return next;
+          });
+          handleError(new Error('파일 다운로드에 실패했습니다.'));
         }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileStatus.clientFileName;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        console.log('[DownloadButton] File download completed:', {
-          serverFileName: result.fileName,
-          clientFileName: fileStatus.clientFileName,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error) {
-        console.error('[DownloadButton] Download failed:', {
-          fileName,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        handleError(new Error('Failed to download file'));
-      }
-    };
+      },
+      [downloadFileMutation, handleError, toast, state.fileStatuses]
+    );
 
     const cancelDownload = trpc.download.cancelDownload.useMutation();
     const cleanup = trpc.download.cleanup.useMutation();
@@ -216,34 +266,82 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           throw new Error('Invalid response from server');
         }
 
+        console.log('[DownloadButton] Processing initial file statuses:', {
+          files: result.files.map((f) => ({
+            fileName: f.fileName,
+            clientFileName: f.clientFileName,
+          })),
+          timestamp: new Date().toISOString(),
+        });
+
         const initialFileStatuses = result.files.reduce(
           (acc, file) => {
-            acc[file.downloadId] = {
+            console.log('[DownloadButton] Processing file:', {
+              fileName: file.fileName,
+              clientFileName: file.clientFileName,
+              existingStatus: acc[file.fileName],
+              timestamp: new Date().toISOString(),
+            });
+
+            acc[file.fileName] = {
               fileName: file.fileName,
               clientFileName: file.clientFileName,
               downloadId: file.downloadId,
-              status: file.status,
+              // 첫 번째 파일만 generating, 나머지는 pending
+              status: 'pending',
               progress: file.progress || 0,
-              message: file.message || 'Initializing...',
+              message: file.message || 'Waiting...',
               processedRows: file.processedRows || 0,
               totalRows: file.totalRows || 0,
               processingSpeed: file.processingSpeed || 0,
               estimatedTimeRemaining: file.estimatedTimeRemaining || 0,
               size: 0,
             };
+
+            console.log('[DownloadButton] Updated file status:', {
+              fileName: file.fileName,
+              newStatus: acc[file.fileName],
+              timestamp: new Date().toISOString(),
+            });
+
             return acc;
           },
           {} as Record<string, FileStatus>
         );
 
-        setState((prev) => ({
-          ...prev,
-          downloadId: result.downloadId,
-          fileStatuses: initialFileStatuses,
-          selectedFiles: result.files.map((f) => f.downloadId),
-          status: 'generating',
-          isOpen: true,
-        }));
+        console.log('[DownloadButton] Final initial file statuses:', {
+          statuses: Object.values(initialFileStatuses).map((f) => ({
+            fileName: f.fileName,
+            clientFileName: f.clientFileName,
+            status: f.status,
+          })),
+          timestamp: new Date().toISOString(),
+        });
+
+        setState((prev) => {
+          console.log('[DownloadButton] Updating state with initial files:', {
+            prevFileStatuses: Object.values(prev.fileStatuses).map((f) => ({
+              fileName: f.fileName,
+              clientFileName: f.clientFileName,
+              status: f.status,
+            })),
+            newFileStatuses: Object.values(initialFileStatuses).map((f) => ({
+              fileName: f.fileName,
+              clientFileName: f.clientFileName,
+              status: f.status,
+            })),
+            timestamp: new Date().toISOString(),
+          });
+
+          return {
+            ...prev,
+            downloadId: result.downloadId,
+            fileStatuses: initialFileStatuses,
+            selectedFiles: [],
+            status: 'generating',
+            isOpen: true,
+          };
+        });
 
         const socket = await connect(result.downloadId);
         if (!socket) {
@@ -394,26 +492,113 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       handleError,
     ]);
 
-    const handleFileSelection = useCallback(
-      (downloadId: string, selected: boolean) => {
-        setState((prev) => ({
-          ...prev,
-          selectedFiles: selected
-            ? [...prev.selectedFiles, downloadId]
-            : prev.selectedFiles.filter((id) => id !== downloadId),
-        }));
-      },
-      [setState]
-    );
+    const handleDownloadSelected = useCallback(async () => {
+      const fileStatusEntries = Object.entries(state.fileStatuses);
+      const promises = state.selectedFiles?.map(async (clientFileName) => {
+        const fileStatus = fileStatusEntries.find(
+          ([_, status]) => status.clientFileName === clientFileName
+        )?.[1];
 
-    const handleDownloadSelected = useCallback(() => {
-      state.selectedFiles?.forEach((downloadId) => {
-        const fileStatus = state.fileStatuses[downloadId];
-        if (fileStatus?.status === 'ready' && fileStatus.clientFileName) {
-          handleFileDownload(fileStatus.clientFileName);
+        console.log('[DownloadButton] Handling download selected:', {
+          clientFileName,
+          fileStatus,
+          allFileStatuses: state.fileStatuses,
+          timestamp: new Date().toISOString(),
+        });
+
+        if (fileStatus?.status === 'ready' && fileStatus.fileName) {
+          try {
+            const match = fileStatus.fileName.match(/_(\d+)\.csv$/);
+            console.log('[DownloadButton] Extracted file info:', {
+              serverFileName: fileStatus.fileName,
+              match,
+              matchGroups: match ? Array.from(match) : null,
+              timestamp: new Date().toISOString(),
+            });
+
+            const index = match?.[1] ? parseInt(match[1], 10) - 1 : 0;
+            const downloadId = fileStatus.fileName.replace(/_\d+\.csv$/, '');
+
+            console.log('[DownloadButton] Extracted download info:', {
+              serverFileName: fileStatus.fileName,
+              downloadId,
+              index,
+              fileStatus,
+              timestamp: new Date().toISOString(),
+            });
+
+            const serverFileName = getServerFileName(downloadId, index);
+            const result = await downloadFileMutation.mutateAsync({
+              fileName: serverFileName,
+            });
+
+            console.log('[DownloadButton] Download mutation result:', {
+              requestedFileName: serverFileName,
+              requestedDownloadId: downloadId,
+              result,
+              timestamp: new Date().toISOString(),
+            });
+
+            const response = await fetch(
+              `/api/download?file=${serverFileName}`
+            );
+            if (!response.ok) {
+              throw new Error('파일 다운로드에 실패했습니다.');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileStatus.clientFileName || '';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            // 다운로드 성공 시 실패 목록에서 제거하고 완료 목록에 추가
+            setFailedDownloads((prev) => {
+              const next = new Set(prev);
+              next.delete(fileStatus.fileName);
+              return next;
+            });
+            setCompletedDownloads((prev) => {
+              const next = new Set(prev);
+              next.add(fileStatus.fileName);
+              return next;
+            });
+          } catch (error) {
+            console.error('[DownloadButton] File download failed:', error);
+            // 다운로드 실패 시 실패 목록에 추가
+            if (fileStatus.fileName) {
+              setFailedDownloads((prev) => {
+                const next = new Set(prev);
+                next.add(fileStatus.fileName);
+                return next;
+              });
+            }
+            handleError(new Error('파일 다운로드에 실패했습니다.'));
+          }
+        } else {
+          console.warn('[DownloadButton] File not ready or missing fileName:', {
+            clientFileName,
+            fileStatus,
+            timestamp: new Date().toISOString(),
+          });
         }
       });
-    }, [state.selectedFiles, state.fileStatuses, handleFileDownload]);
+
+      if (promises) {
+        await Promise.all(promises);
+      }
+    }, [
+      state.selectedFiles,
+      state.fileStatuses,
+      downloadFileMutation,
+      handleError,
+      setFailedDownloads,
+      setCompletedDownloads,
+    ]);
 
     return (
       <Box ref={ref} lineHeight="normal">
@@ -449,6 +634,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           onFileDownload={handleFileDownload}
           onDownloadSelected={handleDownloadSelected}
           gridTheme={gridTheme}
+          failedDownloads={failedDownloads}
         />
       </Box>
     );

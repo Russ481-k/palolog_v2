@@ -4,9 +4,9 @@ import utc from 'dayjs/plugin/utc';
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import { createWriteStream } from 'fs';
+import { existsSync, statSync } from 'fs';
 import { join } from 'path';
 
-import { DOWNLOAD_CONFIG } from '@/config/constants';
 import { getColumnNames } from '@/features/monitoring/columns';
 import {
   ChunkProgress,
@@ -16,6 +16,7 @@ import {
 } from '@/types/download';
 import { getCurrentVersion } from '@/utils/version';
 
+import { getServerFileName } from '../utils/fileNaming';
 import { downloadManager } from './downloadManager';
 import { OpenSearchClient } from './opensearch';
 
@@ -58,16 +59,28 @@ export class DownloadChunkManager {
   }
 
   public onFileReady(listener: (message: WebSocketMessage) => void): void {
+    console.log('[DownloadChunkManager] Adding file ready listener:', {
+      downloadId: this.downloadId,
+      timestamp: new Date().toISOString(),
+    });
     this.eventEmitter.on('file_ready', listener);
   }
 
   public onProgressUpdate(listener: (message: WebSocketMessage) => void): void {
+    console.log('[DownloadChunkManager] Adding progress update listener:', {
+      downloadId: this.downloadId,
+      timestamp: new Date().toISOString(),
+    });
     this.eventEmitter.on('progress_update', listener);
   }
 
   public offProgressUpdate(
     listener: (message: WebSocketMessage) => void
   ): void {
+    console.log('[DownloadChunkManager] Removing progress update listener:', {
+      downloadId: this.downloadId,
+      timestamp: new Date().toISOString(),
+    });
     this.eventEmitter.off('progress_update', listener);
   }
 
@@ -93,7 +106,7 @@ export class DownloadChunkManager {
       for (let i = 0; i < numChunks; i++) {
         const startRow = i * CHUNK_SIZE;
         const chunkSize = Math.min(CHUNK_SIZE, totalCount - startRow);
-        const serverFileName = `${this.downloadId}_${i + 1}.csv`;
+        const serverFileName = getServerFileName(this.downloadId, i);
 
         // Get the file info from downloadManager
         const fileInfo = downloadManager.getDownload(serverFileName);
@@ -469,23 +482,19 @@ export class DownloadChunkManager {
       });
 
       // Emit file_ready event
-      this.eventEmitter.emit('file_ready', {
-        type: 'file_ready',
-        downloadId: this.downloadId,
-        fileName: chunk.fileName,
-        clientFileName: chunk.clientFileName,
-        status: 'ready',
-        progress: 100,
-        processedRows: chunk.totalRows,
-        totalRows: chunk.totalRows,
-        processingSpeed: chunk.processingSpeed,
-        estimatedTimeRemaining: 0,
-        size: chunk.size,
-        firstReceiveTime: chunk.firstReceiveTime,
-        lastReceiveTime: chunk.lastReceiveTime,
-        message: 'File is ready for download',
-        timestamp: new Date().toISOString(),
-      });
+      if (chunk.fileName && chunk.clientFileName) {
+        this.emitFileReady(chunk.fileName, chunk.clientFileName);
+      } else {
+        console.error(
+          '[DownloadChunkManager] Cannot emit file_ready: fileName or clientFileName is undefined',
+          {
+            downloadId: this.downloadId,
+            fileName: chunk.fileName,
+            clientFileName: chunk.clientFileName,
+            timestamp: new Date().toISOString(),
+          }
+        );
+      }
     } catch (error) {
       console.error('[DownloadChunkManager] Error downloading chunk:', {
         error: error instanceof Error ? error.message : String(error),
@@ -582,25 +591,49 @@ export class DownloadChunkManager {
   }
 
   public getChunk(fileName: string): ChunkProgress | undefined {
-    console.log('[DownloadChunkManager] Looking for chunk:', {
-      searchFileName: fileName,
-      availableFiles: Array.from(this.chunks.entries()).map(([_, chunk]) => ({
-        fileName: chunk.fileName,
-        clientFileName: chunk.clientFileName,
-        status: chunk.status,
-      })),
+    const chunk = this.chunks.get(fileName);
+    console.log('[DownloadChunkManager] Getting chunk:', {
+      fileName,
+      found: !!chunk,
+      chunkInfo: chunk
+        ? {
+            status: chunk.status,
+            progress: chunk.progress,
+            processedRows: chunk.processedRows,
+            totalRows: chunk.totalRows,
+          }
+        : undefined,
       timestamp: new Date().toISOString(),
     });
-    return this.chunks.get(fileName);
+    return chunk;
   }
 
   public async cleanup(): Promise<void> {
+    console.log('[DownloadChunkManager] Starting cleanup:', {
+      downloadId: this.downloadId,
+      chunks: Array.from(this.chunks.entries()).map(([fileName, chunk]) => ({
+        fileName,
+        status: chunk.status,
+        progress: chunk.progress,
+      })),
+      timestamp: new Date().toISOString(),
+    });
+
     const downloadDir = join(process.cwd(), 'downloads');
     for (const [fileName] of this.chunks) {
       try {
         await fs.promises.unlink(join(downloadDir, fileName));
+        console.log('[DownloadChunkManager] Deleted file:', {
+          fileName,
+          downloadId: this.downloadId,
+          timestamp: new Date().toISOString(),
+        });
       } catch (error) {
-        console.warn(`Failed to delete file ${fileName}:`, error);
+        console.warn('[DownloadChunkManager] Failed to delete file:', {
+          fileName,
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        });
       }
     }
   }
@@ -657,31 +690,72 @@ export class DownloadChunkManager {
       size: 0,
     };
   }
-}
 
-class DownloadChunkManagerInstance {
-  private managers: Map<string, DownloadChunkManager> = new Map();
-  private eventEmitter: EventEmitter = new EventEmitter();
+  private emitFileReady(fileName: string, clientFileName: string) {
+    console.log(
+      '[DownloadChunkManager] Checking if file exists before emitting file_ready:',
+      {
+        downloadId: this.downloadId,
+        fileName,
+        timestamp: new Date().toISOString(),
+      }
+    );
 
-  getManager(downloadId: string): DownloadChunkManager | undefined {
-    console.log('[DownloadChunkManager] Getting manager:', {
-      downloadId,
-      managers: Array.from(this.managers.keys()),
+    const filePath = join(process.cwd(), 'downloads', fileName);
+    if (!existsSync(filePath)) {
+      console.log('[DownloadChunkManager] File does not exist yet:', {
+        downloadId: this.downloadId,
+        fileName,
+        filePath,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const stats = statSync(filePath);
+    if (stats.size === 0) {
+      console.log('[DownloadChunkManager] File exists but is empty:', {
+        downloadId: this.downloadId,
+        fileName,
+        filePath,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    console.log('[DownloadChunkManager] Emitting file_ready event:', {
+      downloadId: this.downloadId,
+      fileName,
+      filePath,
+      fileSize: stats.size,
       timestamp: new Date().toISOString(),
     });
 
-    return this.managers.get(downloadId);
+    this.eventEmitter.emit('file_ready', {
+      type: 'file_ready',
+      fileName,
+      clientFileName,
+      status: 'ready',
+      progress: 100,
+      processedRows: this.totalRows,
+      totalRows: this.totalRows,
+      message: 'File is ready for download',
+      size: stats.size,
+      firstReceiveTime: new Date().toISOString(),
+      lastReceiveTime: new Date().toISOString(),
+    });
   }
+}
 
-  getActiveManagers(): DownloadChunkManager[] {
-    return Array.from(this.managers.values());
-  }
+export class DownloadChunkManagerInstance {
+  private managers: Map<string, DownloadChunkManager> = new Map();
+  private eventEmitter: EventEmitter = new EventEmitter();
 
   createManager(
     downloadId: string,
     searchParams: SearchParams
   ): DownloadChunkManager {
-    console.log('[DownloadChunkManager] Creating new manager:', {
+    console.log('[DownloadChunkManagerInstance] Creating manager:', {
       downloadId,
       existingManagers: Array.from(this.managers.keys()),
       timestamp: new Date().toISOString(),
@@ -689,17 +763,31 @@ class DownloadChunkManagerInstance {
 
     const manager = new DownloadChunkManager(downloadId, searchParams);
     this.managers.set(downloadId, manager);
-
-    // Forward events from the manager to the instance's event emitter
-    manager.onFileReady((message: WebSocketMessage) => {
-      this.eventEmitter.emit('file_ready', message);
-    });
-
-    manager.onProgressUpdate((message: WebSocketMessage) => {
-      this.eventEmitter.emit('progress_update', message);
-    });
-
     return manager;
+  }
+
+  getManager(downloadId: string): DownloadChunkManager | undefined {
+    const manager = this.managers.get(downloadId);
+    console.log('[DownloadChunkManagerInstance] Getting manager:', {
+      downloadId,
+      found: !!manager,
+      existingManagers: Array.from(this.managers.keys()),
+      timestamp: new Date().toISOString(),
+    });
+    return manager;
+  }
+
+  removeManager(downloadId: string): void {
+    console.log('[DownloadChunkManagerInstance] Removing manager:', {
+      downloadId,
+      existingManagers: Array.from(this.managers.keys()),
+      timestamp: new Date().toISOString(),
+    });
+    this.managers.delete(downloadId);
+  }
+
+  getActiveManagers(): DownloadChunkManager[] {
+    return Array.from(this.managers.values());
   }
 
   on(event: string, listener: (message: WebSocketMessage) => void): void {

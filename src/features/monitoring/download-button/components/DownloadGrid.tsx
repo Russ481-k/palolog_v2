@@ -6,6 +6,7 @@ import {
   Flex,
   IconButton,
   Skeleton,
+  Spinner,
   Table,
   Tbody,
   Td,
@@ -14,7 +15,7 @@ import {
   Tr,
   useColorMode,
 } from '@chakra-ui/react';
-import { FaDownload } from 'react-icons/fa';
+import { FaCheck, FaDownload } from 'react-icons/fa';
 
 import { FileData } from '../types';
 import { DownloadProgress } from './DownloadProgress';
@@ -24,7 +25,7 @@ interface DownloadGridProps {
   rowData: FileData[];
   selectedFiles: string[];
   onFileSelection: (fileName: string, selected: boolean) => void;
-  onFileDownload: (fileName: string, useClientFileName?: boolean) => void;
+  onFileDownload: (serverFileName: string, clientFileName: string) => void;
   gridTheme: string;
   isLoading?: boolean;
 }
@@ -38,8 +39,13 @@ export const DownloadGrid = memo(
     isLoading = false,
   }: DownloadGridProps) => {
     const { colorMode } = useColorMode();
-    const [selectAll, setSelectAll] = useState(false);
-    const [updatedRows, setUpdatedRows] = useState<Set<string>>(new Set());
+    const [, setUpdatedRows] = useState<Set<string>>(new Set());
+    const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(
+      new Set()
+    );
+    const [completedDownloads, setCompletedDownloads] = useState<Set<string>>(
+      new Set()
+    );
 
     // Track row updates with previous values
     const prevRowDataRef = useRef(rowData);
@@ -95,6 +101,16 @@ export const DownloadGrid = memo(
       );
     }, [allSelected, rowData, selectedFiles]);
 
+    // ready 상태인 파일이 있는지 확인
+    const hasReadyFiles = useMemo(() => {
+      return rowData.some(
+        (row) =>
+          (row.status === 'ready' || row.status === 'completed') &&
+          !downloadingFiles.has(row.fileName) &&
+          !completedDownloads.has(row.fileName)
+      );
+    }, [rowData, downloadingFiles, completedDownloads]);
+
     // Memoize styles
     const styles = useMemo(
       () => ({
@@ -123,10 +139,15 @@ export const DownloadGrid = memo(
     // Handle select all with proper type checking
     const handleSelectAll = useCallback(
       (checked: boolean) => {
-        setSelectAll(checked);
         if (checked) {
+          // ready 상태인 파일만 선택
           rowData?.forEach((row) => {
-            if (!selectedFiles.includes(row.fileName)) {
+            if (
+              (row.status === 'ready' || row.status === 'completed') &&
+              !downloadingFiles.has(row.fileName) &&
+              !completedDownloads.has(row.fileName) &&
+              !selectedFiles.includes(row.fileName)
+            ) {
               onFileSelection(row.fileName, true);
             }
           });
@@ -136,7 +157,30 @@ export const DownloadGrid = memo(
           });
         }
       },
-      [rowData, selectedFiles, onFileSelection]
+      [
+        rowData,
+        selectedFiles,
+        onFileSelection,
+        downloadingFiles,
+        completedDownloads,
+      ]
+    );
+
+    const handleFileDownload = useCallback(
+      async (serverFileName: string, clientFileName: string) => {
+        try {
+          setDownloadingFiles((prev) => new Set(prev).add(clientFileName));
+          await onFileDownload(serverFileName, clientFileName);
+          setCompletedDownloads((prev) => new Set(prev).add(clientFileName));
+        } finally {
+          setDownloadingFiles((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(clientFileName);
+            return newSet;
+          });
+        }
+      },
+      [onFileDownload]
     );
 
     return (
@@ -148,9 +192,22 @@ export const DownloadGrid = memo(
         borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
         data-testid="download-grid"
         sx={{
-          '.highlight-update': {
-            transition: 'background-color 0.3s ease',
-            backgroundColor: colorMode === 'dark' ? 'blue.900' : 'blue.50',
+          '&::-webkit-scrollbar': {
+            width: '8px',
+            height: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: colorMode === 'dark' ? 'gray.800' : 'gray.100',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: colorMode === 'dark' ? 'gray.600' : 'gray.400',
+            borderRadius: '4px',
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            background: 'gray.500',
+          },
+          '&::-webkit-scrollbar-corner': {
+            background: colorMode === 'dark' ? 'gray.800' : 'gray.100',
           },
         }}
       >
@@ -161,14 +218,15 @@ export const DownloadGrid = memo(
                 <Checkbox
                   isChecked={allSelected}
                   isIndeterminate={someSelected}
+                  isDisabled={!hasReadyFiles}
                   borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
                   onChange={(e) => handleSelectAll(e.target.checked)}
                 />
               </Th>
-              <Th {...styles.header} minWidth="260px">
+              <Th {...styles.header} width="300px">
                 File Name
               </Th>
-              <Th {...styles.header} width="280px">
+              <Th {...styles.header} width="300px">
                 Time Range
               </Th>
               <Th {...styles.header} width="120px" isNumeric>
@@ -177,7 +235,7 @@ export const DownloadGrid = memo(
               <Th {...styles.header} width="140px">
                 Status
               </Th>
-              <Th {...styles.header} minWidth="400px">
+              <Th {...styles.header} minWidth="500px">
                 Progress
               </Th>
               <Th {...styles.header} width="100px">
@@ -187,12 +245,13 @@ export const DownloadGrid = memo(
           </Thead>
           <Tbody>
             {isLoading
-              ? [...Array(20)].map((_, index) => (
+              ? [...Array(30)].map((_, index) => (
                   <Tr
                     key={index}
+                    transition="all 0.3s ease-in-out"
                     _hover={{
                       backgroundColor:
-                        colorMode === 'dark' ? 'gray.700' : 'gray.50',
+                        colorMode === 'dark' ? 'gray.900' : 'gray.50',
                     }}
                   >
                     <Td {...styles.cell}>
@@ -201,7 +260,7 @@ export const DownloadGrid = memo(
                         alignItems="center"
                         justifyContent="center"
                         w="100%"
-                        height={6}
+                        height={7}
                       >
                         <Skeleton height={4} width={4} />
                       </Flex>
@@ -210,7 +269,7 @@ export const DownloadGrid = memo(
                       <Skeleton height={3} width="240px" />
                     </Td>
                     <Td {...styles.cell}>
-                      <Skeleton height={3} width="280px" />
+                      <Skeleton height={3} width="240px" />
                     </Td>
                     <Td {...styles.cell}>
                       <Skeleton height={3} width="80px" />
@@ -219,7 +278,7 @@ export const DownloadGrid = memo(
                       <Skeleton height={4} width="100px" borderRadius="5px" />
                     </Td>
                     <Td {...styles.cell}>
-                      <Skeleton height={3} width="360px" />
+                      <Skeleton height={3} width="460px" />
                     </Td>
                     <Td {...styles.cell}>
                       <Flex
@@ -232,12 +291,9 @@ export const DownloadGrid = memo(
                     </Td>
                   </Tr>
                 ))
-              : rowData.map((row) => (
+              : rowData.map((row, index) => (
                   <Tr
-                    key={row.fileName}
-                    className={
-                      updatedRows.has(row.fileName) ? 'highlight-update' : ''
-                    }
+                    key={`${row.fileName}_${index}`}
                     _hover={{
                       backgroundColor:
                         colorMode === 'dark' ? 'gray.700' : 'gray.50',
@@ -246,6 +302,12 @@ export const DownloadGrid = memo(
                     <Td {...styles.cell}>
                       <Checkbox
                         isChecked={selectedFiles.includes(row.fileName)}
+                        isDisabled={
+                          (row.status !== 'ready' &&
+                            row.status !== 'completed') ||
+                          downloadingFiles.has(row.fileName) ||
+                          completedDownloads.has(row.fileName)
+                        }
                         borderColor={
                           colorMode === 'dark' ? 'gray.700' : 'gray.200'
                         }
@@ -255,9 +317,13 @@ export const DownloadGrid = memo(
                         }
                       />
                     </Td>
-                    <Td {...styles.cell}>{row.fileName}</Td>
                     <Td {...styles.cell}>
-                      <Flex width="280px" alignItems="center">
+                      <Flex width="240px" alignItems="center">
+                        {row.fileName}
+                      </Flex>
+                    </Td>
+                    <Td {...styles.cell}>
+                      <Flex width="240px" alignItems="center">
                         {row.timeRange}
                       </Flex>
                     </Td>
@@ -268,7 +334,7 @@ export const DownloadGrid = memo(
                       <DownloadStatus status={row.status} />
                     </Td>
                     <Td {...styles.cell}>
-                      <Flex width="360px" alignItems="center">
+                      <Flex flex={1} alignItems="center">
                         <DownloadProgress
                           progress={row.progress}
                           status={row.status}
@@ -285,15 +351,32 @@ export const DownloadGrid = memo(
                       <Flex alignItems="center" justifyContent="center">
                         <IconButton
                           aria-label="Download"
-                          icon={<FaDownload />}
+                          icon={
+                            downloadingFiles.has(row.fileName) ? (
+                              <Spinner size="sm" />
+                            ) : completedDownloads.has(row.fileName) ? (
+                              <FaCheck color="teal.400" />
+                            ) : (
+                              <FaDownload color="teal.400" />
+                            )
+                          }
                           size="sm"
-                          colorScheme="blue"
+                          colorScheme="green"
                           variant="ghost"
                           isDisabled={
-                            row.status !== 'ready' && row.status !== 'completed'
+                            (row.status !== 'ready' &&
+                              row.status !== 'completed') ||
+                            downloadingFiles.has(row.fileName) ||
+                            completedDownloads.has(row.fileName)
                           }
-                          onClick={() => onFileDownload(row.fileName)}
-                          title="Download file"
+                          onClick={() =>
+                            handleFileDownload(row.serverFileName, row.fileName)
+                          }
+                          title={
+                            completedDownloads.has(row.fileName)
+                              ? 'Download completed'
+                              : 'Download file'
+                          }
                         />
                       </Flex>
                     </Td>

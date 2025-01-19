@@ -4,12 +4,14 @@ import fs from 'fs';
 
 import { DownloadStatus, SearchParams } from '../../types/download';
 import { OpenSearchClient } from '../lib/opensearch';
+import { generateFileNames } from '../utils/fileNaming';
 
 export interface DownloadFile {
   fileName: string;
   downloadId: string;
   clientFileName: string;
   status: DownloadStatus;
+  searchParams: SearchParams;
   progress: number;
   processedRows: number;
   totalRows: number;
@@ -46,7 +48,12 @@ export class DownloadManager {
     index: number;
     total: number;
   }): { clientFileName: string } {
-    const clientFileName = `${params.menu}_${params.timestamp}_${params.index + 1}of${params.total}.csv`;
+    const { clientFileName } = generateFileNames({
+      downloadId: '', // downloadId는 나중에 설정됨
+      menu: params.menu,
+      index: params.index,
+      total: params.total,
+    });
     return { clientFileName };
   }
 
@@ -62,20 +69,17 @@ export class DownloadManager {
       // Calculate number of chunks based on total rows
       const CHUNK_SIZE = 500000;
       const numChunks = Math.ceil(actualCount / CHUNK_SIZE);
-      const timestamp = dayjs().format('YYYY-MM-DD_HH:mm:ss');
 
       // Create download files with pre-generated clientFileNames
       const files: DownloadFile[] = Array.from(
         { length: numChunks },
         (_, index) => {
-          const { clientFileName } = this.generateFileNames({
+          const { serverFileName, clientFileName } = generateFileNames({
+            downloadId,
             menu: searchParams.menu,
-            timestamp,
             index,
             total: numChunks,
           });
-
-          const serverFileName = `${downloadId}_${index + 1}.csv`;
 
           const file: DownloadFile = {
             downloadId,
@@ -85,6 +89,7 @@ export class DownloadManager {
             progress: 0,
             processedRows: 0,
             totalRows: Math.min(CHUNK_SIZE, actualCount - index * CHUNK_SIZE),
+            searchParams,
             message: 'Initializing download...',
             startTime: new Date(),
             lastUpdateTime: Date.now(),
@@ -452,11 +457,41 @@ export class DownloadManager {
       clearTimeout(existingTimeout);
     }
 
+    // Get all files for this download
+    const files = Array.from(this.downloads.values()).filter(
+      (file) => file.downloadId === downloadId
+    );
+
+    // Only schedule cleanup if all files have been downloaded
+    const allFilesDownloaded = files.every(
+      (file) => file.status === 'completed'
+    );
+
+    if (!allFilesDownloaded) {
+      console.log(
+        `[DownloadManager] Skipping cleanup for ${downloadId} - files not yet downloaded`,
+        {
+          files: files.map((f) => ({
+            fileName: f.fileName,
+            status: f.status,
+            timestamp: new Date().toISOString(),
+          })),
+        }
+      );
+      return;
+    }
+
     // Schedule new cleanup after 5 minutes
     const timeout = setTimeout(
       () => {
-        console.log(`[DownloadManager] Cleaning up download ${downloadId}`);
-        this.cleanup(downloadId);
+        console.log(`[DownloadManager] Cleaning up download ${downloadId}`, {
+          files: files.map((f) => ({
+            fileName: f.fileName,
+            status: f.status,
+            timestamp: new Date().toISOString(),
+          })),
+        });
+        files.forEach((file) => this.cleanup(file.fileName));
         this.cleanupTimeouts.delete(downloadId);
       },
       5 * 60 * 1000
@@ -481,6 +516,19 @@ export class DownloadManager {
         return `Processing ${processed.toLocaleString()} of ${total.toLocaleString()} rows`;
       default:
         return 'Preparing file...';
+    }
+  }
+
+  markAsDownloaded(fileName: string): void {
+    const file = this.downloads.get(fileName);
+    if (file) {
+      console.log('[DownloadManager] Marking file as downloaded:', {
+        fileName,
+        clientFileName: file.clientFileName,
+        timestamp: new Date().toISOString(),
+      });
+      this.updateProgress(fileName, { status: 'completed' });
+      this.scheduleCleanup(file.downloadId);
     }
   }
 }

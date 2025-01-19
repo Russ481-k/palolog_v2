@@ -68,10 +68,10 @@ export const DownloadProgress = ({
           borderRadius="full"
           backgroundColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
           mb={1}
-          transition="width 0.3s ease-in-out"
+          transition="width 1.2s ease-in-out"
           sx={{
             '& > div:first-of-type': {
-              transition: 'width 0.3s ease-in-out',
+              transition: 'width 1.2s ease-in-out',
             },
           }}
           hasStripe={status === 'downloading' || status === 'generating'}
@@ -81,8 +81,11 @@ export const DownloadProgress = ({
       <Flex fontSize="xs" color="gray.500" justifyContent="space-between">
         <Text fontWeight="medium">{progress.toFixed(1)}%</Text>
         <HStack spacing={2} gap={2} divider={<Text color="gray.400">•</Text>}>
-          <Text>{processingSpeed.toFixed(1)} rows/s</Text>
-          <Text>{estimatedTimeRemaining.toFixed(1)}s remaining</Text>
+          <Text>{processingSpeed.toFixed(0)} rows/s</Text>
+          <Text>
+            {progress !== 100 ? estimatedTimeRemaining.toFixed(0) : 0}s
+            remaining
+          </Text>
         </HStack>
         <Text fontWeight="medium">
           {processedRows.toLocaleString()} / {totalRows.toLocaleString()} rows

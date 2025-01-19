@@ -2,6 +2,8 @@ import { createReadStream, existsSync } from 'fs';
 import { NextRequest, NextResponse } from 'next/server';
 import { join } from 'path';
 
+import { downloadManager } from '@/server/lib/downloadManager';
+
 // 동적 라우트임을 명시
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +45,13 @@ export async function GET(req: NextRequest) {
           const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
           controller.enqueue(new Uint8Array(buffer));
         });
-        stream.on('end', () => controller.close());
+        stream.on('end', () => {
+          controller.close();
+          // 파일 다운로드가 완료되면 completed 상태로 변경
+          if (fileName) {
+            downloadManager.markAsDownloaded(fileName);
+          }
+        });
         stream.on('error', (err) => controller.error(err));
       },
     });

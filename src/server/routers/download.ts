@@ -1,10 +1,10 @@
 import { TRPCError } from '@trpc/server';
-import dayjs from 'dayjs';
+import * as fs from 'fs';
+import { join } from 'path';
 import { Observable, Subscriber } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
-import { downloadChunkManager } from '../lib/downloadChunkManager';
 import { TotalProgress, downloadManager } from '../lib/downloadManager';
 import { protectedProcedure, publicProcedure, router } from '../trpc';
 
@@ -91,26 +91,22 @@ export const downloadRouter = router({
     }),
 
   downloadFile: publicProcedure
-    .input(
-      z.object({
-        fileName: z.string(),
-        downloadId: z.string(),
-        useClientFileName: z.boolean().optional(),
-      })
-    )
+    .input(z.object({ fileName: z.string() }))
     .mutation(async ({ input }) => {
-      const { fileName, downloadId, useClientFileName = false } = input;
-      console.log('[Download Router] Download request:', {
-        fileName,
-        downloadId,
-        useClientFileName,
-        timestamp: new Date().toISOString(),
-      });
+      const { fileName } = input;
+      const filePath = join(process.cwd(), 'downloads', fileName);
 
-      const manager = downloadChunkManager.getManager(downloadId);
-      if (!manager) {
-        console.error('[Download Router] Download manager not found:', {
-          downloadId,
+      try {
+        // Check if file exists
+        await fs.promises.access(filePath);
+
+        // Mark file as downloaded
+        downloadManager.markAsDownloaded(fileName);
+
+        return { success: true };
+      } catch (error) {
+        console.error('[downloadRouter] Error downloading file:', {
+          error: error instanceof Error ? error.message : String(error),
           fileName,
           timestamp: new Date().toISOString(),
         });
@@ -119,39 +115,6 @@ export const downloadRouter = router({
           message: 'Download manager not found',
         });
       }
-
-      const chunk = manager.getChunk(fileName);
-      if (!chunk) {
-        console.error('[Download Router] File not found:', {
-          downloadId,
-          fileName,
-          timestamp: new Date().toISOString(),
-        });
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'File not found',
-        });
-      }
-
-      if (chunk.status !== 'ready' && chunk.status !== 'completed') {
-        console.error('[Download Router] File not ready:', {
-          downloadId,
-          fileName,
-          status: chunk.status,
-          timestamp: new Date().toISOString(),
-        });
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'File not ready for download',
-        });
-      }
-
-      return {
-        downloadId,
-        fileName,
-        clientFileName: useClientFileName ? chunk.clientFileName : fileName,
-        status: chunk.status,
-      };
     }),
 
   pauseDownload: protectedProcedure
