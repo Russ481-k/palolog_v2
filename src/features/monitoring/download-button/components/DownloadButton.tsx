@@ -263,20 +263,41 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
     });
 
     const handleClose = useCallback(() => {
-      console.log('[DownloadButton] Modal closing, cleaning up...');
+      console.log('[DownloadButton] Modal closing, cleaning up...', {
+        downloadId: state.downloadId,
+        timestamp: new Date().toISOString(),
+      });
 
       // 웹소켓 연결 종료
       disconnect();
 
-      // 서버에 cleanup 요청
+      // 다운로드 취소 및 파일 정리
       if (state.downloadId) {
-        cleanup.mutateAsync({ downloadId: state.downloadId }).catch((error) => {
-          console.error('[DownloadButton] Failed to cleanup:', {
-            error: error instanceof Error ? error.message : String(error),
-            downloadId: state.downloadId,
-            timestamp: new Date().toISOString(),
+        // 먼저 다운로드를 취소
+        cancelDownload
+          .mutateAsync({ downloadId: state.downloadId })
+          .then(() => {
+            console.log('[DownloadButton] Download cancelled successfully:', {
+              downloadId: state.downloadId,
+              timestamp: new Date().toISOString(),
+            });
+
+            // 다운로드 취소 후 cleanup 실행
+            return cleanup.mutateAsync({ downloadId: state.downloadId });
+          })
+          .then(() => {
+            console.log('[DownloadButton] Cleanup completed successfully:', {
+              downloadId: state.downloadId,
+              timestamp: new Date().toISOString(),
+            });
+          })
+          .catch((error) => {
+            console.error('[DownloadButton] Failed to cancel/cleanup:', {
+              error: error instanceof Error ? error.message : String(error),
+              downloadId: state.downloadId,
+              timestamp: new Date().toISOString(),
+            });
           });
-        });
       }
 
       setState((prev) => ({
@@ -286,13 +307,46 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
         isConnectionReady: false,
       }));
       handleModalClose();
-    }, [state.downloadId, disconnect, cleanup, setState, handleModalClose]);
+    }, [
+      state.downloadId,
+      disconnect,
+      cancelDownload,
+      cleanup,
+      setState,
+      handleModalClose,
+    ]);
 
     // Handle browser close/refresh
     useEffect(() => {
       const handleBeforeUnload = () => {
+        console.log(
+          '[DownloadButton] Browser closing/refreshing, cleaning up...',
+          {
+            downloadId: state.downloadId,
+            timestamp: new Date().toISOString(),
+          }
+        );
+
         if (state.downloadId) {
-          handleModalClose();
+          // 웹소켓 연결 종료
+          disconnect();
+
+          // 동기적으로 다운로드 취소 요청 전송
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1000);
+
+          fetch('/api/download/cancel', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ downloadId: state.downloadId }),
+            signal: controller.signal,
+          }).catch(() => {
+            // 브라우저 종료 시에는 에러가 발생할 수 있으므로 무시
+          });
+
+          clearTimeout(timeoutId);
         }
       };
 
@@ -300,7 +354,7 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
       return () => {
         window.removeEventListener('beforeunload', handleBeforeUnload);
       };
-    }, [state.downloadId, handleModalClose]);
+    }, [state.downloadId, disconnect]);
 
     const handleDownloadClick = useCallback(async () => {
       try {

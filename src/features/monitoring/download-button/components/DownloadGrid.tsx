@@ -14,7 +14,6 @@ import {
   Tr,
   useColorMode,
 } from '@chakra-ui/react';
-import dayjs from 'dayjs';
 import { FaDownload } from 'react-icons/fa';
 
 import { FileData } from '../types';
@@ -36,7 +35,6 @@ export const DownloadGrid = memo(
     selectedFiles,
     onFileSelection,
     onFileDownload,
-    gridTheme,
     isLoading = false,
   }: DownloadGridProps) => {
     const { colorMode } = useColorMode();
@@ -203,13 +201,13 @@ export const DownloadGrid = memo(
                         alignItems="center"
                         justifyContent="center"
                         w="100%"
-                        height={8}
+                        height={7}
                       >
                         <Skeleton height={3} width={3} />
                       </Flex>
                     </Td>
                     <Td {...styles.cell}>
-                      <Skeleton height={3} width="200px" />
+                      <Skeleton height={3} width="240px" />
                     </Td>
                     <Td {...styles.cell}>
                       <Skeleton height={3} width="220px" />
