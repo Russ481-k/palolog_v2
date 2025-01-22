@@ -29,7 +29,8 @@ export const DashboardStatics = () => {
 
   return (
     <Grid
-      height="60vh"
+      height="100%"
+      minHeight="60vh"
       gap={3}
       templateColumns={{
         base: 'repeat(1, 6fr)',
