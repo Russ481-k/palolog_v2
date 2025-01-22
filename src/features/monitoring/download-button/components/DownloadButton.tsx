@@ -451,12 +451,15 @@ export const DownloadButton = forwardRef<HTMLDivElement, DownloadButtonProps>(
           isConnecting: true,
           isConnectionReady: false,
         }));
-
-        await startDownloadMutation.mutateAsync({
-          searchId,
-          totalRows,
-          searchParams,
-        });
+        if (searchId && totalRows && searchParams) {
+          await startDownloadMutation.mutateAsync({
+            searchId,
+            totalRows,
+            searchParams,
+          });
+        } else {
+          throw new Error('No Files to Download');
+        }
       } catch (error) {
         console.error('[DownloadButton] Error during download process:', {
           error: error instanceof Error ? error.message : 'Unknown error',

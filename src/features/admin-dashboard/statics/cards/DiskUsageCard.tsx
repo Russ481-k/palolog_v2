@@ -40,7 +40,6 @@ export const DiskUsageCard = ({
       series: [
         {
           type: 'donut',
-          calloutLabelKey: 'asset',
           angleKey: 'amount',
           innerRadiusRatio: 0.85,
           innerLabels: [
@@ -56,8 +55,8 @@ export const DiskUsageCard = ({
       legend: {
         enabled: false,
       },
-      height: 180,
-      width: 200,
+      height: 160,
+      width: 160,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [diskUsage, colorMode]
@@ -131,7 +130,7 @@ export const DiskUsageCard = ({
               </Tr>
             </Tbody>
           </Table>
-          <Box w="70%" ml="-10px" mr="-10px" py="50px" zIndex={1}>
+          <Box w="70%" ml="0px" mr="-10px" py="50px" zIndex={1}>
             <AgChartsThemeChanged
               colorMode={colorMode}
               options={cpuUsageDataDonut}

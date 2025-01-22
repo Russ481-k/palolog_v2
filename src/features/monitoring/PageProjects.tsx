@@ -129,12 +129,101 @@ export default function PageProjects() {
   const pageLength = data?.pages[0]?.pagination.pageLength;
   const totalCnt = data?.pages[0]?.pagination.totalCnt ?? 0;
 
+  const validateTimeFormat = (timeStr: string) => {
+    const date = dayjs(timeStr);
+    return (
+      date.isValid() && timeStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
+    );
+  };
+
+  const checkAndAdjustTimeRange = (
+    fromDate: dayjs.Dayjs,
+    toDate: dayjs.Dayjs
+  ) => {
+    const diffHours = toDate.diff(fromDate, 'hour');
+    if (diffHours > 12) {
+      const adjustedToDate = fromDate.add(12, 'hour');
+      const formattedToDate = adjustedToDate.format('YYYY-MM-DD HH:mm:ss');
+
+      toast({
+        position: 'top-right',
+        title: '시간 범위 제한',
+        description: `최대 조회 시간은 12시간 입니다. ${formattedToDate}로 변경되었습니다.`,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+
+      form.setValue('timeTo', formattedToDate);
+      onToDateChanged(formattedToDate);
+      return true;
+    }
+    return false;
+  };
+
   const onSubmit = (
     timeFrom: string,
     timeTo: string,
     currentPage: number,
     searchTerm: string
   ) => {
+    // 시간 포맷 검증
+    if (!validateTimeFormat(timeFrom) || !validateTimeFormat(timeTo)) {
+      toast({
+        position: 'top-right',
+        title: '잘못된 시간 형식',
+        description:
+          '올바른 시간 형식(YYYY-MM-DD HH:mm:ss)이 아닙니다. 초기값으로 되돌립니다.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+
+      const now = dayjs().subtract(1, 'minute').format('YYYY-MM-DD HH:mm:ss');
+      const beforeMinute = dayjs()
+        .subtract(2, 'minute')
+        .format('YYYY-MM-DD HH:mm:ss');
+
+      form.setValue('timeFrom', beforeMinute);
+      form.setValue('timeTo', now);
+      onFromDateChanged(beforeMinute);
+      onToDateChanged(now);
+      return;
+    }
+
+    const fromDate = dayjs(timeFrom);
+    const toDate = dayjs(timeTo);
+
+    // 시간 순서가 반대인 경우 처리
+    if (fromDate.isAfter(toDate)) {
+      toast({
+        position: 'top-right',
+        title: '시간 범위 조정',
+        description:
+          '시작 시간이 종료 시간보다 늦을 수 없습니다. 시간이 자동으로 조정되었습니다.',
+        status: 'warning',
+        duration: 5000,
+        isClosable: true,
+      });
+
+      // from과 to 값을 교체하고 12시간 제한 체크
+      const swappedFromDate = toDate;
+      const swappedToDate = fromDate;
+
+      form.setValue('timeFrom', swappedFromDate.format('YYYY-MM-DD HH:mm:ss'));
+      form.setValue('timeTo', swappedToDate.format('YYYY-MM-DD HH:mm:ss'));
+      onFromDateChanged(swappedFromDate.format('YYYY-MM-DD HH:mm:ss'));
+
+      // 12시간 제한 체크 및 조정
+      checkAndAdjustTimeRange(swappedFromDate, swappedToDate);
+      return;
+    }
+
+    // 12시간 제한 체크
+    if (checkAndAdjustTimeRange(fromDate, toDate)) {
+      return;
+    }
+
     onFromDateChanged(timeFrom);
     onToDateChanged(timeTo);
     onSearchInputChanged(searchTerm);
@@ -149,9 +238,79 @@ export default function PageProjects() {
     setSearchTerm(e);
   };
   const onFromDateChanged = (e: string) => {
+    if (!validateTimeFormat(e)) {
+      toast({
+        position: 'top-right',
+        title: '잘못된 시간 형식',
+        description:
+          '올바른 시간 형식(YYYY-MM-DD HH:mm:ss)이 아닙니다. 이전 값으로 되돌립니다.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+
+      form.setValue('timeFrom', selectedFromDate);
+      return;
+    }
+
+    const fromDate = dayjs(e);
+    const toDate = dayjs(selectedToDate);
+
+    if (fromDate.isAfter(toDate)) {
+      const newToDate = fromDate.format('YYYY-MM-DD HH:mm:ss');
+      form.setValue('timeTo', newToDate);
+      setSelectedToDate(newToDate);
+      toast({
+        position: 'top-right',
+        title: '시간 범위 조정',
+        description:
+          '시작 시간이 종료 시간보다 늦을 수 없습니다. 종료 시간이 자동으로 조정되었습니다.',
+        status: 'warning',
+        duration: 5000,
+        isClosable: true,
+      });
+    } else {
+      // 시간 순서는 올바르지만 12시간 제한 체크
+      checkAndAdjustTimeRange(fromDate, toDate);
+    }
     setSelectedFromDate(e);
   };
   const onToDateChanged = (e: string) => {
+    if (!validateTimeFormat(e)) {
+      toast({
+        position: 'top-right',
+        title: '잘못된 시간 형식',
+        description:
+          '올바른 시간 형식(YYYY-MM-DD HH:mm:ss)이 아닙니다. 이전 값으로 되돌립니다.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+
+      form.setValue('timeTo', selectedToDate);
+      return;
+    }
+
+    const toDate = dayjs(e);
+    const fromDate = dayjs(selectedFromDate);
+
+    if (toDate.isBefore(fromDate)) {
+      const newFromDate = toDate.format('YYYY-MM-DD HH:mm:ss');
+      form.setValue('timeFrom', newFromDate);
+      setSelectedFromDate(newFromDate);
+      toast({
+        position: 'top-right',
+        title: '시간 범위 조정',
+        description:
+          '종료 시간이 시작 시간보다 빠를 수 없습니다. 시작 시간이 자동으로 조정되었습니다.',
+        status: 'warning',
+        duration: 5000,
+        isClosable: true,
+      });
+    } else {
+      // 시간 순서는 올바르지만 12시간 제한 체크
+      checkAndAdjustTimeRange(fromDate, toDate);
+    }
     setSelectedToDate(e);
   };
   const onCurrentPageChange = (page: number) => {

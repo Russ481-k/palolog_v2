@@ -3,8 +3,10 @@ import { exec } from 'child_process';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+import fs from 'fs';
 import { NextResponse } from 'next/server';
 import os from 'os';
+import path from 'path';
 import { z } from 'zod';
 
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
@@ -17,6 +19,53 @@ dayjs.extend(timezone);
 dayjs.tz.setDefault('Asia/Seoul');
 // 전역 상수
 export const prisma = new PrismaClient();
+// 사용자 마지막 활동 시간 관리
+let lastActivityTime = Date.now();
+// 사용자 활동 시간 업데이트 함수
+export function updateLastActivityTime() {
+  lastActivityTime = Date.now();
+  console.log(
+    '사용자 활동 시간 업데이트:',
+    new Date(lastActivityTime).toLocaleString()
+  );
+}
+// 다운로드 파일 정리 함수
+async function cleanupDownloadFiles() {
+  try {
+    const downloadDir = './downloads';
+    const currentTime = Date.now();
+    const inactiveTime = currentTime - lastActivityTime;
+    // 1시간(3600000ms) 이상 활동이 없는 경우
+    if (inactiveTime >= 3600000) {
+      console.log(
+        '사용자 비활성 시간:',
+        Math.floor(inactiveTime / 1000 / 60),
+        '분'
+      );
+      console.log('다운로드 파일 정리를 시작합니다...');
+      // downloads 디렉토리가 존재하는 경우에만 처리
+      if (fs.existsSync(downloadDir)) {
+        const files = await fs.promises.readdir(downloadDir);
+        for (const file of files) {
+          const filePath = path.join(downloadDir, file);
+          await fs.promises.unlink(filePath);
+          console.log(`파일 삭제됨: ${file}`);
+        }
+        console.log('다운로드 파일 정리 완료');
+      }
+    }
+  } catch (error) {
+    console.error('다운로드 파일 정리 중 오류 발생:', error);
+  }
+}
+// 1분마다 다운로드 파일 정리 체크
+setInterval(async () => {
+  try {
+    await cleanupDownloadFiles();
+  } catch (error) {
+    console.error('Error cleaning up download files:', error);
+  }
+}, 60 * 1000);
 // 시스템 터링 관련 함수
 async function getDiskUsage() {
   return new Promise((resolve) => {
@@ -76,83 +125,49 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 // 디스크 관리 관련 함수
-async function checkDiskUsageAndDeleteOldLogs() {
+async function forceMergeIndex(indexName) {
   try {
-    const diskUsage = await getDiskUsage();
-    if (diskUsage.usage >= 20) {
-      // console.log('Disk usage is above 80%. Starting controlled deletion...');
-      console.log('Disk usage is above 20%. Starting controlled deletion...');
-
-      // 한 번에 삭제할 최대 인덱스 수 제한
-      const MAX_DELETIONS_PER_CYCLE = 20;
-      let deletionCount = 0;
-
-      const oldestIndices = await getOldestIndices();
-
-      for (const index of oldestIndices) {
-        if (deletionCount >= MAX_DELETIONS_PER_CYCLE) {
-          break;
-        }
-
-        try {
-          await deleteIndex(index);
-          console.log(`Successfully deleted index ${index}`);
-          deletionCount++;
-
-          // 현재 디스크 사용량 확인
-          const currentUsage = await getDiskUsage();
-          if (currentUsage.usage < 10) {
-            console.log(
-              'Disk usage is now below 70%. Stopping deletion cycle.'
-            );
-            break;
-          }
-        } catch (error) {
-          console.error(`Failed to delete index ${index}:`, error);
-          continue;
-        }
-      }
-
-      // 최종 디스크 사용량 로깅
-      const finalUsage = await getDiskUsage();
-      console.log(
-        `Deletion cycle completed. Current disk usage: ${finalUsage.usage}%`
-      );
-    }
+    await makeOpenSearchRequest(
+      `/${indexName}/_forcemerge?max_num_segments=1`,
+      'POST'
+    );
+    console.log(`인덱스 ${indexName} 포스 머지 완료`);
   } catch (error) {
-    console.error('Error in checkDiskUsageAndDeleteOldLogs:', error);
+    console.error(`인덱스 ${indexName} 포스 머지 실패:`, error);
   }
 }
-async function deleteOldestLogCounts() {
-  const oldestIndices = await getOldestIndices();
-  for (const index of oldestIndices) {
-    await deleteIndex(index);
-    console.log(`Deleted index ${index}`);
+async function deleteIndex(indexName) {
+  try {
+    // 삭제 전 포스 머지 수행
+    await forceMergeIndex(indexName);
+    await makeOpenSearchRequest(`/${indexName}`, 'DELETE');
+    console.log(`인덱스 삭제됨: ${indexName}`);
+  } catch (error) {
+    console.error(`Failed to delete index ${indexName}:`, error);
+    throw new Error(`Failed to delete index ${indexName}`);
   }
 }
-async function getOldestIndices() {
-  const indices = await listIndices();
-  const validIndices = indices.filter((index) => index.startsWith('20'));
-  if (validIndices.length === 0) return [];
-  // Parse date and index number from index name
-  const indexMap = validIndices.map((index) => {
-    const [date, ...rest] = index.split('_');
-    return {
-      index,
-      date: dayjs(date, 'YYYY.MM.DD.HH'),
-      indexNum: parseInt(rest.join('_').split('_').pop() || '0'),
-    };
-  });
-  // Sort by date then by index number
-  return indexMap
-    .sort((a, b) => {
-      const dateCompare = a.date.unix() - b.date.unix();
-      if (dateCompare === 0) {
-        return a.indexNum - b.indexNum;
+async function checkDiskUsageAndDeleteOldLogs() {
+  let diskUsage = await getDiskUsage();
+  if (diskUsage.usage >= 80) {
+    console.log(
+      '디스크 사용량이 80%를 초과했습니다. 오래된 로그 삭제를 시작합니다...'
+    );
+    const indices = await listIndices();
+    const validIndices = indices
+      .filter((index) => index.startsWith('20'))
+      .sort(); // 단순 오름차순 정렬
+    console.log(`삭제 대상 인덱스 수: ${validIndices.length}`);
+    for (const index of validIndices) {
+      await deleteIndex(index);
+      diskUsage = await getDiskUsage();
+      console.log('현재 디스크 사용량:', diskUsage.usage + '%');
+      if (diskUsage.usage < 70) {
+        console.log('디스크 사용량이 70% 미만으로 감소했습니다.');
+        break;
       }
-      return dateCompare;
-    })
-    .map((item) => item.index);
+    }
+  }
 }
 async function listIndices() {
   const result = await makeOpenSearchRequest(
@@ -162,13 +177,6 @@ async function listIndices() {
   return result
     .filter((item) => item.index && typeof item.index === 'string')
     .map((item) => item.index);
-}
-async function deleteIndex(indexName) {
-  try {
-    await makeOpenSearchRequest(`/${indexName}`, 'DELETE');
-  } catch (error) {
-    throw new Error(`Failed to delete index ${indexName}`);
-  }
 }
 // 1분마다 디스크 용량 체크
 setInterval(async () => {
@@ -473,6 +481,11 @@ export const dashboardRouter = createTRPCRouter({
             }))) || [],
       domain_monthly_totals: domainMonthlyResults,
     };
+  }),
+  // 활동 시간 업데이트를 위한 엔드포인트 추가
+  updateActivity: protectedProcedure().mutation(() => {
+    updateLastActivityTime();
+    return { success: true };
   }),
 });
 export async function GET() {

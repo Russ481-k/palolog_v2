@@ -113,10 +113,6 @@ export class DownloadManager {
         }
       );
 
-      if (files.length === 0) {
-        throw new Error('No files were created for download');
-      }
-
       console.log('[DownloadManager] Created download:', {
         downloadId,
         files: files.map((f) => ({

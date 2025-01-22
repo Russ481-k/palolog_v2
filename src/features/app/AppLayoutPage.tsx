@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useEffect, useMemo } from 'react';
 
 import {
   Box,
@@ -13,6 +13,7 @@ import {
   AppLayoutContextNavDisplayed,
   useAppLayoutHideNav,
 } from '@/features/app/AppLayout';
+import { trpc } from '@/lib/trpc/client';
 
 type AppLayoutPageContextValue = {
   containerMaxWidth: ContainerProps['maxW'];
@@ -68,6 +69,41 @@ export const AppLayoutPage = ({
     }),
     [containerMaxWidth]
   );
+
+  const updateActivity = trpc.dashboard.updateActivity.useMutation();
+
+  useEffect(() => {
+    // 사용자 활동 감지 및 서버에 알림
+    const updateLastActivity = () => {
+      updateActivity.mutate();
+    };
+
+    // 이벤트 리스너 등록
+    const events = [
+      'mousedown',
+      'keydown',
+      'scroll',
+      'mousemove',
+      'touchstart',
+    ];
+    events.forEach((event) => {
+      document.addEventListener(event, updateLastActivity);
+    });
+
+    // 초기 활동 시간 설정
+    updateLastActivity();
+
+    // 30분마다 주기적으로 활동 시간 업데이트
+    const interval = setInterval(updateLastActivity, 1800000);
+
+    // 클린업
+    return () => {
+      events.forEach((event) => {
+        document.removeEventListener(event, updateLastActivity);
+      });
+      clearInterval(interval);
+    };
+  }, [updateActivity]);
 
   return (
     <AppLayoutPageContext.Provider value={value}>

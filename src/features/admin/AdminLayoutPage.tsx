@@ -11,7 +11,6 @@ import {
   Stack,
   useColorMode,
 } from '@chakra-ui/react';
-import Scrollbars from 'react-custom-scrollbars-2';
 
 import {
   AdminLayoutContextNavDisplayed,
