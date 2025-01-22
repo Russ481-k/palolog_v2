@@ -77,14 +77,49 @@ setInterval(async () => {
 }, 60 * 1000);
 // 디스크 관리 관련 함수
 async function checkDiskUsageAndDeleteOldLogs() {
-  let diskUsage = await getDiskUsage();
-  if (diskUsage.usage >= 80) {
-    console.log('Disk usage is above 80%. Deleting old log counts...');
-    while (diskUsage.usage >= 70) {
-      await deleteOldestLogCounts();
-      diskUsage = await getDiskUsage();
+  try {
+    const diskUsage = await getDiskUsage();
+    if (diskUsage.usage >= 80) {
+      console.log('Disk usage is above 80%. Starting controlled deletion...');
+
+      // 한 번에 삭제할 최대 인덱스 수 제한
+      const MAX_DELETIONS_PER_CYCLE = 20;
+      let deletionCount = 0;
+
+      const oldestIndices = await getOldestIndices();
+
+      for (const index of oldestIndices) {
+        if (deletionCount >= MAX_DELETIONS_PER_CYCLE) {
+          break;
+        }
+
+        try {
+          await deleteIndex(index);
+          console.log(`Successfully deleted index ${index}`);
+          deletionCount++;
+
+          // 현재 디스크 사용량 확인
+          const currentUsage = await getDiskUsage();
+          if (currentUsage.usage < 70) {
+            console.log(
+              'Disk usage is now below 70%. Stopping deletion cycle.'
+            );
+            break;
+          }
+        } catch (error) {
+          console.error(`Failed to delete index ${index}:`, error);
+          continue;
+        }
+      }
+
+      // 최종 디스크 사용량 로깅
+      const finalUsage = await getDiskUsage();
+      console.log(
+        `Deletion cycle completed. Current disk usage: ${finalUsage.usage}%`
+      );
     }
-    console.log('Disk usage is now below 70%.');
+  } catch (error) {
+    console.error('Error in checkDiskUsageAndDeleteOldLogs:', error);
   }
 }
 async function deleteOldestLogCounts() {
