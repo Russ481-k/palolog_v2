@@ -112,7 +112,6 @@ export const AdminLayoutPageContent = ({
   const { nav } = useAdminLayoutPageContext();
   return (
     <Flex
-      as={Scrollbars}
       direction="column"
       flex={1}
       __css={{

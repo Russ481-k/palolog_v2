@@ -84,7 +84,7 @@ export default function PageAdminUserUpdate() {
         });
       }}
     >
-      <AdminLayoutPage containerMaxWidth="container.md" showNavBar={false}>
+      <AdminLayoutPage containerMaxWidth="container.md">
         <AdminLayoutPageTopBar
           leftActions={<AdminBackButton withConfirm={form.formState.isDirty} />}
           rightActions={

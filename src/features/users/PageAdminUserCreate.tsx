@@ -38,8 +38,8 @@ export default function PageAdminUserCreate() {
       router.back();
     },
     onError: (error) => {
-      if (isErrorDatabaseConflict(error, 'id')) {
-        form.setError('id', { message: t('users:data.id.alreadyUsed') });
+      if (isErrorDatabaseConflict(error, 'email')) {
+        form.setError('email', { message: t('users:data.email.alreadyUsed') });
         return;
       }
       toastError({
@@ -60,19 +60,22 @@ export default function PageAdminUserCreate() {
   });
 
   return (
-    <Form {...form}>
-      <AdminLayoutPage containerMaxWidth="container.md" showNavBar={false}>
+    <AdminLayoutPage containerMaxWidth="container.md">
+      <Form
+        {...form}
+        onSubmit={(values) => {
+          createUser.mutate(values);
+        }}
+      >
         <AdminLayoutPageTopBar
           leftActions={<AdminBackButton withConfirm={form.formState.isDirty} />}
           rightActions={
             <>
               <AdminCancelButton withConfirm={form.formState.isDirty} />
               <Button
+                type="submit"
                 variant="@primary"
                 isLoading={createUser.isLoading || createUser.isSuccess}
-                onClick={() => {
-                  createUser.mutate(form.getValues());
-                }}
               >
                 {t('users:create.action.save')}
               </Button>
@@ -84,7 +87,7 @@ export default function PageAdminUserCreate() {
         <AdminLayoutPageContent>
           <UserForm />
         </AdminLayoutPageContent>
-      </AdminLayoutPage>
-    </Form>
+      </Form>
+    </AdminLayoutPage>
   );
 }

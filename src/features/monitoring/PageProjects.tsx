@@ -275,7 +275,7 @@ export default function PageProjects() {
             );
           }}
         >
-          <Stack spacing={2} h="90vh">
+          <Stack spacing={2} h="calc(100vh - 100px)">
             <Flex
               justifyContent="space-between"
               h="24px"
@@ -325,7 +325,11 @@ export default function PageProjects() {
               </Flex>
             </Flex>
             <div
-              style={{ width: '100%', height: '100vh', zIndex: 0 }}
+              style={{
+                width: '100%',
+                height: 'calc(100vh - 160px)',
+                zIndex: 0,
+              }}
               className={`ag-theme-quartz${colorMode === 'dark' ? '-dark' : ''}`}
             >
               <AgGridReact
