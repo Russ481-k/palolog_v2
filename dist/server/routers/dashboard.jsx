@@ -79,8 +79,9 @@ setInterval(async () => {
 async function checkDiskUsageAndDeleteOldLogs() {
   try {
     const diskUsage = await getDiskUsage();
-    if (diskUsage.usage >= 80) {
-      console.log('Disk usage is above 80%. Starting controlled deletion...');
+    if (diskUsage.usage >= 20) {
+      // console.log('Disk usage is above 80%. Starting controlled deletion...');
+      console.log('Disk usage is above 20%. Starting controlled deletion...');
 
       // 한 번에 삭제할 최대 인덱스 수 제한
       const MAX_DELETIONS_PER_CYCLE = 20;
@@ -100,7 +101,7 @@ async function checkDiskUsageAndDeleteOldLogs() {
 
           // 현재 디스크 사용량 확인
           const currentUsage = await getDiskUsage();
-          if (currentUsage.usage < 70) {
+          if (currentUsage.usage < 10) {
             console.log(
               'Disk usage is now below 70%. Stopping deletion cycle.'
             );

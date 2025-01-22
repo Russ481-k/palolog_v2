@@ -13,7 +13,7 @@
     "dev": "run-p dev:*",
     "dev:next": "next dev",
     "dev:ws": "dotenv -e .env -- tsx src/server/index.ts",
-    "build": "run-p build:next build:ws",
+    "build": "run-p build:auth build:ws",
     "build:auth": "dotenv -e .env -- tsx src/scripts/build-auth.ts",
     "build:next": "pnpm build:info && next build",
     "build:info": "tsx scripts/build-info.ts",
