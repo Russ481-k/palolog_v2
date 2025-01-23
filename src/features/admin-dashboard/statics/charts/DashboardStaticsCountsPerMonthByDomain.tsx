@@ -82,6 +82,14 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
             text: 'Total (M)',
           },
         },
+        {
+          position: 'right',
+          type: 'number',
+          keys: ['countsPerMonth'],
+          title: {
+            text: 'Counts Per Month',
+          },
+        },
       ],
       legend: {
         position: 'bottom',
