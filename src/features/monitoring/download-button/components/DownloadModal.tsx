@@ -120,9 +120,7 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
 
   // Calculate overall progress excluding pending files
   const calculatedTotalProgress = useMemo(() => {
-    const activeFiles = Object.values(fileStatuses).filter(
-      (status) => status.status !== 'pending'
-    );
+    const activeFiles = Object.values(fileStatuses);
 
     if (activeFiles.length === 0) {
       return null;
@@ -141,7 +139,11 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
 
     // Calculate average speed and estimated time
     const totalSpeed = activeFiles.reduce(
-      (sum, status) => sum + (status.processingSpeed || 0),
+      (sum, status) =>
+        sum +
+        (status.processingSpeed && status.processingSpeed > 0
+          ? status.processingSpeed
+          : 0),
       0
     );
     const avgSpeed = totalSpeed / activeFiles.length;

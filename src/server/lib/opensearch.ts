@@ -16,6 +16,7 @@ export interface OpenSearchOptions {
   };
   ca?: Buffer;
   rejectUnauthorized?: boolean;
+  timeout?: number;
 }
 
 export interface OpenSearchCountResponse {
@@ -335,9 +336,10 @@ export async function makeOpenSearchRequest<T>(
       'Content-Type': 'application/json',
       Authorization: 'Basic ' + Buffer.from('admin:admin').toString('base64'),
     },
-    ca: fs.readFileSync('./ca-cert.pem'),
-    rejectUnauthorized: true,
+    rejectUnauthorized: false,
+    timeout: 30000,
   };
+
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       let data = '';
@@ -346,13 +348,43 @@ export async function makeOpenSearchRequest<T>(
       });
       res.on('end', () => {
         try {
+          if (res.statusCode && res.statusCode >= 400) {
+            console.error('OpenSearch request failed:', {
+              statusCode: res.statusCode,
+              data,
+              path,
+              method,
+            });
+            reject(
+              new Error(
+                `OpenSearch request failed with status ${res.statusCode}: ${data}`
+              )
+            );
+            return;
+          }
           resolve(JSON.parse(data));
         } catch (e) {
+          console.error('Failed to parse OpenSearch response:', e);
           reject(e);
         }
       });
     });
-    req.on('error', reject);
+
+    req.on('error', (e) => {
+      console.error('OpenSearch request error:', {
+        error: e,
+        path,
+        method,
+      });
+      reject(e);
+    });
+
+    // 타임아웃 처리
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+
     if (body) {
       req.write(JSON.stringify(body));
     }

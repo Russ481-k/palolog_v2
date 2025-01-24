@@ -23,7 +23,7 @@
     "prod:clean": "pm2 delete all || true && sudo lsof -i :8000 || true && sudo kill -9 $(sudo lsof -t -i:8000) || true",
     "prod:docker": "docker stop $(docker ps -aq) || true && docker rm $(docker ps -aq) || true && pnpm dk:init",
     "prod:permissions": "sudo chown -R vtek:vtek ./.next && sudo chmod -R 755 ./.next",
-    "prod:start": "pm2 start ecosystem.config.cjs --log-date-format 'YYYY-MM-DD HH:mm:ss' --merge-logs --log './logs/pm2.log'",
+    "prod:start": "pm2 start ecosystem.config.cjs --log './logs/pm2.log'",
     "prod:all": "run-s prod:clean build prod:docker prod:permissions prod:start",
     "prod": "run-s prod:clean build prod:permissions prod:start",
     "pretty": "prettier -w .",

@@ -67,3 +67,5 @@ certificates
 
 log.txt
 ecosystem.config.js
+
+/dist

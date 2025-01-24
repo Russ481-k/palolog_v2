@@ -146,54 +146,120 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 // 디스크 관리 관련 함수
-async function forceMergeIndex(indexName: string) {
+async function forceMergeIndex(indexName: string): Promise<boolean> {
   try {
+    console.log(`[${indexName}] 포스 머지 시작...`);
     await makeOpenSearchRequest(
-      `/${indexName}/_forcemerge?max_num_segments=1`,
+      `/${indexName}/_forcemerge?only_expunge_deletes=true`,
       'POST'
     );
-    console.log(`인덱스 ${indexName} 포스 머지 완료`);
+    console.log(`[${indexName}] 포스 머지 완료`);
+    return true;
   } catch (error) {
-    console.error(`인덱스 ${indexName} 포스 머지 실패:`, error);
+    console.error(`[${indexName}] 포스 머지 실패:`, error);
+    return false;
   }
 }
 
-async function deleteIndex(indexName: string) {
+// 인덱스 삭제 작업 상태를 추적하기 위한 변수
+let isCleanupInProgress = false;
+
+interface OpenSearchError {
+  message?: string;
+}
+
+async function deleteIndex(indexName: string): Promise<boolean> {
   try {
-    // 삭제 전 포스 머지 수행
-    await forceMergeIndex(indexName);
+    console.log(`[${indexName}] 삭제 요청 전송...`);
     await makeOpenSearchRequest(`/${indexName}`, 'DELETE');
-    console.log(`인덱스 삭제됨: ${indexName}`);
+
+    // 캐시 정리 및 디스크 공간 회수
+    await forceMergeIndex(indexName);
+    await makeOpenSearchRequest('/_cache/clear', 'POST');
+    await makeOpenSearchRequest('/_flush/synced', 'POST');
+
+    console.log(`[${indexName}] 삭제 완료`);
+    return true;
   } catch (error) {
-    console.error(`Failed to delete index ${indexName}:`, error);
-    throw new Error(`Failed to delete index ${indexName}`);
+    const opensearchError = error as OpenSearchError;
+    if (opensearchError.message?.includes('index_not_found_exception')) {
+      console.log(`[${indexName}] 이미 삭제된 인덱스입니다.`);
+      return true;
+    }
+    console.error(`[${indexName}] 삭제 실패:`, error);
+    return false;
   }
 }
 
 async function checkDiskUsageAndDeleteOldLogs() {
+  if (isCleanupInProgress) {
+    console.log('이미 인덱스 삭제 작업이 진행 중입니다.');
+    return;
+  }
+
   let diskUsage = await getDiskUsage();
   if (diskUsage.usage >= 80) {
-    console.log(
-      '디스크 사용량이 80%를 초과했습니다. 오래된 로그 삭제를 시작합니다...'
-    );
+    try {
+      isCleanupInProgress = true;
+      console.log(
+        `디스크 사용량이 ${diskUsage.usage}%로 80%를 초과했습니다. 오래된 로그 삭제를 시작합니다...`
+      );
 
-    const indices = await listIndices();
-    const validIndices = indices
-      .filter((index) => index.startsWith('20'))
-      .sort(); // 단순 오름차순 정렬
+      const indices = await listIndices();
+      const validIndices = indices
+        .filter((index) => index.startsWith('20'))
+        .sort(); // 단순 오름차순 정렬
 
-    console.log(`삭제 대상 인덱스 수: ${validIndices.length}`);
+      console.log(`전체 인덱스 수: ${indices.length}`);
+      console.log(`삭제 대상 인덱스 수: ${validIndices.length}`);
+      console.log('삭제 대상 인덱스 목록:', validIndices.join(', '));
 
-    for (const index of validIndices) {
-      await deleteIndex(index);
+      let deletedCount = 0;
+      for (const index of validIndices) {
+        const deleteSuccess = await deleteIndex(index);
+        if (!deleteSuccess) {
+          console.log(`[${index}] 삭제 실패, 다음 인덱스로 진행합니다.`);
+          continue;
+        }
 
-      diskUsage = await getDiskUsage();
-      console.log('현재 디스크 사용량:', diskUsage.usage + '%');
+        deletedCount++;
+        // 5개의 인덱스를 삭제할 때마다 노드 재시작
+        if (deletedCount % 5 === 0) {
+          console.log('캐시 정리 및 디스크 공간 회수를 위해 추가 작업 수행...');
+          try {
+            await makeOpenSearchRequest(
+              '/_nodes/reload_secure_settings',
+              'POST'
+            );
+          } catch (error) {
+            console.error('노드 재시작 중 오류:', error);
+          }
+        }
 
-      if (diskUsage.usage < 70) {
-        console.log('디스크 사용량이 70% 미만으로 감소했습니다.');
-        break;
+        diskUsage = await getDiskUsage();
+        console.log(`[${index}] 삭제 후 디스크 사용량: ${diskUsage.usage}%`);
+
+        if (diskUsage.usage < 70) {
+          console.log(
+            `디스크 사용량이 ${diskUsage.usage}%로 70% 미만으로 감소했습니다.`
+          );
+          break;
+        }
       }
+
+      // 모든 삭제 작업이 끝난 후 최종 정리
+      try {
+        console.log('최종 캐시 정리 및 디스크 공간 회수 작업 수행...');
+        await makeOpenSearchRequest('/_cache/clear', 'POST');
+        await makeOpenSearchRequest('/_flush/synced', 'POST');
+      } catch (error) {
+        console.error('최종 정리 작업 중 오류:', error);
+      }
+    } catch (error) {
+      console.error('인덱스 삭제 작업 중 오류 발생:', error);
+    } finally {
+      isCleanupInProgress = false;
+      console.log('인덱스 삭제 작업이 완료되었습니다.');
     }
   }
 }
