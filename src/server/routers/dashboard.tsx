@@ -87,18 +87,22 @@ async function getDiskUsage(): Promise<{
   usage: number;
 }> {
   return new Promise((resolve) => {
-    exec("df -BG / | tail -1 | awk '{print $2,$3,$5}'", (_, stdout) => {
-      const [total, used, usagePercent] = stdout.trim().split(/\s+/);
-      const totalGB = parseInt(total ?? '0');
-      const usedGB = parseInt(used ?? '0');
-      const usage = parseInt(usagePercent ?? '0');
+    // OpenSearch Docker 볼륨의 디스크 사용량 확인
+    exec(
+      "docker exec opensearch df -BG /usr/share/opensearch/data | tail -1 | awk '{print $2,$3,$5}'",
+      (_, stdout) => {
+        const [total, used, usagePercent] = stdout.trim().split(/\s+/);
+        const totalGB = parseInt(total ?? '0');
+        const usedGB = parseInt(used ?? '0');
+        const usage = parseInt(usagePercent ?? '0');
 
-      resolve({
-        total: isNaN(totalGB) ? 0 : totalGB,
-        used: isNaN(usedGB) ? 0 : usedGB,
-        usage: isNaN(usage) ? 0 : usage,
-      });
-    });
+        resolve({
+          total: isNaN(totalGB) ? 0 : totalGB,
+          used: isNaN(usedGB) ? 0 : usedGB,
+          usage: isNaN(usage) ? 0 : usage,
+        });
+      }
+    );
   });
 }
 
@@ -145,21 +149,6 @@ setInterval(async () => {
     }
   }
 }, 60 * 1000);
-// 디스크 관리 관련 함수
-async function forceMergeIndex(indexName: string): Promise<boolean> {
-  try {
-    console.log(`[${indexName}] 포스 머지 시작...`);
-    await makeOpenSearchRequest(
-      `/${indexName}/_forcemerge?only_expunge_deletes=true`,
-      'POST'
-    );
-    console.log(`[${indexName}] 포스 머지 완료`);
-    return true;
-  } catch (error) {
-    console.error(`[${indexName}] 포스 머지 실패:`, error);
-    return false;
-  }
-}
 
 // 인덱스 삭제 작업 상태를 추적하기 위한 변수
 let isCleanupInProgress = false;
@@ -173,10 +162,21 @@ async function deleteIndex(indexName: string): Promise<boolean> {
     console.log(`[${indexName}] 삭제 요청 전송...`);
     await makeOpenSearchRequest(`/${indexName}`, 'DELETE');
 
-    // 캐시 정리 및 디스크 공간 회수
-    await forceMergeIndex(indexName);
-    await makeOpenSearchRequest('/_cache/clear', 'POST');
-    await makeOpenSearchRequest('/_flush/synced', 'POST');
+    // 디스크 공간 회수를 위한 작업
+    try {
+      console.log('디스크 공간 회수 작업 시작...');
+      // 모든 인덱스에 대해 강제 병합 수행
+      await makeOpenSearchRequest('/_forcemerge?max_num_segments=1', 'POST');
+      // 캐시 초기화
+      await makeOpenSearchRequest('/_cache/clear', 'POST');
+      // 트랜잭션 로그 정리
+      await makeOpenSearchRequest('/_flush/synced', 'POST');
+      // 모든 노드 새로고침
+      await makeOpenSearchRequest('/_nodes/reload_secure_settings', 'POST');
+      console.log('디스크 공간 회수 작업 완료');
+    } catch (cleanupError) {
+      console.error('디스크 공간 회수 작업 중 오류:', cleanupError);
+    }
 
     console.log(`[${indexName}] 삭제 완료`);
     return true;
@@ -202,13 +202,16 @@ async function checkDiskUsageAndDeleteOldLogs() {
     try {
       isCleanupInProgress = true;
       console.log(
-        `디스크 사용량이 ${diskUsage.usage}%로 80%를 초과했습니다. 오래된 로그 삭제를 시작합니다...`
+        `OpenSearch 디스크 사용량이 ${diskUsage.usage}%로 80%를 초과했습니다. 오래된 로그 삭제를 시작합니다...`
+      );
+      console.log(
+        `총 디스크: ${diskUsage.total}GB, 사용 중: ${diskUsage.used}GB`
       );
 
       const indices = await listIndices();
       const validIndices = indices
         .filter((index) => index.startsWith('20'))
-        .sort(); // 단순 오름차순 정렬
+        .sort();
 
       console.log(`전체 인덱스 수: ${indices.length}`);
       console.log(`삭제 대상 인덱스 수: ${validIndices.length}`);
@@ -223,38 +226,53 @@ async function checkDiskUsageAndDeleteOldLogs() {
         }
 
         deletedCount++;
-        // 5개의 인덱스를 삭제할 때마다 노드 재시작
-        if (deletedCount % 5 === 0) {
-          console.log('캐시 정리 및 디스크 공간 회수를 위해 추가 작업 수행...');
+        // 10개의 인덱스를 삭제할 때마다 디스크 공간 회수 작업 수행
+        if (deletedCount % 10 === 0) {
           try {
+            console.log('중간 디스크 공간 회수 작업 시작...');
+            await makeOpenSearchRequest(
+              '/_forcemerge?max_num_segments=1',
+              'POST'
+            );
+            await makeOpenSearchRequest('/_cache/clear', 'POST');
+            await makeOpenSearchRequest('/_flush/synced', 'POST');
             await makeOpenSearchRequest(
               '/_nodes/reload_secure_settings',
               'POST'
             );
-          } catch (error) {
-            console.error('노드 재시작 중 오류:', error);
+            console.log('중간 디스크 공간 회수 작업 완료');
+          } catch (cleanupError) {
+            console.error('중간 디스크 공간 회수 작업 중 오류:', cleanupError);
+          }
+
+          diskUsage = await getDiskUsage();
+          console.log(`현재 OpenSearch 디스크 사용량: ${diskUsage.usage}%`);
+          console.log(`사용 중인 디스크: ${diskUsage.used}GB`);
+
+          if (diskUsage.usage < 70) {
+            console.log(
+              `디스크 사용량이 ${diskUsage.usage}%로 70% 미만으로 감소했습니다.`
+            );
+            break;
           }
         }
-
-        diskUsage = await getDiskUsage();
-        console.log(`[${index}] 삭제 후 디스크 사용량: ${diskUsage.usage}%`);
-
-        if (diskUsage.usage < 70) {
-          console.log(
-            `디스크 사용량이 ${diskUsage.usage}%로 70% 미만으로 감소했습니다.`
-          );
-          break;
-        }
       }
 
-      // 모든 삭제 작업이 끝난 후 최종 정리
+      // 최종 디스크 공간 회수 작업
       try {
-        console.log('최종 캐시 정리 및 디스크 공간 회수 작업 수행...');
+        console.log('최종 디스크 공간 회수 작업 시작...');
+        await makeOpenSearchRequest('/_forcemerge?max_num_segments=1', 'POST');
         await makeOpenSearchRequest('/_cache/clear', 'POST');
         await makeOpenSearchRequest('/_flush/synced', 'POST');
-      } catch (error) {
-        console.error('최종 정리 작업 중 오류:', error);
+        await makeOpenSearchRequest('/_nodes/reload_secure_settings', 'POST');
+        console.log('최종 디스크 공간 회수 작업 완료');
+      } catch (cleanupError) {
+        console.error('최종 디스크 공간 회수 작업 중 오류:', cleanupError);
       }
+
+      diskUsage = await getDiskUsage();
+      console.log(`최종 OpenSearch 디스크 사용량: ${diskUsage.usage}%`);
+      console.log(`최종 사용 중인 디스크: ${diskUsage.used}GB`);
     } catch (error) {
       console.error('인덱스 삭제 작업 중 오류 발생:', error);
     } finally {

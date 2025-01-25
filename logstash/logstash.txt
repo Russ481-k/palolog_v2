@@ -458,7 +458,8 @@ docker run -it --rm --name logstash --net palolog -p 514:514/udp \
 # test
 
 # 현재 인덱스 목록
-curl -X GET "https://localhost:9200/_cat/indices?v&pretty" -u "admin:admin" --insecure
+curl -X GET "https://localhost:9200/_cat/indices?v&s=index,docs.count:desc&pretty" -u "admin:admin" --insecure
+
 
 # 최근 10개 데이터 출력
 

@@ -31,7 +31,6 @@ export const DashboardStaticsCountsPerMonth = ({
         text: '월간 로그 총 수집량',
       },
       data: data,
-      autoHeight: true,
       series: [
         {
           type: 'bar',
