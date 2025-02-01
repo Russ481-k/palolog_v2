@@ -5,6 +5,9 @@
     ```jsx
     sudo apt-get update;
     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent sysstat software-properties-common jq;
+
+
+
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -;
     sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable";
     sudo apt-get update;
@@ -35,6 +38,8 @@
     sudo chmod -R 755 ./.next
     # 시스템 레벨의 UDP 버퍼 크기 확인/조정
     sudo tee /etc/sysctl.d/99-network-tune.conf << EOF
+    sudo sysctl -w vm.max_map_count=262144
+
     # Network Buffer Sizes
     net.core.rmem_max=268435456
     net.core.rmem_default=268435456

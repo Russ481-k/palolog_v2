@@ -3,10 +3,8 @@ import { exec } from 'child_process';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import fs from 'fs';
 import { NextResponse } from 'next/server';
 import os from 'os';
-import path from 'path';
 import { z } from 'zod';
 
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
@@ -19,71 +17,28 @@ dayjs.extend(timezone);
 dayjs.tz.setDefault('Asia/Seoul');
 // 전역 상수
 export const prisma = new PrismaClient();
-// 사용자 마지막 활동 시간 관리
-let lastActivityTime = Date.now();
-// 사용자 활동 시간 업데이트 함수
-export function updateLastActivityTime() {
-  lastActivityTime = Date.now();
-  console.log(
-    '사용자 활동 시간 업데이트:',
-    new Date(lastActivityTime).toLocaleString()
-  );
-}
-// 다운로드 파일 정리 함수
-async function cleanupDownloadFiles() {
-  try {
-    const downloadDir = './downloads';
-    const currentTime = Date.now();
-    const inactiveTime = currentTime - lastActivityTime;
-    // 1시간(3600000ms) 이상 활동이 없는 경우
-    if (inactiveTime >= 3600000) {
-      console.log(
-        '사용자 비활성 시간:',
-        Math.floor(inactiveTime / 1000 / 60),
-        '분'
-      );
-      console.log('다운로드 파일 정리를 시작합니다...');
-      // downloads 디렉토리가 존재하는 경우에만 처리
-      if (fs.existsSync(downloadDir)) {
-        const files = await fs.promises.readdir(downloadDir);
-        for (const file of files) {
-          const filePath = path.join(downloadDir, file);
-          await fs.promises.unlink(filePath);
-          console.log(`파일 삭제됨: ${file}`);
-        }
-        console.log('다운로드 파일 정리 완료');
-      }
-    }
-  } catch (error) {
-    console.error('다운로드 파일 정리 중 오류 발생:', error);
-  }
-}
-// 1분마다 다운로드 파일 정리 체크
-setInterval(async () => {
-  try {
-    await cleanupDownloadFiles();
-  } catch (error) {
-    console.error('Error cleaning up download files:', error);
-  }
-}, 60 * 1000);
 // 시스템 터링 관련 함수
 async function getDiskUsage() {
   return new Promise((resolve) => {
-    exec("df -BG / | tail -1 | awk '{print $2,$3,$5}'", (_, stdout) => {
-      const [total, used, usagePercent] = stdout.trim().split(/\s+/);
-      const totalGB = parseInt(
-        total !== null && total !== void 0 ? total : '0'
-      );
-      const usedGB = parseInt(used !== null && used !== void 0 ? used : '0');
-      const usage = parseInt(
-        usagePercent !== null && usagePercent !== void 0 ? usagePercent : '0'
-      );
-      resolve({
-        total: isNaN(totalGB) ? 0 : totalGB,
-        used: isNaN(usedGB) ? 0 : usedGB,
-        usage: isNaN(usage) ? 0 : usage,
-      });
-    });
+    // OpenSearch Docker 볼륨의 디스크 사용량 확인
+    exec(
+      "docker exec opensearch df -BG /usr/share/opensearch/data | tail -1 | awk '{print $2,$3,$5}'",
+      (_, stdout) => {
+        const [total, used, usagePercent] = stdout.trim().split(/\s+/);
+        const totalGB = parseInt(
+          total !== null && total !== void 0 ? total : '0'
+        );
+        const usedGB = parseInt(used !== null && used !== void 0 ? used : '0');
+        const usage = parseInt(
+          usagePercent !== null && usagePercent !== void 0 ? usagePercent : '0'
+        );
+        resolve({
+          total: isNaN(totalGB) ? 0 : totalGB,
+          used: isNaN(usedGB) ? 0 : usedGB,
+          usage: isNaN(usage) ? 0 : usage,
+        });
+      }
+    );
   });
 }
 async function checkDaemonStatus() {
@@ -105,67 +60,82 @@ async function checkDaemonStatus() {
     );
   });
 }
-// 스케줄러 수정
-setInterval(async () => {
-  // 매일 자정에 일간 총량 측정
-  if (dayjs().hour() === 0 && dayjs().minute() === 0) {
-    try {
-      // await measureTotalLogs('daily');
-    } catch (error) {
-      console.error('Error measuring daily total:', error);
-    }
-  }
-  // 매월 1일 자정에 월간 총량 측정
-  if (dayjs().date() === 1 && dayjs().hour() === 0 && dayjs().minute() === 0) {
-    try {
-      // await measureTotalLogs('monthly');
-    } catch (error) {
-      console.error('Error measuring monthly total:', error);
-    }
-  }
-}, 60 * 1000);
-// 디스크 관리 관련 함수
-async function forceMergeIndex(indexName) {
-  try {
-    await makeOpenSearchRequest(
-      `/${indexName}/_forcemerge?max_num_segments=1`,
-      'POST'
-    );
-    console.log(`인덱스 ${indexName} 포스 머지 완료`);
-  } catch (error) {
-    console.error(`인덱스 ${indexName} 포스 머지 실패:`, error);
-  }
-}
+// 인덱스 삭제 작업 상태를 추적하기 위한 변수
+let isCleanupInProgress = false;
 async function deleteIndex(indexName) {
+  var _a;
   try {
-    // 삭제 전 포스 머지 수행
-    await forceMergeIndex(indexName);
+    console.log(`[${indexName}] 삭제 요청 전송...`);
     await makeOpenSearchRequest(`/${indexName}`, 'DELETE');
-    console.log(`인덱스 삭제됨: ${indexName}`);
+    console.log(`[${indexName}] 삭제 완료`);
+    return true;
   } catch (error) {
-    console.error(`Failed to delete index ${indexName}:`, error);
-    throw new Error(`Failed to delete index ${indexName}`);
+    const opensearchError = error;
+    if (
+      (_a = opensearchError.message) === null || _a === void 0
+        ? void 0
+        : _a.includes('index_not_found_exception')
+    ) {
+      console.log(`[${indexName}] 이미 삭제된 인덱스입니다.`);
+      return true;
+    }
+    console.error(`[${indexName}] 삭제 실패:`, error);
+    return false;
   }
 }
 async function checkDiskUsageAndDeleteOldLogs() {
+  if (isCleanupInProgress) {
+    console.log('이미 인덱스 삭제 작업이 진행 중입니다.');
+    return;
+  }
   let diskUsage = await getDiskUsage();
   if (diskUsage.usage >= 80) {
-    console.log(
-      '디스크 사용량이 80%를 초과했습니다. 오래된 로그 삭제를 시작합니다...'
-    );
-    const indices = await listIndices();
-    const validIndices = indices
-      .filter((index) => index.startsWith('20'))
-      .sort(); // 단순 오름차순 정렬
-    console.log(`삭제 대상 인덱스 수: ${validIndices.length}`);
-    for (const index of validIndices) {
-      await deleteIndex(index);
-      diskUsage = await getDiskUsage();
-      console.log('현재 디스크 사용량:', diskUsage.usage + '%');
-      if (diskUsage.usage < 70) {
-        console.log('디스크 사용량이 70% 미만으로 감소했습니다.');
-        break;
+    try {
+      isCleanupInProgress = true;
+      console.log(
+        `OpenSearch 디스크 사용량이 ${diskUsage.usage}%로 80%를 초과했습니다. 오래된 로그 삭제를 시작합니다...`
+      );
+      console.log(
+        `총 디스크: ${diskUsage.total}GB, 사용 중: ${diskUsage.used}GB`
+      );
+      const indices = await listIndices();
+      const validIndices = indices
+        .filter((index) => index.startsWith('20'))
+        .sort();
+      console.log(`전체 인덱스 수: ${indices.length}`);
+      console.log(`삭제 대상 인덱스 수: ${validIndices.length}`);
+      console.log('삭제 대상 인덱스 목록:', validIndices.join(', '));
+      let deletedCount = 0;
+      for (const index of validIndices) {
+        const deleteSuccess = await deleteIndex(index);
+        if (!deleteSuccess) {
+          console.log(`[${index}] 삭제 실패, 다음 인덱스로 진행합니다.`);
+          continue;
+        }
+        console.log(`[${index}] 삭제 시도`);
+        deletedCount++;
+        // 3개의 인덱스를 삭제할 때마다 디스크 공간 회수 작업 수행
+        if (deletedCount % 3 === 0) {
+          diskUsage = await getDiskUsage();
+          console.log(`현재 OpenSearch 디스크 사용량: ${diskUsage.usage}%`);
+          console.log(`사용 중인 디스크: ${diskUsage.used}GB`);
+          if (diskUsage.usage < 75) {
+            console.log(
+              `디스크 사용량이 ${diskUsage.usage}%로 75% 미만으로 감소했습니다.`
+            );
+            break;
+          }
+        }
       }
+      diskUsage = await getDiskUsage();
+      console.log(`최종 OpenSearch 디스크 사용량: ${diskUsage.usage}%`);
+      console.log(`최종 사용 중인 디스크: ${diskUsage.used}GB`);
+      return;
+    } catch (error) {
+      console.error('인덱스 삭제 작업 중 오류 발생:', error);
+    } finally {
+      isCleanupInProgress = false;
+      console.log('인덱스 삭제 작업이 완료되었습니다.');
     }
   }
 }
@@ -178,14 +148,14 @@ async function listIndices() {
     .filter((item) => item.index && typeof item.index === 'string')
     .map((item) => item.index);
 }
-// 1분마다 디스크 용량 체크
+// 1초마다 디스크 용량 체크
 setInterval(async () => {
   try {
     await checkDiskUsageAndDeleteOldLogs();
   } catch (error) {
     console.error('Error checking disk usage:', error);
   }
-}, 60 * 1000);
+}, 1000);
 // 시스템 메트릭스 관련 함수
 async function getCpuUsage() {
   return new Promise((resolve) => {
@@ -314,6 +284,7 @@ export const dashboardRouter = createTRPCRouter({
                       '@timestamp': {
                         gte: oneMinuteAgo.toISOString(),
                         lt: thirtySecondsAgo.toISOString(),
+                        time_zone: '+09:00',
                       },
                     },
                   },
@@ -355,6 +326,7 @@ export const dashboardRouter = createTRPCRouter({
           '@timestamp': {
             gte: now.subtract(24, 'hours').format(),
             lte: now.format(),
+            time_zone: '+09:00',
           },
         },
       },
@@ -382,6 +354,7 @@ export const dashboardRouter = createTRPCRouter({
           '@timestamp': {
             gte: 'now-10d/d',
             lte: 'now/d',
+            time_zone: '+09:00',
           },
         },
       },
@@ -409,6 +382,7 @@ export const dashboardRouter = createTRPCRouter({
           '@timestamp': {
             gte: 'now-1y/M',
             lte: 'now/M',
+            time_zone: '+09:00',
           },
         },
       },
@@ -481,11 +455,6 @@ export const dashboardRouter = createTRPCRouter({
             }))) || [],
       domain_monthly_totals: domainMonthlyResults,
     };
-  }),
-  // 활동 시간 업데이트를 위한 엔드포인트 추가
-  updateActivity: protectedProcedure().mutation(() => {
-    updateLastActivityTime();
-    return { success: true };
   }),
 });
 export async function GET() {
