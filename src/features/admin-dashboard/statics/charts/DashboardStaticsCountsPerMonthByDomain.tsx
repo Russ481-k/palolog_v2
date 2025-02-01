@@ -22,21 +22,12 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
 }) => {
   const { colorMode } = useColorMode();
   const [chartHeight, setChartHeight] = useState<number>(0);
-
-  useEffect(() => {
-    const updateHeight = () => {
-      setChartHeight((window.innerHeight - 380) / 2);
-    };
-
-    updateHeight();
-    window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
-  }, []);
+  const domainSort = data.sort((a, b) => a.domain.localeCompare(b.domain));
 
   const chartData = useMemo(() => {
     // 모든 시간대 추출
     const timeSet = new Set<string>();
-    data?.forEach((domain) => {
+    domainSort?.forEach((domain) => {
       domain.data?.forEach((item) => timeSet.add(item.time));
     });
     const times = Array.from(timeSet).sort();
@@ -44,13 +35,13 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
     // 차트 데이터 구성
     return times.map((time) => {
       const entry: Record<string, string | number> = { time };
-      data?.forEach((domain) => {
+      domainSort?.forEach((domain) => {
         const monthData = domain.data.find((d) => d.time === time);
         entry[domain.domain] = monthData?.total ?? 0;
       });
       return entry;
     });
-  }, [data]);
+  }, [domainSort]);
 
   const countsPerDay = useMemo<AgChartOptions>(
     () => ({
@@ -58,7 +49,7 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
         text: '장비별 월간 로그 총 수집량',
       },
       data: chartData,
-      series: data.map((domain) => ({
+      series: domainSort.map((domain) => ({
         type: 'bar',
         xKey: 'time',
         yKey: domain.domain,
@@ -99,6 +90,16 @@ export const DashboardStaticsCountsPerMonthByDomain = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, chartData, colorMode, chartHeight]
   );
+
+  useEffect(() => {
+    const updateHeight = () => {
+      setChartHeight((window.innerHeight - 380) / 2);
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
 
   return (
     <GridItem
