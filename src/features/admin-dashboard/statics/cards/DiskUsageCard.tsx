@@ -87,7 +87,7 @@ export const DiskUsageCard = ({
         justifyContent="center"
         height="220px"
       >
-        <Box zIndex={100}>
+        <Box>
           <Text fontSize="lg" fontWeight="bold">
             Disk 사용량
           </Text>
@@ -96,7 +96,7 @@ export const DiskUsageCard = ({
           </Text>
         </Box>
         <Flex justifyContent="center" alignItems="center" w="100%" h="100px">
-          <Table size="xs" variant="simple" w="30%" zIndex={100} mt="-40px">
+          <Table size="xs" variant="simple" w="30%" mt="-40px">
             <Thead>
               <Tr>
                 <Th fontSize="xs">Total</Th>
@@ -130,7 +130,7 @@ export const DiskUsageCard = ({
               </Tr>
             </Tbody>
           </Table>
-          <Box w="70%" ml="0px" mr="-10px" py="50px" zIndex={1}>
+          <Box w="70%" ml="0px" mt="10px" mr="-10px" py="50px">
             <AgChartsThemeChanged
               colorMode={colorMode}
               options={cpuUsageDataDonut}
