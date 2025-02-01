@@ -7,6 +7,7 @@ import {
   Flex,
   Heading,
   Stack,
+  Text,
   useColorMode,
   useToast,
 } from '@chakra-ui/react';
@@ -23,6 +24,7 @@ import {
   AdminLayoutPage,
   AdminLayoutPageContent,
 } from '@/features/admin/AdminLayoutPage';
+import { useLicense } from '@/hooks/useLicense';
 import { trpc } from '@/lib/trpc/client';
 import { MenuType } from '@/types/project';
 
@@ -75,6 +77,7 @@ export default function PageProjects() {
 
   const gridRef = useRef<AgGridReact<zLogs>>(null);
   const toast = useToast();
+  const license = useLicense();
 
   const { data, isLoading } = trpc.projects.getAll.useInfiniteQuery(
     {
@@ -136,31 +139,6 @@ export default function PageProjects() {
     );
   };
 
-  const checkAndAdjustTimeRange = (
-    fromDate: dayjs.Dayjs,
-    toDate: dayjs.Dayjs
-  ) => {
-    const diffHours = toDate.diff(fromDate, 'hour');
-    if (diffHours > 12) {
-      const adjustedToDate = fromDate.add(12, 'hour');
-      const formattedToDate = adjustedToDate.format('YYYY-MM-DD HH:mm:ss');
-
-      toast({
-        position: 'top-right',
-        title: '시간 범위 제한',
-        description: `최대 조회 시간은 12시간 입니다. ${formattedToDate}로 변경되었습니다.`,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-
-      form.setValue('timeTo', formattedToDate);
-      onToDateChanged(formattedToDate);
-      return true;
-    }
-    return false;
-  };
-
   const onSubmit = (
     timeFrom: string,
     timeTo: string,
@@ -206,21 +184,13 @@ export default function PageProjects() {
         isClosable: true,
       });
 
-      // from과 to 값을 교체하고 12시간 제한 체크
+      // from과 to 값을 교체
       const swappedFromDate = toDate;
       const swappedToDate = fromDate;
 
       form.setValue('timeFrom', swappedFromDate.format('YYYY-MM-DD HH:mm:ss'));
       form.setValue('timeTo', swappedToDate.format('YYYY-MM-DD HH:mm:ss'));
       onFromDateChanged(swappedFromDate.format('YYYY-MM-DD HH:mm:ss'));
-
-      // 12시간 제한 체크 및 조정
-      checkAndAdjustTimeRange(swappedFromDate, swappedToDate);
-      return;
-    }
-
-    // 12시간 제한 체크
-    if (checkAndAdjustTimeRange(fromDate, toDate)) {
       return;
     }
 
@@ -269,9 +239,6 @@ export default function PageProjects() {
         duration: 5000,
         isClosable: true,
       });
-    } else {
-      // 시간 순서는 올바르지만 12시간 제한 체크
-      checkAndAdjustTimeRange(fromDate, toDate);
     }
     setSelectedFromDate(e);
   };
@@ -307,9 +274,6 @@ export default function PageProjects() {
         duration: 5000,
         isClosable: true,
       });
-    } else {
-      // 시간 순서는 올바르지만 12시간 제한 체크
-      checkAndAdjustTimeRange(fromDate, toDate);
     }
     setSelectedToDate(e);
   };
@@ -419,6 +383,26 @@ export default function PageProjects() {
     menu,
     searchTerm: form.getValues('searchTerm') || '',
   };
+
+  // 라이센스가 만료된 경우 페이지 렌더링을 막습니다
+  if (license?.isExpired) {
+    return (
+      <AdminLayoutPage>
+        <AdminLayoutPageContent>
+          <Flex
+            direction="column"
+            align="center"
+            justify="center"
+            h="100vh"
+            gap={4}
+          >
+            <Heading size="lg">라이센스가 만료되었습니다</Heading>
+            <Text>서비스를 계속 사용하시려면 관리자에게 문의하세요.</Text>
+          </Flex>
+        </AdminLayoutPageContent>
+      </AdminLayoutPage>
+    );
+  }
 
   return (
     <AdminLayoutPage>

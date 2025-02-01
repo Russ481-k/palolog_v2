@@ -8,7 +8,9 @@ import {
   Flex,
   FlexProps,
   HStack,
+  Heading,
   Stack,
+  Text,
   useColorMode,
 } from '@chakra-ui/react';
 
@@ -16,6 +18,7 @@ import {
   AdminLayoutContextNavDisplayed,
   useAdminLayoutHideNav,
 } from '@/features/admin/AdminLayout';
+import { useLicense } from '@/hooks/useLicense';
 
 type AdminLayoutPageContextValue = {
   nav: React.ReactNode;
@@ -187,6 +190,8 @@ export const AdminLayoutPage = ({
 }: AdminLayoutPageProps) => {
   useAdminLayoutHideNav(showNavBar);
 
+  const license = useLicense();
+
   const value = useMemo(
     () => ({
       nav,
@@ -194,6 +199,21 @@ export const AdminLayoutPage = ({
     }),
     [containerMaxWidth, nav]
   );
+
+  if (license?.isExpired) {
+    return (
+      <Flex
+        direction="column"
+        align="center"
+        justify="center"
+        gap={4}
+        width="100%"
+      >
+        <Heading size="lg">라이센스가 만료되었습니다</Heading>
+        <Text>서비스를 계속 사용하시려면 관리자에게 문의하세요.</Text>
+      </Flex>
+    );
+  }
 
   return (
     <AdminLayoutPageContext.Provider value={value}>

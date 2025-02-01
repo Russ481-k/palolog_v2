@@ -89,3 +89,14 @@ model MenuColumn {
 
   @@unique([menuId, columnId])
 }
+
+model SystemLicense {
+  id           String    @id @default(cuid())
+  hardwareHash String    @unique
+  activatedAt  DateTime  @default(now())
+  expiresAt    DateTime
+  lastCheckedAt DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}

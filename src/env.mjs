@@ -43,6 +43,12 @@ export const env = createEnv({
     CONFIG_PATH: z.string().optional(),
     LOGSTASH_PATH: z.string().optional(),
     CA_CERT_PATH: z.string().default('./ca-cert.pem'),
+
+    LICENSE_SECRET: z.string().optional(),
+    LICENSE_DURATION: z.preprocess(
+      (val) => (val ? Number(val) : undefined),
+      z.number().optional()
+    ),
   },
 
   /**
@@ -91,6 +97,11 @@ export const env = createEnv({
       .optional()
       .default('3001')
       .transform(Number),
+    NEXT_PUBLIC_LICENSE_SECRET: z.string().optional(),
+    NEXT_PUBLIC_LICENSE_DURATION: z.preprocess(
+      (val) => (val ? Number(val) : undefined),
+      z.number().optional()
+    ),
   },
 
   /**
@@ -121,6 +132,11 @@ export const env = createEnv({
     NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: process.env.DOWNLOAD_CHUNK_SIZE,
     NEXT_PUBLIC_WS_HOST: process.env.NEXT_PUBLIC_WS_HOST,
     NEXT_PUBLIC_WS_PORT: process.env.NEXT_PUBLIC_WS_PORT || '3001',
+
+    // LICENSE
+    NEXT_PUBLIC_LICENSE_SECRET: process.env.NEXT_PUBLIC_LICENSE_SECRET,
+    NEXT_PUBLIC_LICENSE_DURATION: process.env.NEXT_PUBLIC_LICENSE_DURATION,
+
     X_H: process.env.X_H,
     X_P: process.env.X_P,
     X_K: process.env.X_K,
@@ -131,6 +147,8 @@ export const env = createEnv({
     CONFIG_PATH: process.env.CONFIG_PATH,
     LOGSTASH_PATH: process.env.LOGSTASH_PATH,
     CA_CERT_PATH: process.env.CA_CERT_PATH,
+    LICENSE_SECRET: process.env.LICENSE_SECRET,
+    LICENSE_DURATION: process.env.LICENSE_DURATION,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -246,3 +246,5 @@ export const subscriptionProcedure = t.procedure.use(
     return next({ ctx: { user } });
   })
 ).subscription;
+
+export const middleware = t.middleware;

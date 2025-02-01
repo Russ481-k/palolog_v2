@@ -13,7 +13,7 @@
     "dev": "run-p dev:*",
     "dev:next": "next dev",
     "dev:ws": "dotenv -e .env -- tsx src/server/index.ts",
-    "build": "run-p build:auth build:ws",
+    "build": "pnpm generate:license && run-p build:auth build:ws",
     "build:auth": "dotenv -e .env -- tsx src/scripts/build-auth.ts",
     "build:next": "pnpm build:info && next build",
     "build:info": "tsx scripts/build-info.ts",
@@ -23,7 +23,7 @@
     "prod:clean": "pm2 delete all || true && sudo lsof -i :8000 || true && sudo kill -9 $(sudo lsof -t -i:8000) || true",
     "prod:docker": "docker stop $(docker ps -aq) || true && docker rm $(docker ps -aq) || true && pnpm dk:init",
     "prod:permissions": "sudo chown -R vtek:vtek ./.next && sudo chmod -R 755 ./.next",
-    "prod:start": "pm2 start ecosystem.config.cjs --log './logs/pm2.log'",
+    "prod:start": "pm2 start ecosystem.config.cjs --log './log.txt'",
     "prod:all": "run-s prod:clean build prod:docker prod:permissions prod:start",
     "prod": "run-s prod:clean build prod:permissions prod:start",
     "pretty": "prettier -w .",
@@ -48,7 +48,9 @@
     "db:ui": "prisma studio",
     "db:seed": "prisma db seed",
     "setup:version": "tsx scripts/setup-version.ts",
-    "prebuild": "pnpm setup:version"
+    "prebuild": "pnpm setup:version",
+    "generate:license": "LICENSE_DURATION=30 && tsx -r tsconfig-paths/register scripts/generate-license.ts",
+    "check:license": "tsx -r tsconfig-paths/register scripts/check-license.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json}": "prettier --write"
@@ -78,6 +80,7 @@
     "@trpc/react-query": "10.45.2",
     "@trpc/server": "10.45.2",
     "@types/archiver": "^6.0.3",
+    "@types/crypto-js": "^4.2.2",
     "@types/ws": "^8.5.13",
     "ag-charts-community": "^10.0.0",
     "ag-charts-react": "^10.0.0",
@@ -88,6 +91,7 @@
     "bcrypt": "5.1.1",
     "chakra-react-select": "4.7.6",
     "colorette": "2.0.20",
+    "crypto-js": "^4.2.0",
     "csv-stringify": "^6.4.4",
     "dayjs": "1.11.10",
     "framer-motion": "11.0.15",
@@ -182,7 +186,8 @@
     "tsx": "4.7.1",
     "typescript": "5.4.2",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "1.5.0"
+    "vitest": "1.5.0",
+    "tsconfig-paths": "^4.2.0"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed/index.ts"

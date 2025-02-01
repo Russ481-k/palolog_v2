@@ -14,6 +14,7 @@ import {
 import { zUser } from '@/features/users/schemas';
 import { db } from '@/server/config/db';
 import { AppContext } from '@/server/config/trpc';
+import { validateLicense } from '@/utils/license';
 
 export const AUTH_COOKIE_NAME = 'auth';
 
@@ -48,7 +49,7 @@ export const getServerAuthSession = async () => {
     const user = await db.user.findUnique({
       where: {
         id: jwtDecoded.id,
-        accountStatus: 'ENABLED'
+        accountStatus: 'ENABLED',
       },
       select: userPick,
     });
@@ -222,13 +223,27 @@ export async function validate({
     });
   }
 
-  ctx.logger.info('About to set auth cookie with JWT:', userJwt.substring(0, 10) + '...');
+  ctx.logger.info(
+    'About to set auth cookie with JWT:',
+    userJwt.substring(0, 10) + '...'
+  );
   setAuthCookie(userJwt);
   ctx.logger.info('Auth cookie has been set');
 
   // 쿠키가 실제로 설정되었는지 확인
   const verificationCookie = cookies().get(AUTH_COOKIE_NAME);
   ctx.logger.info('Verification - Cookie exists:', !!verificationCookie);
+
+  // 라이센스 검증 추가
+  try {
+    await validateLicense(ctx);
+  } catch (error) {
+    ctx.logger.error('License validation failed:', error);
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Invalid license',
+    });
+  }
 
   return { verificationToken, userJwt };
 }

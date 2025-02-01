@@ -1,0 +1,381 @@
+input {
+    udp {
+        port => 514
+        codec => plain
+        queue_size => 20000
+    }
+}
+
+filter {
+    # syslog 형식에서 도메인 추출
+    grok {
+        match => { "message" => "^<?(?:\d+)?>?\s*(?:[A-Za-z]{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?<original_domain>[^\,]+)" }
+        tag_on_failure => ["_grokparsefailure"]
+    }
+
+    csv {
+        separator => ","
+        skip_empty_columns => false
+        columns => [
+            "domain", "receiveTime", "serial", "logType", 
+            "threatContentType", "configVersion", "generateTime", 
+            "d000", "d001", "d002", "d003", "d004", "d005", "d006", "d007", 
+            "d008", "d009", "d010", "d011", "d012", "d013", "d014", "d015", 
+            "d016", "d017", "d018", "d019", "d020", "d021", "d022", "d023", 
+            "d024", "d025", "d026", "d027", "d028", "d029", "d030", "d031", 
+            "d032", "d033", "d034", "d035", "d036", "d037", "d038", "d039", 
+            "d040", "d041", "d042", "d043", "d044", "d045", "d046", "d047", 
+            "d048", "d049", "d050", "d051", "d052", "d053", "d054", "d055", 
+            "d056", "d057", "d058", "d059", "d060", "d061", "d062", "d063", 
+            "d064", "d065", "d066", "d067", "d068", "d069", "d070", "d071", 
+            "d072", "d073", "d074", "d075", "d076", "d077", "d078", "d079", 
+            "d080", "d081", "d082", "d083", "d084", "d085", "d086", "d087", 
+            "d088", "d089", "d090", "d091", "d092", "d093", "d094", "d095", 
+            "d096", "d097", "d098", "d099", "d100", "d101", "d102", "d103", 
+            "d104", "d105", "d106", "d107", "d108", "d109", "d110", "d111", 
+            "d112", "d113", "d114"
+        ]
+    }
+
+    ruby {
+        init => '
+            require "set"
+            @domains = Set.new
+        '
+        code => '
+            begin
+                # 인덱싱을 위한 도메인 처리
+                original_domain = event.get("original_domain") || event.get("domain") || "unknown"
+                index_domain = original_domain.downcase
+                        .gsub(/\./, "-")
+                        .gsub(/[^a-z0-9\-]/, "_")
+                        .gsub(/-+/, "-")
+                        .gsub(/_+/, "_")
+                
+                # 도메인이 새로운 경우
+                if index_domain && !@domains.include?(index_domain)
+                    @domains.add(index_domain)
+                    
+                    # domain_index 업데이트를 위한 이벤트 생성
+                    event.set("update_domain_index", true)
+                    event.set("domains", @domains.to_a)
+                end
+
+                # 원래 이벤트의 인덱스 이름 설정
+                kst_time = event.get("@timestamp").time.getlocal("+09:00")
+                index_name = "#{kst_time.strftime("%Y.%m.%d.%H")}_#{index_domain}".downcase
+                event.set("[@metadata][index_name]", index_name)
+
+            rescue => e
+                logger.error("Error in Ruby filter: #{e.message}")
+                logger.error(e.backtrace.join("\n"))
+                event.tag("_rubyparsefalure")
+                event.set("[@metadata][index_name]", "error-logs-#{Time.now.strftime("%Y.%m.%d")}")
+            end
+        '
+    }
+
+    if [logType] == "TRAFFIC" {
+        mutate {
+            rename => {
+                "d000" => "sourceAddress"
+                "d001" => "destinationAddress"
+                "d002" => "natSourceIp" 
+                "d003" => "natDestinationIp"
+                "d004" => "rule"
+                "d005" => "sourceUser"
+                "d006" => "destinationUser"
+                "d007" => "application"
+                "d008" => "virtualSystem"
+                "d009" => "sourceZone"
+                "d010" => "destinationZone"
+                "d011" => "inboundInterface"
+                "d012" => "outboundInterface"
+                "d013" => "logAction"
+                "d014" => "timeLogged"
+                "d015" => "sessionId"
+                "d016" => "repeatCount"
+                "d017" => "sourcePort"
+                "d018" => "destinationPort"
+                "d019" => "natSourcePort"
+                "d020" => "natDestinationPort"
+                "d021" => "flags"
+                "d022" => "ipProtocol"
+                "d023" => "action"
+                "d024" => "bytes"
+                "d025" => "bytesSent"
+                "d026" => "bytesReceived"
+                "d027" => "packets"
+                "d028" => "startTime"
+                "d029" => "elapsedTimeSec"
+                "d030" => "category"
+                "d031" => "__1"
+                "d032" => "sequenceNumber"
+                "d033" => "actionFlags"
+                "d034" => "sourceCountry"
+                "d035" => "destinationCountry"
+                "d036" => "__2"
+                "d037" => "packetsSent"
+                "d038" => "packetsReceived"
+                "d039" => "sessionEndReason"
+                "d040" => "dgHierarchyLevel1"
+                "d041" => "dgHierarchyLevel2"
+                "d042" => "dgHierarchyLevel3"
+                "d043" => "dgHierarchyLevel4"
+                "d044" => "virtualSystemName"
+                "d045" => "deviceName"
+                "d046" => "actionSource"
+                "d047" => "sourceVmUuid"
+                "d048" => "destinationVmUuid"
+                "d049" => "tunnelIdImsi"
+                "d050" => "monitorTagImei"
+                "d051" => "parentSessionId"
+                "d052" => "parentSessionStartTime"
+                "d053" => "tunnel"
+                "d054" => "sctpAssociationId"
+                "d055" => "sctpChunks"
+                "d056" => "sctpChunksSent"
+                "d057" => "sctpChunksReceived"
+                "d058" => "uuidForRule"
+                "d059" => "http2Connection"
+                "d060" => "linkChangeCount"
+                "d061" => "policyId"
+                "d062" => "linkSwitches"
+                "d063" => "sdwanCluster"
+                "d064" => "sdwanDeviceType"
+                "d065" => "sdwanClusterType"
+                "d066" => "sdwanSite"
+                "d067" => "dynUserGroupName"
+                "d068" => "xffAddress"
+                "d069" => "sourceDeviceCategory"
+                "d070" => "sourceDeviceProfile"
+                "d071" => "sourceDeviceModel"
+                "d072" => "sourceDeviceVendor"
+                "d073" => "sourceDeviceOsFamily"
+                "d074" => "sourceDeviceOsVersion"
+                "d075" => "sourceHostname"
+                "d076" => "sourceMacAddress"
+                "d077" => "destinationDeviceCategory"
+                "d078" => "destinationDeviceProfile"
+                "d079" => "destinationDeviceModel"
+                "d080" => "destinationDeviceVendor"
+                "d081" => "destinationDeviceOsFamily"
+                "d082" => "destinationDeviceOsVersion"
+                "d083" => "destinationHostname"
+                "d084" => "destinationMacAddress"
+                "d085" => "containerId"
+                "d086" => "podNamespace"
+                "d087" => "podName"
+                "d088" => "sourceExternalDynamicList"
+                "d089" => "destinationExternalDynamicList"
+                "d090" => "hostId"
+                "d091" => "serialNumber"
+                "d092" => "sourceDynamicAddressGroup"
+                "d093" => "destinationDynamicAddressGroup"
+                "d094" => "sessionOwner"
+                "d095" => "highResTimestamp"
+                "d096" => "nssaiSst"
+                "d097" => "nssaiSd"
+                "d098" => "subcategoryOfApp"
+                "d099" => "categoryOfApp"
+                "d100" => "technologyOfApp"
+                "d101" => "riskOfApp"
+                "d102" => "characteristicOfApp"
+                "d103" => "containerOfApp"
+                "d104" => "tunneledApp"
+                "d105" => "saasOfApp"
+                "d106" => "sanctionedStateOfApp"
+                "d107" => "offloaded"
+                "d108" => "flowType"
+                "d109" => "clusterName"
+            }
+            remove_field => ["d110", "d111", "d112", "d113", "d114", "d115"]
+        }
+    }
+
+    if [logType] == "THREAT" {
+        mutate {
+            rename => {
+                "d000" => "sourceAddress"
+                "d001" => "destinationAddress"
+                "d002" => "natSourceIp"
+                "d003" => "natDestinationIp"
+                "d004" => "rule"
+                "d005" => "sourceUser"
+                "d006" => "destinationUser"
+                "d007" => "application"
+                "d008" => "virtualSystem"
+                "d009" => "sourceZone"
+                "d010" => "destinationZone"
+                "d011" => "inboundInterface"
+                "d012" => "outboundInterface"
+                "d013" => "logAction"
+                "d014" => "timeLogged"
+                "d015" => "sessionId"
+                "d016" => "repeatCount"
+                "d017" => "sourcePort"
+                "d018" => "destinationPort"
+                "d019" => "natSourcePort"
+                "d020" => "natDestinationPort"
+                "d021" => "flags"
+                "d022" => "ipProtocol"
+                "d023" => "action"
+                "d024" => "urlFilename"
+                "d025" => "threatContentName"
+                "d026" => "category"
+                "d027" => "severity"
+                "d028" => "direction"
+                "d029" => "sequenceNumber"
+                "d030" => "actionFlags"
+                "d031" => "sourceCountry"
+                "d032" => "destinationCountry"
+                "d033" => "__1"
+                "d034" => "contentType"
+                "d035" => "pcapId"
+                "d036" => "fileDigest"
+                "d037" => "cloud"
+                "d038" => "urlIdx"
+                "d039" => "userAgent"
+                "d040" => "fileType"
+                "d041" => "xff"
+                "d042" => "referer"
+                "d043" => "sender"
+                "d044" => "subject"
+                "d045" => "recipient"
+                "d046" => "reportId"
+                "d047" => "dgHierarchyLevel1"
+                "d048" => "dgHierarchyLevel2"
+                "d049" => "dgHierarchyLevel3"
+                "d050" => "dgHierarchyLevel4"
+                "d051" => "virtualSystemName"
+                "d052" => "deviceName"
+                "d053" => "fileUrl"
+                "d054" => "sourceVmUuid"
+                "d055" => "destinationVmUuid"
+                "d056" => "httpMethod"
+                "d057" => "tunnelIdImsi"
+                "d058" => "monitorTagImei"
+                "d059" => "parentSessionId"
+                "d060" => "parentSessionStartTime"
+                "d061" => "tunnel"
+                "d062" => "thrCategory"
+                "d063" => "contentVer"
+                "d064" => "sigFlags"
+                "d065" => "sctpAssociationId"
+                "d066" => "payloadProtocolId"
+                "d067" => "httpHeaders"
+                "d068" => "urlCategoryList"
+                "d069" => "uuidForRule"
+                "d070" => "http2Connection"
+                "d071" => "dynUserGroupName"
+                "d072" => "xffAddress"
+                "d073" => "sourceDeviceCategory"
+                "d074" => "sourceDeviceProfile"
+                "d075" => "sourceDeviceModel"
+                "d076" => "sourceDeviceVendor"
+                "d077" => "sourceDeviceOsFamily"
+                "d078" => "sourceDeviceOsVersion"
+                "d079" => "sourceHostname"
+                "d080" => "sourceMacAddress"
+                "d081" => "destinationDeviceCategory"
+                "d082" => "destinationDeviceProfile"
+                "d083" => "destinationDeviceModel"
+                "d084" => "destinationDeviceVendor"
+                "d085" => "destinationDeviceOsFamily"
+                "d086" => "destinationDeviceOsVersion"
+                "d087" => "destinationHostname"
+                "d088" => "destinationMacAddress"
+                "d089" => "containerId"
+                "d090" => "podNamespace"
+                "d091" => "podName"
+                "d092" => "sourceExternalDynamicList"
+                "d093" => "destinationExternalDynamicList"
+                "d094" => "hostId"
+                "d095" => "serialNumber"
+                "d096" => "domainEdl"
+                "d097" => "sourceDynamicAddressGroup"
+                "d098" => "destinationDynamicAddressGroup"
+                "d099" => "partialHash"
+                "d100" => "highResTimestamp"
+                "d101" => "reason"
+                "d102" => "justification"
+                "d103" => "nssaiSst"
+                "d104" => "subcategoryOfApp"
+                "d105" => "categoryOfApp"
+                "d106" => "technologyOfApp"
+                "d107" => "riskOfApp"
+                "d108" => "characteristicOfApp"
+                "d109" => "containerOfApp"
+                "d110" => "tunneledApp"
+                "d111" => "saasOfApp"
+                "d112" => "sanctionedStateOfApp"
+                "d113" => "cloudReportId"
+                "d114" => "clusterName"
+                "d115" => "flowType"
+            }
+            remove_field => []
+        }
+    }
+
+    if [logType] == "SYSTEM" {
+        mutate {
+            rename => {
+                "d000" => "virtualSystem"
+                "d001" => "eventId" 
+                "d002" => "object"
+                "d003" => "fmt"
+                "d004" => "id"
+                "d005" => "module"
+                "d006" => "severity"
+                "d007" => "description"
+                "d008" => "sequenceNumber"
+                "d009" => "actionFlags"
+                "d010" => "dgHierarchyLevel1"
+                "d011" => "dgHierarchyLevel2"
+                "d012" => "dgHierarchyLevel3"
+                "d013" => "dgHierarchyLevel4"
+                "d014" => "virtualSystemName"
+                "d015" => "deviceName"
+                "d016" => "dgId"
+                "d017" => "tplId"
+                "d018" => "highResTimestamp"
+            }
+            remove_field => ["d019", "d020", "d021", "d022", "d023", "d024", "d025", "d026", "d027", "d028", "d029", "d030", "d031", "d032", "d033", "d034", "d035", "d036", "d037", "d038", "d039", "d040", "d041", "d042", "d043", "d044", "d045", "d046", "d047", "d048", "d049", "d050", "d051", "d052", "d053", "d054", "d055", "d056", "d057", "d058", "d059", "d060", "d061", "d062", "d063", "d064", "d065", "d066", "d067", "d068", "d069", "d070", "d071", "d072", "d073", "d074", "d075", "d076", "d077", "d078", "d079", "d080", "d081", "d082", "d083", "d084", "d085", "d086", "d087", "d088", "d089", "d090", "d091", "d092", "d093", "d094", "d095", "d096", "d097", "d098", "d099", "d100", "d101", "d102", "d103", "d104", "d105", "d106", "d107", "d108", "d109", "d110", "d111", "d112", "d113", "d114", "d115"]
+        }
+    }
+    
+    date {
+        match => [ "d001", "yyyy/MM/dd HH:mm:ss" ]
+        target => "@timestamp"
+        timezone => "Asia/Seoul"
+    }
+
+    date {
+        match => [ "@timestamp", "ISO8601" ]
+        timezone => "Asia/Seoul"
+    }
+
+}
+
+output {
+    if [update_domain_index] {
+        opensearch {
+            hosts => ["https://opensearch:9200"]
+            index => "domain_index"
+            document_id => "domain_list"  # 항상 같은 document를 업데이트
+            user => "admin"
+            password => "admin"
+            ssl => false
+            ssl_certificate_verification => false
+        }
+    }
+    opensearch {
+        hosts => ["https://opensearch:9200"]
+        index => "%{[@metadata][index_name]}"
+        user => "admin"
+        password => "admin"
+        ssl => false
+        ssl_certificate_verification => false
+    }
+}
+
