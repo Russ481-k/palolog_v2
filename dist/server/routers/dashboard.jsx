@@ -3,8 +3,10 @@ import { exec } from 'child_process';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+import fs from 'fs';
 import { NextResponse } from 'next/server';
 import os from 'os';
+import path from 'path';
 import { z } from 'zod';
 
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
@@ -17,6 +19,39 @@ dayjs.extend(timezone);
 dayjs.tz.setDefault('Asia/Seoul');
 // 전역 상수
 export const prisma = new PrismaClient();
+// 다운로드 파일 정리 함수
+async function cleanupDownloadFiles() {
+  try {
+    const downloadDir = './downloads';
+    console.log('다운로드 파일 정리를 시작합니다...');
+    // downloads 디렉토리가 존재하는 경우에만 처리
+    if (fs.existsSync(downloadDir)) {
+      const files = await fs.promises.readdir(downloadDir);
+      for (const file of files) {
+        const filePath = path.join(downloadDir, file);
+        await fs.promises.unlink(filePath);
+        console.log(`파일 삭제됨: ${file}`);
+      }
+      console.log('다운로드 파일 정리 완료');
+    }
+  } catch (error) {
+    console.error('다운로드 파일 정리 중 오류 발생:', error);
+  }
+}
+// 매일 자정에 다운로드 파일 정리 실행
+function scheduleCleanup() {
+  const now = dayjs().tz('Asia/Seoul');
+  const midnight = now.endOf('day');
+  const msUntilMidnight = midnight.diff(now);
+  // 자정까지 대기 후 실행
+  setTimeout(async () => {
+    await cleanupDownloadFiles();
+    // 다음 자정 스케줄링
+    scheduleCleanup();
+  }, msUntilMidnight);
+}
+// 초기 스케줄링 시작
+scheduleCleanup();
 // 시스템 터링 관련 함수
 async function getDiskUsage() {
   return new Promise((resolve) => {

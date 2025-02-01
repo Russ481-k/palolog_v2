@@ -12,6 +12,7 @@ import {
 } from '@/features/auth/utils';
 import { zUser } from '@/features/users/schemas';
 import { db } from '@/server/config/db';
+import { validateLicense } from '@/utils/license';
 
 export const AUTH_COOKIE_NAME = 'auth';
 /**
@@ -215,6 +216,16 @@ export async function validate({ ctx, id, password }) {
   // 쿠키가 실제로 설정되었는지 확인
   const verificationCookie = cookies().get(AUTH_COOKIE_NAME);
   ctx.logger.info('Verification - Cookie exists:', !!verificationCookie);
+  // 라이센스 검증 추가
+  try {
+    await validateLicense(ctx);
+  } catch (error) {
+    ctx.logger.error('License validation failed:', error);
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Invalid license',
+    });
+  }
   return { verificationToken, userJwt };
 }
 export async function deleteUsedCode({ ctx, token }) {

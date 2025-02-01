@@ -2,10 +2,10 @@ import { createTRPCRouter } from '@/server/config/trpc';
 import { accountRouter } from '@/server/routers/account';
 import { authRouter } from '@/server/routers/auth';
 import { dashboardRouter } from '@/server/routers/dashboard';
-// import { menusRouter } from '@/server/routers/menus';
 import { usersRouter } from '@/server/routers/users';
 
 import { downloadRouter } from './routers/download';
+import { licenseRouter } from './routers/license';
 import { projectsRouter } from './routers/projects';
 
 /**
@@ -20,5 +20,5 @@ export const appRouter = createTRPCRouter({
   projects: projectsRouter,
   users: usersRouter,
   download: downloadRouter,
-  // menus: menusRouter,
+  license: licenseRouter,
 });
