@@ -34,7 +34,7 @@ export const AppNavBarDesktop = (props: BoxProps) => {
             <Box as={LinkApp} href="/">
               <Flex pb={4}>
                 <Text fontSize="3xl" as="b">
-                  PaloLog
+                  EntaSys
                 </Text>
               </Flex>
             </Box>

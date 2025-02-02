@@ -1,6 +1,6 @@
-### **Ubuntu에서 Palolog 2.0 로그 서버 설치 및 설정 방법**
+### **Ubuntu에서 EntaSys 2.0 로그 서버 설치 및 설정 방법**
 
-1. palolog 폴더 압축 해제
+1. entasys 폴더 압축 해제
 2. 설치 명령어
     ```jsx
     sudo apt-get update;

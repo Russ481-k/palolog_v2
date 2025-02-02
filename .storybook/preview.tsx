@@ -79,12 +79,12 @@ const preview: Preview = {
       dark: {
         ...themes.dark,
         brandImage: logoReversed.src,
-        brandTitle: 'PaloLog',
+        brandTitle: 'EntaSys',
       },
       light: {
         ...themes.light,
         brandImage: logo.src,
-        brandTitle: 'PaloLog',
+        brandTitle: 'EntaSys',
       },
     },
     layout: 'fullscreen',

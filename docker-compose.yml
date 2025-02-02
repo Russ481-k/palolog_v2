@@ -56,7 +56,7 @@ services:
     image: opensearchproject/opensearch:1.2.0
     container_name: opensearch
     networks:
-      - palolog
+      - entasys
     ports:
       - '9200:9200'
       - '9600:9600'
@@ -97,7 +97,7 @@ services:
     image: opensearchproject/logstash-oss-with-opensearch-output-plugin:7.16.2
     container_name: logstash
     networks:
-      - palolog
+      - entasys
     ports:
       - '514:514/udp'
     environment:
@@ -143,5 +143,5 @@ services:
     shm_size: '4gb'
 
 networks:
-  palolog:
+  entasys:
     driver: bridge

@@ -22,7 +22,7 @@ export const AdminPublicOnlyLayout = ({ children }: AdminPublicOnlyLayout) => {
                 Welcome to
               </Text>
               <Text fontSize="6xl" textAlign="center" mr={5}>
-                PaloLog
+                EntaSys
               </Text>
             </Flex>
           </Flex>

@@ -2,14 +2,14 @@ import { z } from 'zod';
 
 import { columnNames } from './versions/11.0/colNameList_11.0';
 
-export const zPaloLogs = () =>
+export const zEntaSys = () =>
   z.object(
     columnNames.reduce((acc, columnName) => {
       acc[columnName] = z.string().nullable().optional();
       return acc;
     }, {})
   );
-export const zPaloLogsParams = () =>
+export const zEntaSysParams = () =>
   z.object({
     menu: z.string().default('TRAFFIC'),
     timeFrom: z.string(),

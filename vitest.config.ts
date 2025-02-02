@@ -12,7 +12,6 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_BASE_URL: 'http://localhost:3000',
       NEXT_PUBLIC_ENV_NAME: 'Test Environment',
-      NEXT_PUBLIC_ENV_EMOJI: '🧪',
       NEXT_PUBLIC_ENV_COLOR_SCHEME: 'teal',
       NEXT_PUBLIC_IS_DEMO: 'false',
     },

@@ -185,7 +185,7 @@ export const AdminNavBar = (props: BoxProps) => {
         />
         <Box as={LinkAdmin} href="/" mx={{ base: 'auto', md: 0 }}>
           <Text fontSize="3xl" as="b">
-            PaloLog
+            EntaSys
           </Text>
         </Box>
         <AdminNavBarMainMenu
@@ -296,7 +296,7 @@ const AdminNavBarDrawer = ({ ...rest }) => {
           <DrawerHeader>
             <Flex pb={4}>
               <Text fontSize="3xl" as="b">
-                PaloLog
+                EntaSys
               </Text>
             </Flex>
           </DrawerHeader>

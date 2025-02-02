@@ -4,7 +4,7 @@ import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
 
 import { getColumnNames } from '@/features/monitoring/columns';
-import { zPaloLogs, zPaloLogsParams } from '@/features/monitoring/schemas';
+import { zEntaSys, zEntaSysParams } from '@/features/monitoring/schemas';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 import { OpenSearchClient, OpenSearchResponse } from '@/server/lib/opensearch';
 import {
@@ -184,13 +184,13 @@ export async function searchOpenSearchWithScroll(
 export const projectsRouter = createTRPCRouter({
   getAll: protectedProcedure({ authorizations: ['ADMIN'] })
     .input(
-      zPaloLogsParams().extend({
+      zEntaSysParams().extend({
         menu: z.enum(['TRAFFIC', 'THREAT', 'SYSTEM']).optional(),
       })
     )
     .output(
       z.object({
-        logs: z.array(zPaloLogs().nullish()),
+        logs: z.array(zEntaSys().nullish()),
         pagination: z.object({
           currentPage: z.number().min(1).default(1),
           pageLength: z.number().min(0),

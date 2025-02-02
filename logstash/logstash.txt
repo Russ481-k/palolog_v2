@@ -1,6 +1,6 @@
 docker pull docker.elastic.co/logstash/logstash:8.8.2
 
-docker network create palolog
+docker network create entasys
 
 
 # test
@@ -37,9 +37,9 @@ docker remove -f logstash; docker remove -f opensearch; pnpm dk:init;
 docker cp opensearch:/usr/share/opensearch/config/root-ca.pem ./ca-cert.pem
 
 
-docker run -p 9200:9200 -p 9600:9600 --name opensearch --net palolog -e "discovery.type=single-node" opensearchproject/opensearch:1.2.0
+docker run -p 9200:9200 -p 9600:9600 --name opensearch --net entasys -e "discovery.type=single-node" opensearchproject/opensearch:1.2.0
 
-docker run -it --rm --name logstash --net palolog -p 514:514/udp \
+docker run -it --rm --name logstash --net entasys -p 514:514/udp \
   -e LS_JAVA_OPTS="-Xms4g -Xmx4g" \
   -e "pipeline.batch.size=5000" \
   -e "pipeline.workers=4" \

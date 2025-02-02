@@ -73,14 +73,6 @@ export const env = createEnv({
             ? process.env.NEXT_PUBLIC_ENV_NAME
             : 'LOCAL')
       ),
-    NEXT_PUBLIC_ENV_EMOJI: z
-      .string()
-      .emoji()
-      .optional()
-      .transform(
-        (value) =>
-          value ?? (process.env.NODE_ENV === 'production' ? undefined : '🚧')
-      ),
     NEXT_PUBLIC_ENV_COLOR_SCHEME: z
       .string()
       .optional()
@@ -126,7 +118,6 @@ export const env = createEnv({
       : process.env.NEXT_PUBLIC_BASE_URL,
     NEXT_PUBLIC_ENV_COLOR_SCHEME: process.env.NEXT_PUBLIC_ENV_COLOR_SCHEME,
     NEXT_PUBLIC_ENV_NAME: process.env.NEXT_PUBLIC_ENV_NAME,
-    NEXT_PUBLIC_ENV_EMOJI: process.env.NEXT_PUBLIC_ENV_EMOJI,
     NEXT_PUBLIC_IS_DEMO: process.env.NEXT_PUBLIC_IS_DEMO,
     NEXT_PUBLIC_NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_DOWNLOAD_CHUNK_SIZE: process.env.DOWNLOAD_CHUNK_SIZE,

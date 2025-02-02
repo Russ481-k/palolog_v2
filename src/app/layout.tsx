@@ -12,9 +12,9 @@ import theme from '@/theme';
 export const metadata: Metadata = {
   title: {
     template: `${getEnvHintTitlePrefix()} %s`,
-    default: `${getEnvHintTitlePrefix()} PaloLog [web]`,
+    default: `${getEnvHintTitlePrefix()} EntaSys [web]`,
   },
-  applicationName: 'PaloLog [web]',
+  applicationName: 'EntaSys [web]',
   description: 'Opinionated UI starter',
 };
 

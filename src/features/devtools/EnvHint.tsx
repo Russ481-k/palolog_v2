@@ -3,7 +3,6 @@ import { Box, Text } from '@chakra-ui/react';
 import { env } from '@/env.mjs';
 
 export const getEnvHintTitlePrefix = () => {
-  if (env.NEXT_PUBLIC_ENV_EMOJI) return `${env.NEXT_PUBLIC_ENV_EMOJI} `;
   if (env.NEXT_PUBLIC_ENV_NAME) return `[${env.NEXT_PUBLIC_ENV_NAME}] `;
   return '';
 };

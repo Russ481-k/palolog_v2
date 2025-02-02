@@ -31,7 +31,7 @@ import { MenuType } from '@/types/project';
 import MenuSetter from './MenuSetter';
 import { PageProjectsFooter } from './PageProjectsFooter';
 import { colDefs } from './colDefs';
-import { FormFieldsPaloLogsParams, zLogs, zPaloLogsParams } from './schemas';
+import { FormFieldsEntaSysParams, zEntaSysParams, zLogs } from './schemas';
 import { columnNames } from './versions/11.0/colNameList_11.0';
 import { dummy } from './versions/11.0/dummy_11.0';
 
@@ -43,9 +43,9 @@ export default function PageProjects() {
     .subtract(2, 'minute')
     .format('YYYY-MM-DD HH:mm:ss');
 
-  const form = useForm<FormFieldsPaloLogsParams>({
+  const form = useForm<FormFieldsEntaSysParams>({
     mode: 'onSubmit',
-    resolver: zodResolver(zPaloLogsParams()),
+    resolver: zodResolver(zEntaSysParams()),
     defaultValues: {
       timeFrom: String(beforeMinuteTime),
       timeTo: String(now),

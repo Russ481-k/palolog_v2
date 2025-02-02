@@ -42,7 +42,7 @@ export default function PageHome() {
           justifyContent="center"
         >
           <Text fontSize="3xl" as="b" w="16rem" mb="8" mx="auto" my={4}>
-            PaloLog
+            EntaSys
           </Text>
         </Flex>
         <Stack>

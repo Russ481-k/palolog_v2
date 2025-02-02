@@ -49,7 +49,7 @@ def generate_palo_message(current_time):
         f"{random.randint(1, 3)},{received_time},023201001129,{random.choice(['TRAFFIC', 'THREAT', 'SYSTEM'])},end,2817,{received_time},"
         f"{random.choice(src_ips)},{random.choice(dst_ips)},118.128.43.82,8.8.4.4,"
         f"ALLOW-OUTBOUND,,,dns-base,vsys1,trust,untrust,ae1,ethernet1/2,"
-        f"PaloLog-forward,{timezone_time},{session_id},1,56368,53,2263,53,"
+        f"EntaSys-forward,{timezone_time},{session_id},1,56368,53,2263,53,"
         f"0x400019,udp,allow,298,77,221,2,{timezone_time},0,any,,"
         f"7444489203825238205,0x8000000000000000,192.168.0.0-192.168.255.255,"
         f"United States,,1,1,aged-out,0,0,0,0,,{hostname}-{random.randint(1, 3)},from-policy,,,0,,0,,"

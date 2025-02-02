@@ -23,7 +23,7 @@ export const AppPublicOnlyLayout = ({ children }: AppPublicOnlyLayout) => {
         }}
       >
         <Text fontSize="3xl" as="b" w="16rem" mb="8" mx="auto" my={4}>
-          PaloLog
+          EntaSys
         </Text>
       </Center>
       <Flex flex={1} minW={0} bg="gray.50" _dark={{ bg: 'gray.900' }}>
@@ -37,7 +37,7 @@ export const AppPublicOnlyLayout = ({ children }: AppPublicOnlyLayout) => {
               display={{ base: 'block', md: 'none' }}
               my={4}
             >
-              PaloLog
+              EntaSys
             </Text>
             {children}
           </Box>

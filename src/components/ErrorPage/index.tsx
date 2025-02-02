@@ -43,7 +43,7 @@ export const ErrorPage = ({ errorCode }: { errorCode?: number }) => {
           <Link href="/">
             <Flex pb={4}>
               <Text fontSize="3xl" as="b">
-                PaloLog
+                EntaSys
               </Text>
             </Flex>
           </Link>

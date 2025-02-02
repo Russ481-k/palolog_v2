@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'palolog-next',
+      name: 'entasys-next',
       script: 'pnpm',
       args: 'start',
       env: {
@@ -9,7 +9,7 @@ module.exports = {
       },
     },
     {
-      name: 'palolog-ws',
+      name: 'entasys-ws',
       script: 'pnpm',
       args: 'start:ws',
       env: {
