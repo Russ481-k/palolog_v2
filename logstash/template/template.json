@@ -1,0 +1,9 @@
+{
+  "index_patterns": ["20*"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1,
+    "opendistro.index_state_management.policy_id": "auto_delete_old_indexes",
+    "opendistro.index_state_management.rollover_alias": "logstash"
+  }
+}

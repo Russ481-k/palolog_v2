@@ -71,6 +71,10 @@ services:
       - 'thread_pool.search.queue_size=2000'
       - 'indices.fielddata.cache.size=25%'
       - 'indices.recovery.max_bytes_per_sec=200mb'
+    volumes:
+      - ./logstash/template:/templates
+      - ./init_opensearch.sh:/usr/local/bin/init_opensearch.sh
+    entrypoint: ['/bin/bash', '/usr/local/bin/init_opensearch.sh']
     deploy:
       resources:
         limits:

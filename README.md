@@ -21,6 +21,7 @@
     ls -ld ./logstash/pipeline/;
     sudo chown -R vtek:vtek ./logstash/pipeline/;
     sudo chmod -R u+w ./logstash/pipeline/;
+    sudo  chmod +x init_opensearch.sh
     ```
     
     ```jsx

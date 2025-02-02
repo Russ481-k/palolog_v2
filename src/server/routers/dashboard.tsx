@@ -116,92 +116,109 @@ async function checkDaemonStatus(): Promise<{
 // 인덱스 삭제 작업 상태를 추적하기 위한 변수
 let isCleanupInProgress = false;
 
-interface OpenSearchError {
-  message?: string;
-}
-
-async function deleteIndex(indexName: string): Promise<boolean> {
+async function setupISMPolicy() {
   try {
-    console.log(`[${indexName}] 삭제 요청 전송...`);
-    await makeOpenSearchRequest(`/${indexName}`, 'DELETE');
+    const policy = {
+      policy: {
+        policy_id: 'auto_delete_old_indexes',
+        description: '자동으로 오래된 인덱스를 삭제하는 정책',
+        default_state: 'hot',
+        states: [
+          {
+            name: 'hot',
+            actions: [],
+            transitions: [
+              {
+                state_name: 'delete',
+                conditions: {
+                  min_index_age: '30d',
+                },
+              },
+            ],
+          },
+          {
+            name: 'delete',
+            actions: [
+              {
+                delete: {},
+              },
+            ],
+            transitions: [],
+          },
+        ],
+      },
+    };
 
-    console.log(`[${indexName}] 삭제 완료`);
-    return true;
+    await makeOpenSearchRequest(
+      '/_plugins/_ism/policies/auto_delete_old_indexes',
+      'PUT',
+      policy
+    );
+
+    console.log('ISM 정책이 성공적으로 생성되었습니다.');
   } catch (error) {
-    const opensearchError = error as OpenSearchError;
-    if (opensearchError.message?.includes('index_not_found_exception')) {
-      console.log(`[${indexName}] 이미 삭제된 인덱스입니다.`);
-      return true;
-    }
-    console.error(`[${indexName}] 삭제 실패:`, error);
-    return false;
+    console.error('ISM 정책 생성 중 오류 발생:', error);
   }
 }
 
-async function checkDiskUsageAndDeleteOldLogs() {
+async function applyISMPolicyToIndex(indexName: string) {
+  try {
+    await makeOpenSearchRequest(`/_plugins/_ism/add/${indexName}`, 'POST', {
+      policy_id: 'auto_delete_old_indexes',
+    });
+    console.log(`ISM 정책이 ${indexName}에 적용되었습니다.`);
+  } catch (error) {
+    console.error(`${indexName}에 ISM 정책 적용 중 오류 발생:`, error);
+  }
+}
+
+async function checkDiskUsageAndManageIndexes() {
   if (isCleanupInProgress) {
-    console.log('이미 인덱스 삭제 작업이 진행 중입니다.');
+    console.log('이미 인덱스 관리 작업이 진행 중입니다.');
     return;
   }
 
-  let diskUsage = await getDiskUsage();
+  try {
+    isCleanupInProgress = true;
+    const diskUsage = await getDiskUsage();
 
-  if (diskUsage.usage >= 80) {
-    try {
-      isCleanupInProgress = true;
+    if (diskUsage.usage >= 80) {
       console.log(
-        `OpenSearch 디스크 사용량이 ${diskUsage.usage}%로 80%를 초과했습니다. 오래된 로그 삭제를 시작합니다...`
-      );
-      console.log(
-        `총 디스크: ${diskUsage.total}GB, 사용 중: ${diskUsage.used}GB`
+        `OpenSearch 디스크 사용량이 ${diskUsage.usage}%로 80%를 초과했습니다.`
       );
 
+      // 모든 인덱스 조회
       const indices = await listIndices();
       const validIndices = indices
         .filter((index) => index.startsWith('20'))
         .sort();
 
       console.log(`전체 인덱스 수: ${indices.length}`);
-      console.log(`삭제 대상 인덱스 수: ${validIndices.length}`);
-      console.log('삭제 대상 인덱스 목록:', validIndices.join(', '));
+      console.log(`관리 대상 인덱스 수: ${validIndices.length}`);
 
-      let deletedCount = 0;
+      // ISM 정책 설정
+      await setupISMPolicy();
+
+      // 각 인덱스에 ISM 정책 적용
       for (const index of validIndices) {
-        const deleteSuccess = await deleteIndex(index);
-        if (!deleteSuccess) {
-          console.log(`[${index}] 삭제 실패, 다음 인덱스로 진행합니다.`);
-          continue;
-        }
-        console.log(`[${index}] 삭제 시도`);
-
-        deletedCount++;
-        // 3개의 인덱스를 삭제할 때마다 디스크 공간 회수 작업 수행
-        if (deletedCount % 3 === 0) {
-          diskUsage = await getDiskUsage();
-          console.log(`현재 OpenSearch 디스크 사용량: ${diskUsage.usage}%`);
-          console.log(`사용 중인 디스크: ${diskUsage.used}GB`);
-
-          if (diskUsage.usage < 75) {
-            console.log(
-              `디스크 사용량이 ${diskUsage.usage}%로 75% 미만으로 감소했습니다.`
-            );
-            break;
-          }
-        }
+        await applyISMPolicyToIndex(index);
       }
-
-      diskUsage = await getDiskUsage();
-      console.log(`최종 OpenSearch 디스크 사용량: ${diskUsage.usage}%`);
-      console.log(`최종 사용 중인 디스크: ${diskUsage.used}GB`);
-      return;
-    } catch (error) {
-      console.error('인덱스 삭제 작업 중 오류 발생:', error);
-    } finally {
-      isCleanupInProgress = false;
-      console.log('인덱스 삭제 작업이 완료되었습니다.');
     }
+  } catch (error) {
+    console.error('인덱스 관리 작업 중 오류 발생:', error);
+  } finally {
+    isCleanupInProgress = false;
   }
 }
+
+// 1시간마다 디스크 용량 체크 (1초는 너무 빈번함)
+setInterval(async () => {
+  try {
+    await checkDiskUsageAndManageIndexes();
+  } catch (error) {
+    console.error('Error checking disk usage:', error);
+  }
+}, 3600000); // 1시간 = 3600000ms
 
 async function listIndices(): Promise<string[]> {
   const result = await makeOpenSearchRequest<OpenSearchIndicesResponse[]>(
@@ -212,15 +229,6 @@ async function listIndices(): Promise<string[]> {
     .filter((item) => item.index && typeof item.index === 'string')
     .map((item) => item.index);
 }
-
-// 1초마다 디스크 용량 체크
-setInterval(async () => {
-  try {
-    await checkDiskUsageAndDeleteOldLogs();
-  } catch (error) {
-    console.error('Error checking disk usage:', error);
-  }
-}, 1000);
 
 // 시스템 메트릭스 관련 함수
 async function getCpuUsage(): Promise<number> {
