@@ -1,5 +1,6 @@
 import {
   Button,
+  ButtonGroup,
   Drawer,
   DrawerBody,
   DrawerCloseButton,
@@ -13,13 +14,17 @@ import {
 
 import { MenuType } from '@/types/project';
 
-export default function MenuSetter({
+interface MenuSetterProps {
+  menu: MenuType;
+  handleSetMenuChange: (menu: MenuType) => void;
+  disabled?: boolean;
+}
+
+const MenuSetter = ({
   menu,
   handleSetMenuChange,
-}: {
-  menu: MenuType;
-  handleSetMenuChange: (e: MenuType) => void;
-}) {
+  disabled,
+}: MenuSetterProps) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const onMenuButtonClick = (e: MenuType) => {
@@ -36,10 +41,15 @@ export default function MenuSetter({
         borderWidth={0}
         borderRadius={4}
         onClick={onOpen}
+        isDisabled={disabled}
+        _disabled={{
+          cursor: 'not-allowed',
+          opacity: 0.6,
+        }}
       >
         {menu}
       </Button>
-      <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
+      <Drawer isOpen={isOpen && !disabled} placement="left" onClose={onClose}>
         <DrawerOverlay />
         <DrawerContent>
           <DrawerCloseButton />
@@ -50,8 +60,13 @@ export default function MenuSetter({
                 fontSize="18px"
                 size="sm"
                 p={4}
-                isDisabled={menu === 'TRAFFIC'}
+                isDisabled={disabled}
                 onClick={() => onMenuButtonClick('TRAFFIC')}
+                colorScheme={menu === 'TRAFFIC' ? 'blue' : 'gray'}
+                _disabled={{
+                  cursor: 'not-allowed',
+                  opacity: 0.6,
+                }}
               >
                 TRAFFIC
               </Button>
@@ -59,8 +74,13 @@ export default function MenuSetter({
                 fontSize="18px"
                 size="sm"
                 p={4}
-                isDisabled={menu === 'THREAT'}
+                isDisabled={disabled}
                 onClick={() => onMenuButtonClick('THREAT')}
+                colorScheme={menu === 'THREAT' ? 'blue' : 'gray'}
+                _disabled={{
+                  cursor: 'not-allowed',
+                  opacity: 0.6,
+                }}
               >
                 THREAT
               </Button>
@@ -68,17 +88,25 @@ export default function MenuSetter({
                 fontSize="18px"
                 size="sm"
                 p={4}
-                isDisabled={menu === 'SYSTEM'}
+                isDisabled={disabled}
                 onClick={() => onMenuButtonClick('SYSTEM')}
+                colorScheme={menu === 'SYSTEM' ? 'blue' : 'gray'}
+                _disabled={{
+                  cursor: 'not-allowed',
+                  opacity: 0.6,
+                }}
               >
                 SYSTEM
               </Button>
             </Flex>
           </DrawerBody>
-
           <DrawerFooter></DrawerFooter>
         </DrawerContent>
       </Drawer>
     </Flex>
   );
-}
+};
+
+MenuSetter.displayName = 'MenuSetter';
+
+export default MenuSetter;
