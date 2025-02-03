@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 
-import { Grid, Text } from '@chakra-ui/react';
+import { Grid } from '@chakra-ui/react';
 
 import { trpc } from '@/lib/trpc/client';
 
@@ -27,35 +27,35 @@ export const DashboardStatics = () => {
   const logsPerSecond = getLogMetrics.data?.logs_per_second;
   const logsPerDay = getLogMetrics.data?.logs_per_day;
 
-  const encryptedCopyright = useMemo(() => {
-    const text = [
-      67, 111, 112, 121, 114, 105, 103, 104, 116, 32, 50, 48, 50, 53, 46, 32,
-      89, 117, 110, 32, 83, 117, 45, 66, 105, 110, 32, 97, 108, 108, 32, 114,
-      105, 103, 104, 116, 115, 32, 114, 101, 115, 101, 114, 118, 101, 100, 46,
-    ];
-    const key = [19, 28, 37, 46, 55, 64, 73, 82, 91];
-    return (
-      text
-        // @ts-expect-error don't want to implement
-        .map((char, i) => String.fromCharCode(char ^ key[i % key.length]))
-        .join('')
-    );
-  }, []);
+  // const encryptedCopyright = useMemo(() => {
+  //   const text = [
+  //     67, 111, 112, 121, 114, 105, 103, 104, 116, 32, 50, 48, 50, 53, 46, 32,
+  //     89, 117, 110, 32, 83, 117, 45, 66, 105, 110, 32, 97, 108, 108, 32, 114,
+  //     105, 103, 104, 116, 115, 32, 114, 101, 115, 101, 114, 118, 101, 100, 46,
+  //   ];
+  //   const key = [19, 28, 37, 46, 55, 64, 73, 82, 91];
+  //   return (
+  //     text
+  //       // @ts-expect-error don't want to implement
+  //       .map((char, i) => String.fromCharCode(char ^ key[i % key.length]))
+  //       .join('')
+  //   );
+  // }, []);
 
-  const warning = useMemo(() => {
-    if (!encryptedCopyright) return '';
-    const text = encryptedCopyright
-      ?.split('')
-      .map((char) => char.charCodeAt(0));
-    const key = [19, 28, 37, 46, 55, 64, 73, 82, 91];
-    if (!text) return '';
-    return (
-      text
-        // @ts-expect-error don't want to implement
-        .map((char, i) => String.fromCharCode(char ^ key[i % key.length]))
-        .join('')
-    );
-  }, [encryptedCopyright]);
+  // const warning = useMemo(() => {
+  //   if (!encryptedCopyright) return '';
+  //   const text = encryptedCopyright
+  //     ?.split('')
+  //     .map((char) => char.charCodeAt(0));
+  //   const key = [19, 28, 37, 46, 55, 64, 73, 82, 91];
+  //   if (!text) return '';
+  //   return (
+  //     text
+  //       // @ts-expect-error don't want to implement
+  //       .map((char, i) => String.fromCharCode(char ^ key[i % key.length]))
+  //       .join('')
+  //   );
+  // }, [encryptedCopyright]);
 
   return (
     <Grid
@@ -90,9 +90,9 @@ export const DashboardStatics = () => {
       <DashboardStaticsCountsPerMonthByDomain
         data={getChartMetrics.data?.domain_monthly_totals ?? []}
       />
-      <Text fontSize="xs" gridColumn="1/-1" textAlign="center" color="gray.500">
+      {/* <Text fontSize="xs" gridColumn="1/-1" textAlign="center" color="gray.500">
         {warning}
-      </Text>
+      </Text> */}
     </Grid>
   );
 };
