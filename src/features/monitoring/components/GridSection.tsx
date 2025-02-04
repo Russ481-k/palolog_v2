@@ -2,7 +2,6 @@ import { memo, useCallback, useRef } from 'react';
 
 import {
   CellClickedEvent,
-  GridApi,
   GridReadyEvent,
   ValueFormatterParams,
 } from 'ag-grid-community';

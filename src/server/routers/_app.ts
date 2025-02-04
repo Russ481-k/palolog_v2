@@ -1,8 +1,11 @@
-import { router } from '../trpc';
-import { downloadRouter } from './download';
+import { createTRPCRouter } from '@/server/config/trpc';
 
-export const appRouter = router({
+import { downloadRouter } from './download';
+import { searchSessionRouter } from './search-sessions';
+
+export const appRouter = createTRPCRouter({
   download: downloadRouter,
+  searchSessions: searchSessionRouter,
 });
 
 export type AppRouter = typeof appRouter;

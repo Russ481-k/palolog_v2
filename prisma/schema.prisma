@@ -25,18 +25,26 @@ enum UserRole {
   ADMIN
 }
 
+enum SearchSessionStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+  ERROR
+}
+
 model User {
-  id             String        @id
+  id             String        @id @default(cuid())
   password       String        @default("$2b$08$Y5DIAN4lvVIpjGjaFPd.nup8F/dQxbyOuWEprW9/p9LWmInveT6Fe")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   name           String?
-  email          String?       @unique
+  email          String        @unique
   accountStatus  AccountStatus @default(NOT_VERIFIED)
   image          String?
   authorizations UserRole[]    @default([APP])
   language       String        @default("en")
   lastLoginAt    DateTime?
+  searchSessions SearchSession[]
 }
 
 model VerificationToken {
@@ -99,4 +107,25 @@ model SystemLicense {
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+model SearchSession {
+  id            String             @id @default(cuid())
+  userId        String
+  clientIp      String
+  userAgent     String
+  searchId      String             @unique
+  status        SearchSessionStatus
+  searchParams  Json
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  lastActivityAt DateTime          @default(now())
+  cancelReason  String?
+
+  user          User               @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([clientIp])
+  @@index([status])
+  @@index([searchId])
 }

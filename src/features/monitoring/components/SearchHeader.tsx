@@ -1,10 +1,12 @@
 import { memo, useEffect } from 'react';
 
 import { Button, Flex, Heading } from '@chakra-ui/react';
+import { useToast } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
 import { Form, FormField } from '@/components/Form';
+import { trpc } from '@/lib/trpc/client';
 import { MenuType } from '@/types/project';
 
 import MenuSetter from '../MenuSetter';
@@ -20,6 +22,7 @@ interface SearchHeaderProps {
     searchTerm: string;
   };
   isLoading: boolean;
+  searchId?: string;
 }
 
 export const SearchHeader = memo(
@@ -29,6 +32,7 @@ export const SearchHeader = memo(
     onSearch,
     defaultValues,
     isLoading,
+    searchId,
   }: SearchHeaderProps) => {
     const form = useForm<FormFieldsPaloLogsParams>({
       mode: 'onSubmit',
@@ -40,6 +44,39 @@ export const SearchHeader = memo(
         searchTerm: defaultValues.searchTerm,
       },
     });
+
+    const toast = useToast();
+
+    const cancelSearchMutation = trpc.projects.cancelSearch.useMutation({
+      onSuccess: () => {
+        toast({
+          title: '검색이 취소되었습니다.',
+          status: 'info',
+          duration: 3000,
+          isClosable: true,
+          position: 'top-right',
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: '검색 취소 중 오류가 발생했습니다.',
+          description: error.message,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+          position: 'top-right',
+        });
+      },
+    });
+
+    const handleCancelSearch = async () => {
+      if (!searchId) return;
+      try {
+        await cancelSearchMutation.mutateAsync({ searchId });
+      } catch (error) {
+        console.error('Failed to cancel search:', error);
+      }
+    };
 
     useEffect(() => {
       if (isLoading) {
@@ -98,17 +135,30 @@ export const SearchHeader = memo(
               name="searchTerm"
               isDisabled={isLoading}
             />
-            <Button
-              type="submit"
-              w="4.5rem"
-              size="xs"
-              borderLeftRadius={0}
-              isDisabled={isLoading}
-              isLoading={isLoading}
-              aria-label="Search"
-            >
-              Search
-            </Button>
+            {isLoading && searchId ? (
+              <Button
+                w="4.5rem"
+                size="xs"
+                borderLeftRadius={0}
+                colorScheme="red"
+                onClick={handleCancelSearch}
+                isLoading={cancelSearchMutation.isLoading}
+              >
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                w="4.5rem"
+                size="xs"
+                borderLeftRadius={0}
+                isDisabled={isLoading}
+                isLoading={isLoading}
+                aria-label="Search"
+              >
+                Search
+              </Button>
+            )}
           </Flex>
         </Flex>
       </Form>

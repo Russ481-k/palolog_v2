@@ -30,6 +30,7 @@ export default function PageProjects() {
   const { colorMode } = useColorMode();
   const toast = useToast();
   const license = useLicense();
+  const cancelSearchMutation = trpc.projects.cancelSearch.useMutation();
 
   const now = dayjs().subtract(1, 'minute').format('YYYY-MM-DD HH:mm:ss');
   const beforeMinuteTime = dayjs()
@@ -271,6 +272,59 @@ export default function PageProjects() {
     }
   }, [isDataLoading]);
 
+  // 페이지 이탈 시 검색 세션 정리
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (searchId && isDataLoading) {
+        try {
+          await cancelSearchMutation.mutateAsync({ searchId });
+        } catch (error) {
+          console.error('Failed to cancel search on page unload:', error);
+        }
+      }
+    };
+
+    const handleVisibilityChange = async () => {
+      if (
+        document.visibilityState === 'hidden' &&
+        searchId &&
+        isDataLoading &&
+        progress.status === 'loading'
+      ) {
+        try {
+          await cancelSearchMutation.mutateAsync({ searchId });
+        } catch (error) {
+          console.error('Failed to cancel search on visibility change:', error);
+        }
+      }
+    };
+
+    // 실제 검색 중일 때만 이벤트 리스너 등록
+    if (isDataLoading && progress.status === 'loading') {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        document.removeEventListener(
+          'visibilitychange',
+          handleVisibilityChange
+        );
+      };
+    }
+
+    return undefined;
+  }, [searchId, isDataLoading, progress.status, cancelSearchMutation]);
+
+  // 컴포넌트 언마운트 시 진행 중인 검색 취소
+  useEffect(() => {
+    return () => {
+      if (searchId && isDataLoading && progress.status === 'loading') {
+        cancelSearchMutation.mutate({ searchId });
+      }
+    };
+  }, [searchId, isDataLoading, progress.status, cancelSearchMutation]);
+
   // 라이센스가 만료된 경우 페이지 렌더링을 막습니다
   if (license?.isExpired) {
     return (
@@ -305,6 +359,7 @@ export default function PageProjects() {
               searchTerm: searchTerm,
             }}
             isLoading={isDataLoading}
+            searchId={searchId}
           />
           <GridSection
             data={data?.pages[0]?.logs ?? []}

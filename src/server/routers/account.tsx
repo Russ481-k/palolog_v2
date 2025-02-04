@@ -87,7 +87,7 @@ export const accountRouter = createTRPCRouter({
         return await ctx.db.user.update({
           where: { id: verificationToken.userId },
           data: {
-            email: input.email,
+            email: { set: input.email || undefined },
             name: input.name,
             authorizations: input.authorizations,
           },

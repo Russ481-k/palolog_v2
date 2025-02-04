@@ -42,19 +42,29 @@ async function generateSystemLicense() {
     const LICENSE_DURATION = env.LICENSE_DURATION || 30;
     const expiresAt = dayjs().add(LICENSE_DURATION, 'day').toDate();
 
-    // 기존 라이센스 비활성화
-    await prisma.systemLicense.updateMany({
-      where: { isActive: true },
-      data: { isActive: false },
+    // 기존 라이센스 확인 및 업데이트 또는 생성
+    const existingLicense = await prisma.systemLicense.findUnique({
+      where: { hardwareHash },
     });
 
-    // 새 라이센스 생성
-    const license = await prisma.systemLicense.create({
-      data: {
-        hardwareHash,
-        expiresAt,
-      },
-    });
+    let license;
+    if (existingLicense) {
+      license = await prisma.systemLicense.update({
+        where: { hardwareHash },
+        data: {
+          expiresAt,
+          isActive: true,
+          lastCheckedAt: new Date(),
+        },
+      });
+    } else {
+      license = await prisma.systemLicense.create({
+        data: {
+          hardwareHash,
+          expiresAt,
+        },
+      });
+    }
 
     console.log('License generated successfully:', {
       id: license.id,
