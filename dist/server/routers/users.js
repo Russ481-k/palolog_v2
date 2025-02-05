@@ -131,8 +131,8 @@ export const usersRouter = createTRPCRouter({
           data: {
             id: input.id,
             password: bcrypt.hashSync(VALIDATION_PASSWORD_MOCKED, 8),
+            email: input.email || input.id,
             name: input.name,
-            email: input.email,
             language: input.language,
             authorizations: input.authorizations,
           },
@@ -229,7 +229,12 @@ export const usersRouter = createTRPCRouter({
       try {
         return await ctx.db.user.update({
           where: { id: input.id },
-          data: input,
+          data: {
+            email: input.email || input.id,
+            name: input.name,
+            language: input.language,
+            authorizations: input.authorizations,
+          },
         });
       } catch (e) {
         throw new ExtendedTRPCError({

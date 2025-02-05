@@ -1,3 +1,5 @@
+import { TRPCError } from '@trpc/server';
+import { randomUUID } from 'crypto';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -15,13 +17,14 @@ import { getCurrentVersion } from '@/utils/version';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-export async function searchOpenSearchWithScroll(
+export async function searchOpenSearchWithScroll({
   searchBody,
   menu,
-  page = 1,
-  size = 100,
-  onProgress
-) {
+  currentPage,
+  limit,
+  searchId,
+  onProgress,
+}) {
   var _a, _b, _c, _d, _e, _f, _g, _h;
   const client = OpenSearchClient.getInstance();
   try {
@@ -120,10 +123,11 @@ export async function searchOpenSearchWithScroll(
     const result = await client.scrollWithPagination({
       index: '*',
       body: modifiedSearchBody,
-      page,
-      pageSize: size,
+      page: currentPage,
+      pageSize: limit,
       scrollTime: '2m',
       size: 1000,
+      searchId,
     });
     if (onProgress) {
       onProgress({
@@ -136,11 +140,11 @@ export async function searchOpenSearchWithScroll(
       initialResponse: {
         hits: {
           total: { value: totalCount },
-          hits: result.hits, // Ensure type compatibility
+          hits: result.hits,
         },
         _scroll_id: result.scrollId || '',
       },
-      scrollResponse: result.hits, // Ensure type compatibility
+      scrollResponse: result.hits,
     };
   } catch (error) {
     console.error('Search error:', error);
@@ -170,7 +174,7 @@ export const projectsRouter = createTRPCRouter({
         scrollId: z.string(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       var _a, _b, _c;
       let loadingStatus = {
         current: 0,
@@ -262,20 +266,40 @@ export const projectsRouter = createTRPCRouter({
             }
           }
         }
-        const result = await searchOpenSearchWithScroll(
+        // 검색 세션 생성
+        const searchSession = await ctx.db.searchSession.create({
+          data: {
+            userId: ctx.user.id,
+            clientIp: ctx.clientIp,
+            userAgent: ctx.userAgent,
+            searchId: randomUUID(),
+            status: 'ACTIVE',
+            searchParams: input,
+          },
+        });
+        const result = await searchOpenSearchWithScroll({
           searchBody,
-          input.menu,
-          input.currentPage,
-          input.limit,
-          (progress) => {
+          menu: input.menu,
+          currentPage: input.currentPage,
+          limit: input.limit,
+          searchId: searchSession.searchId,
+          onProgress: (progress) => {
             loadingStatus = {
               current: progress.current,
               total: progress.total,
               status: progress.status,
             };
-          }
-        );
+          },
+        });
         loadingStatus.status = 'complete';
+        // 검색 완료 시 세션 상태 업데이트
+        await ctx.db.searchSession.update({
+          where: { id: searchSession.id },
+          data: {
+            status: 'COMPLETED',
+            lastActivityAt: new Date(),
+          },
+        });
         const currentVersion = getCurrentVersion();
         const columnNames = getColumnNames(currentVersion);
         return {
@@ -305,7 +329,7 @@ export const projectsRouter = createTRPCRouter({
             )
           ),
           loadingStatus,
-          scrollId: result.initialResponse._scroll_id,
+          scrollId: searchSession.searchId,
         };
       } catch (error) {
         console.error('Query Error:', error);
@@ -325,5 +349,32 @@ export const projectsRouter = createTRPCRouter({
           scrollId: '',
         };
       }
+    }),
+  cancelSearch: protectedProcedure({ authorizations: ['ADMIN'] })
+    .input(z.object({ searchId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await ctx.db.searchSession.findUnique({
+        where: { searchId: input.searchId },
+      });
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: '검색 세션을 찾을 수 없습니다.',
+        });
+      }
+      if (session.userId !== ctx.user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '권한이 없습니다.',
+        });
+      }
+      return ctx.db.searchSession.update({
+        where: { id: session.id },
+        data: {
+          status: 'CANCELLED',
+          lastActivityAt: new Date(),
+          cancelReason: '사용자에 의한 검색 취소',
+        },
+      });
     }),
 });

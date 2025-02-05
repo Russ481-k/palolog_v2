@@ -1,6 +1,5 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
-import { prisma } from '@/server/config/prisma';
 import {
   CreateSearchSessionInput,
   SearchSession,
@@ -8,8 +7,14 @@ import {
 } from '@/types/search-session';
 
 export class SearchSessionService {
+  private prisma: PrismaClient;
+
+  constructor(prismaClient: PrismaClient) {
+    this.prisma = prismaClient;
+  }
+
   async create(input: CreateSearchSessionInput): Promise<SearchSession> {
-    const session = await prisma.searchSession.create({
+    const session = await this.prisma.searchSession.create({
       data: {
         userId: input.userId,
         clientIp: input.clientIp,
@@ -31,7 +36,7 @@ export class SearchSessionService {
     id: string,
     input: UpdateSearchSessionInput
   ): Promise<SearchSession> {
-    const session = await prisma.searchSession.update({
+    const session = await this.prisma.searchSession.update({
       where: { id },
       data: {
         ...input,
@@ -47,7 +52,7 @@ export class SearchSessionService {
   }
 
   async findById(id: string): Promise<SearchSession | null> {
-    const session = await prisma.searchSession.findUnique({
+    const session = await this.prisma.searchSession.findUnique({
       where: { id },
     });
 
@@ -63,17 +68,23 @@ export class SearchSessionService {
   async findBySearchId(searchId: string): Promise<SearchSession | null> {
     console.log(`[SearchSession] Finding session by searchId: ${searchId}`);
 
-    const session = await prisma.$transaction(async (tx) => {
-      const result = await tx.searchSession.findUnique({
-        where: { searchId },
-      });
-      console.log(`[SearchSession] Session lookup result:`, {
-        id: result?.id,
-        status: result?.status,
-        searchId: result?.searchId,
-      });
-      return result;
-    });
+    const session = await this.prisma.$transaction(
+      async (tx) => {
+        const result = await tx.searchSession.findUnique({
+          where: { searchId },
+        });
+        console.log(`[SearchSession] Session lookup result in transaction:`, {
+          id: result?.id,
+          status: result?.status,
+          searchId: result?.searchId,
+          lastActivityAt: result?.lastActivityAt,
+        });
+        return result;
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      }
+    );
 
     if (!session) {
       console.log(`[SearchSession] No session found for searchId: ${searchId}`);
@@ -88,7 +99,7 @@ export class SearchSessionService {
   }
 
   async findActiveByUserId(userId: string): Promise<SearchSession[]> {
-    const sessions = await prisma.searchSession.findMany({
+    const sessions = await this.prisma.searchSession.findMany({
       where: {
         userId,
         status: 'ACTIVE',
@@ -103,11 +114,47 @@ export class SearchSessionService {
   }
 
   async cancelSession(id: string, reason?: string): Promise<SearchSession> {
-    return this.update(id, {
-      status: 'CANCELLED',
-      cancelReason: reason,
-      lastActivityAt: new Date(),
-    });
+    console.log(`[SearchSession] Attempting to cancel session: ${id}`);
+
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        const currentSession = await tx.searchSession.findUnique({
+          where: { id },
+        });
+
+        console.log(`[SearchSession] Current session state before cancel:`, {
+          id: currentSession?.id,
+          status: currentSession?.status,
+          lastActivityAt: currentSession?.lastActivityAt,
+        });
+
+        const updatedSession = await tx.searchSession.update({
+          where: { id },
+          data: {
+            status: 'CANCELLED',
+            cancelReason: reason,
+            lastActivityAt: new Date(),
+          },
+        });
+
+        console.log(`[SearchSession] Session updated to cancelled:`, {
+          id: updatedSession.id,
+          status: updatedSession.status,
+          lastActivityAt: updatedSession.lastActivityAt,
+        });
+
+        return updatedSession;
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      }
+    );
+
+    return {
+      ...result,
+      searchParams:
+        result.searchParams as unknown as SearchSession['searchParams'],
+    };
   }
 
   async cancelSessionBySearchId(
@@ -119,7 +166,7 @@ export class SearchSessionService {
     );
 
     try {
-      return await prisma.$transaction(
+      return await this.prisma.$transaction(
         async (tx) => {
           // 세션 조회 (FOR UPDATE)
           const session = await tx.searchSession.findUnique({
@@ -190,7 +237,7 @@ export class SearchSessionService {
 
   async cleanupInactiveSessions(maxAgeMinutes: number = 30): Promise<number> {
     const cutoffDate = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
-    const result = await prisma.searchSession.deleteMany({
+    const result = await this.prisma.searchSession.deleteMany({
       where: {
         OR: [
           { status: 'COMPLETED' },
@@ -213,10 +260,10 @@ export class SearchSessionService {
     error: number;
   }> {
     const [active, cancelled, completed, error] = await Promise.all([
-      prisma.searchSession.count({ where: { status: 'ACTIVE' } }),
-      prisma.searchSession.count({ where: { status: 'CANCELLED' } }),
-      prisma.searchSession.count({ where: { status: 'COMPLETED' } }),
-      prisma.searchSession.count({ where: { status: 'ERROR' } }),
+      this.prisma.searchSession.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.searchSession.count({ where: { status: 'CANCELLED' } }),
+      this.prisma.searchSession.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.searchSession.count({ where: { status: 'ERROR' } }),
     ]);
 
     return {
@@ -231,7 +278,7 @@ export class SearchSessionService {
     count: number;
     sessions: SearchSession[];
   }> {
-    const sessions = await prisma.searchSession.findMany({
+    const sessions = await this.prisma.searchSession.findMany({
       where: {
         userId,
         status: 'ACTIVE',

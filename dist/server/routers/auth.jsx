@@ -150,12 +150,14 @@ export const authRouter = createTRPCRouter({
       if (!user) {
         try {
           ctx.logger.info('Creating a new user');
+          const hashedPassword = bcrypt.hashSync(VALIDATION_PASSWORD_MOCKED, 8);
           newUser = await ctx.db.user.create({
             data: {
               id: input.id,
-              password: bcrypt.hashSync(VALIDATION_PASSWORD_MOCKED, 8),
+              password: hashedPassword,
               name: input.name,
               language: input.language,
+              email: input.id,
             },
           });
         } catch (e) {

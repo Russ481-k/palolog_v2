@@ -3,10 +3,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 import { SearchSessionService } from '@/server/services/search-session.service';
 
-import { prisma } from '../config/prisma';
-
-const searchSessionService = new SearchSessionService(prisma);
-
+const searchSessionService = new SearchSessionService();
 export const searchSessionRouter = createTRPCRouter({
   create: protectedProcedure({ authorizations: ['ADMIN'] })
     .input(
@@ -26,7 +23,6 @@ export const searchSessionRouter = createTRPCRouter({
       const existingSession = await searchSessionService.findActiveByUserId(
         ctx.user.id
       );
-
       // 기존 활성 세션이 있다면 취소
       if (existingSession.length > 0) {
         await Promise.all(
@@ -38,7 +34,6 @@ export const searchSessionRouter = createTRPCRouter({
           )
         );
       }
-
       return searchSessionService.create({
         userId: ctx.user.id,
         clientIp: ctx.clientIp,
@@ -47,7 +42,6 @@ export const searchSessionRouter = createTRPCRouter({
         searchParams: input.searchParams,
       });
     }),
-
   cancel: protectedProcedure()
     .input(
       z.object({
@@ -60,14 +54,11 @@ export const searchSessionRouter = createTRPCRouter({
       if (!session) {
         throw new Error('검색 세션을 찾을 수 없습니다.');
       }
-
       if (session.userId !== ctx.user.id) {
         throw new Error('권한이 없습니다.');
       }
-
       return searchSessionService.cancelSession(session.id, input.reason);
     }),
-
   getStatus: protectedProcedure({ authorizations: ['ADMIN'] })
     .input(z.object({ searchId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -75,17 +66,14 @@ export const searchSessionRouter = createTRPCRouter({
       if (!session) {
         throw new Error('검색 세션을 찾을 수 없습니다.');
       }
-
       if (session.userId !== ctx.user.id) {
         throw new Error('권한이 없습니다.');
       }
-
       return {
         status: session.status,
         lastActivityAt: session.lastActivityAt,
       };
     }),
-
   cleanup: protectedProcedure({ authorizations: ['ADMIN'] })
     .input(z.object({ maxAgeMinutes: z.number().min(1).default(30) }))
     .mutation(async ({ input }) => {

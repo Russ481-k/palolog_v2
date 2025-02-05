@@ -1,8 +1,12 @@
+import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as https from 'https';
 
 import { env } from '@/env.mjs';
+import { SearchSessionService } from '@/server/services/search-session.service';
 
+const prisma = new PrismaClient();
 export class OpenSearchClient {
   constructor() {
     const opensearchUrl = env.OPENSEARCH_URL.replace('https://', '');
@@ -25,6 +29,7 @@ export class OpenSearchClient {
         : undefined,
       rejectUnauthorized: false,
     };
+    this.searchSessionService = new SearchSessionService();
   }
   static getInstance() {
     if (!OpenSearchClient.instance) {
@@ -147,90 +152,153 @@ export class OpenSearchClient {
     body,
     page,
     pageSize,
-    scrollTime = '1m',
+    scrollTime = '2m',
     size = 1000,
+    searchId,
   }) {
-    var _a, _b, _c, _d;
     let currentScrollId;
+    let shouldStop = false;
     try {
-      const start = (page - 1) * pageSize;
-      const batchesNeeded = Math.floor(start / size);
-      const initialResponse = await this.initScroll({
+      console.log(
+        `[ScrollSearch] Starting search with searchId: ${searchId}, page: ${page}`
+      );
+      const checkSessionStatus = async () => {
+        if (!searchId) return true;
+        console.log(
+          `[ScrollSearch] Checking session status for searchId: ${searchId}`
+        );
+        try {
+          // 세션 서비스를 통해 상태 체크
+          const session = await prisma.$transaction(
+            async (tx) => {
+              return tx.searchSession.findUnique({
+                where: { searchId },
+                select: {
+                  id: true,
+                  status: true,
+                  searchId: true,
+                },
+              });
+            },
+            {
+              isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+              timeout: 3000, // 3초 타임아웃
+            }
+          );
+          console.log(`[ScrollSearch] Session lookup result:`, session);
+          if (!session) {
+            console.log(`[ScrollSearch] Session not found, stopping search`);
+            shouldStop = true;
+            return false;
+          }
+          const isCancelled = session.status !== 'ACTIVE';
+          if (isCancelled) {
+            console.log(
+              `[ScrollSearch] Search cancelled or completed - SessionId: ${session.id}, Status: ${session.status}`
+            );
+            shouldStop = true;
+            if (currentScrollId) {
+              console.log(
+                `[ScrollSearch] Clearing scroll ID: ${currentScrollId}`
+              );
+              try {
+                await this.clearScroll(currentScrollId);
+                console.log('[ScrollSearch] Successfully cleared scroll');
+              } catch (error) {
+                console.error('[ScrollSearch] Error clearing scroll:', error);
+              } finally {
+                currentScrollId = undefined;
+              }
+            }
+            return false;
+          }
+          return true;
+        } catch (error) {
+          console.error('[ScrollSearch] Error checking session status:', error);
+          shouldStop = true;
+          return false;
+        }
+      };
+      // 초기 세션 상태 확인
+      if (!(await checkSessionStatus())) {
+        console.log(
+          '[ScrollSearch] Initial session check failed, stopping search'
+        );
+        return { hits: [], total: 0, scrollId: undefined };
+      }
+      // 초기 검색
+      console.log('[ScrollSearch] Initiating initial scroll search');
+      const response = await this.initScroll({
         index,
-        body: Object.assign(Object.assign({}, body), {
-          size,
-          track_total_hits: true,
-        }),
+        body,
         scrollTime,
         size,
       });
-      let results = [...initialResponse.hits.hits];
-      currentScrollId = initialResponse._scroll_id;
-      // 필요한 배치만큼 스크롤
-      for (let i = 0; i < batchesNeeded && currentScrollId; i++) {
+      currentScrollId = response._scroll_id;
+      let hits = response.hits.hits;
+      const total = response.hits.total.value;
+      // 검색이 취소된 경우 즉시 리소스 정리 후 반환
+      if (!(await checkSessionStatus())) {
+        return { hits: [], total: 0, scrollId: undefined };
+      }
+      // 현재 페이지에 도달할 때까지 스크롤
+      const targetPage = page;
+      let currentPage = 1;
+      let allHits = [...hits];
+      while (currentPage < targetPage && hits.length > 0 && !shouldStop) {
+        // 매 스크롤 요청 전에 상태 확인
+        if (!(await checkSessionStatus())) {
+          console.log('[ScrollSearch] Session is not active, stopping scroll');
+          return { hits: [], total: 0, scrollId: undefined };
+        }
         try {
-          const response = await this.scroll(currentScrollId, scrollTime);
-          if (
-            !((_b =
-              (_a =
-                response === null || response === void 0
-                  ? void 0
-                  : response.hits) === null || _a === void 0
-                ? void 0
-                : _a.hits) === null || _b === void 0
-              ? void 0
-              : _b.length)
-          )
+          if (!currentScrollId) {
+            console.log('[ScrollSearch] No scroll ID available, stopping');
             break;
-          results = response.hits.hits;
-          currentScrollId = response._scroll_id;
-        } catch (scrollError) {
-          console.error('Scroll operation failed:', scrollError);
-          break;
-        }
-      }
-      // 현재 배치에서 필요한 부분 추출
-      const offsetInBatch = start % size;
-      let pageResults = results.slice(offsetInBatch, offsetInBatch + pageSize);
-      // 현재 배치에서 부족한 경우 다음 배치 가져오기
-      if (pageResults.length < pageSize && currentScrollId) {
-        try {
-          const response = await this.scroll(currentScrollId, scrollTime);
-          if (
-            (_d =
-              (_c =
-                response === null || response === void 0
-                  ? void 0
-                  : response.hits) === null || _c === void 0
-                ? void 0
-                : _c.hits) === null || _d === void 0
-              ? void 0
-              : _d.length
-          ) {
-            const remaining = pageSize - pageResults.length;
-            pageResults = [
-              ...pageResults,
-              ...response.hits.hits.slice(0, remaining),
-            ];
           }
-        } catch (scrollError) {
-          console.error('Additional scroll operation failed:', scrollError);
+          const scrollResponse = await this.scroll(currentScrollId, scrollTime);
+          hits = scrollResponse.hits.hits;
+          currentScrollId = scrollResponse._scroll_id;
+          // 스크롤 응답 후에도 상태 확인
+          if (!(await checkSessionStatus())) {
+            console.log(
+              '[ScrollSearch] Session cancelled after scroll response'
+            );
+            return { hits: [], total: 0, scrollId: undefined };
+          }
+          if (!scrollResponse.hits.hits.length) {
+            console.log('[ScrollSearch] No more hits, stopping scroll');
+            break;
+          }
+          allHits = [...allHits, ...hits];
+          currentPage++;
+        } catch (error) {
+          console.error('[ScrollSearch] Scroll request failed:', error);
+          shouldStop = true;
+          throw error;
         }
       }
+      if (shouldStop) {
+        console.log('[ScrollSearch] Search stopped or cancelled');
+        return { hits: [], total: 0, scrollId: undefined };
+      }
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      const paginatedHits = allHits.slice(start, Math.min(end, allHits.length));
       return {
-        hits: pageResults,
-        total: initialResponse.hits.total.value,
+        hits: paginatedHits,
+        total,
         scrollId: currentScrollId,
       };
     } catch (error) {
-      console.error('Paginated scroll search error:', error);
+      console.error('[ScrollSearch] Search error:', error);
       throw error;
     } finally {
       if (currentScrollId) {
         try {
           await this.clearScroll(currentScrollId);
-        } catch (clearError) {
-          console.warn('Failed to clear scroll context:', clearError);
+        } catch (error) {
+          console.error('[ScrollSearch] Error in final cleanup:', error);
         }
       }
     }

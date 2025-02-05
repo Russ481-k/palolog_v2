@@ -24,13 +24,33 @@ import { logger } from '@/server/config/logger';
  *
  * @see https://trpc.io/docs/context
  */
-export const createTRPCContext = async ({ req }) => {
-  const user = await getServerAuthSession();
+export const createTRPCContext = async (opts) => {
+  const { req } = opts;
+  const session = await getServerAuthSession();
   const apiType = new URL(req.url).pathname.startsWith('/api/rest')
     ? 'REST'
     : 'TRPC';
+  // Request에서 IP와 User Agent 정보 추출
+  const forwardedFor =
+    req.headers instanceof Headers
+      ? req.headers.get('x-forwarded-for')
+      : Array.isArray(req.headers['x-forwarded-for'])
+        ? req.headers['x-forwarded-for'][0]
+        : req.headers['x-forwarded-for'];
+  const userAgent =
+    req.headers instanceof Headers
+      ? req.headers.get('user-agent')
+      : req.headers['user-agent'];
   return {
-    user,
+    user: session,
+    clientIp:
+      (forwardedFor === null || forwardedFor === void 0
+        ? void 0
+        : forwardedFor.toString()) || '',
+    userAgent:
+      (userAgent === null || userAgent === void 0
+        ? void 0
+        : userAgent.toString()) || '',
     apiType,
     logger,
     db,
