@@ -466,7 +466,7 @@ export const projectsRouter = createTRPCRouter({
         timestamp: new Date().toISOString(),
       });
 
-      const session = await ctx.db.$transaction(
+      return ctx.db.$transaction(
         async (tx) => {
           const currentSession = await tx.searchSession.findUnique({
             where: { searchId: input.searchId },
@@ -537,7 +537,5 @@ export const projectsRouter = createTRPCRouter({
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         }
       );
-
-      return session;
     }),
 });

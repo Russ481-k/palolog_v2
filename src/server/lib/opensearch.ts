@@ -1,5 +1,3 @@
-import { PrismaClient } from '@prisma/client';
-import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as https from 'https';
 
