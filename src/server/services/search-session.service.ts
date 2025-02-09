@@ -72,30 +72,64 @@ export class SearchSessionService {
       async (tx) => {
         const result = await tx.searchSession.findUnique({
           where: { searchId },
+          select: {
+            id: true,
+            userId: true,
+            clientIp: true,
+            userAgent: true,
+            searchId: true,
+            status: true,
+            searchParams: true,
+            createdAt: true,
+            updatedAt: true,
+            lastActivityAt: true,
+            cancelReason: true,
+          },
         });
-        console.log(`[SearchSession] Session lookup result in transaction:`, {
-          id: result?.id,
-          status: result?.status,
-          searchId: result?.searchId,
-          lastActivityAt: result?.lastActivityAt,
+
+        if (!result) {
+          console.log(
+            `[SearchSession] No session found for searchId: ${searchId}`
+          );
+          return null;
+        }
+
+        // 상태가 CANCELLED로 변경되었는지 한번 더 확인
+        const latestStatus = await tx.searchSession.findUnique({
+          where: { id: result.id },
+          select: { status: true },
         });
+
+        if (latestStatus?.status !== result.status) {
+          console.log(
+            `[SearchSession] Session status changed during transaction:`,
+            {
+              from: result.status,
+              to: latestStatus?.status,
+            }
+          );
+          return {
+            ...result,
+            status: latestStatus?.status,
+          };
+        }
+
         return result;
       },
       {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        maxWait: 2000,
       }
     );
 
-    if (!session) {
-      console.log(`[SearchSession] No session found for searchId: ${searchId}`);
-      return null;
-    }
-
-    return {
-      ...session,
-      searchParams:
-        session.searchParams as unknown as SearchSession['searchParams'],
-    };
+    return session
+      ? {
+          ...session,
+          searchParams:
+            session.searchParams as unknown as SearchSession['searchParams'],
+          status: session.status ?? 'ERROR',
+        }
+      : null;
   }
 
   async findActiveByUserId(userId: string): Promise<SearchSession[]> {

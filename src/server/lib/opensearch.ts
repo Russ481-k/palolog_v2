@@ -40,6 +40,7 @@ export interface ScrollSearchOptions {
   body: object;
   scrollTime?: string;
   size?: number;
+  sessionId: string;
 }
 
 export interface PaginatedScrollOptions extends ScrollSearchOptions {
@@ -74,6 +75,7 @@ export class OpenSearchClient {
   private static instance: OpenSearchClient;
   private readonly baseOptions: https.RequestOptions;
   private searchSessionService: SearchSessionService;
+  private activeScrolls: Map<string, string>; // sessionId -> scrollId 매핑
 
   private constructor() {
     const opensearchUrl = env.OPENSEARCH_URL.replace('https://', '');
@@ -99,6 +101,7 @@ export class OpenSearchClient {
     };
 
     this.searchSessionService = new SearchSessionService(prisma);
+    this.activeScrolls = new Map();
   }
 
   public static getInstance(): OpenSearchClient {
@@ -132,6 +135,7 @@ export class OpenSearchClient {
         method,
         hostname: options.hostname,
         port: options.port,
+        searchId: (body as { scroll_id?: string })?.scroll_id || 'N/A',
       });
 
       const req = https.request(options, (res) => {
@@ -178,21 +182,68 @@ export class OpenSearchClient {
     body,
     scrollTime = '1m',
     size = 1000,
-  }: ScrollSearchOptions): Promise<OpenSearchResponse> {
+    sessionId, // 세션 ID 추가
+  }: ScrollSearchOptions & { sessionId: string }): Promise<OpenSearchResponse> {
     const path = `/${index}/_search?scroll=${scrollTime}&size=${size}`;
-    return this.request<OpenSearchResponse>({
+    const response = await this.request<OpenSearchResponse>({
       path,
       method: 'POST',
       body,
     });
+
+    if (sessionId && response._scroll_id) {
+      this.activeScrolls.set(sessionId, response._scroll_id);
+      console.log(
+        `[ScrollSearch] Initialized scroll for session ${sessionId} with scroll ID ${response._scroll_id}`
+      );
+    }
+
+    return response;
+  }
+
+  // 스크롤 종료
+  async clearScroll(sessionId: string): Promise<{ succeeded: boolean }> {
+    try {
+      const scrollId = this.activeScrolls.get(sessionId);
+      if (!scrollId) {
+        console.log(
+          `[ScrollSearch] No active scroll found for session ${sessionId}`
+        );
+        return { succeeded: false };
+      }
+
+      console.log(
+        `[ScrollSearch] Clearing scroll for session ${sessionId} with scroll ID ${scrollId}`
+      );
+
+      await this.request({
+        path: '/_search/scroll',
+        method: 'DELETE',
+        body: {
+          scroll_id: scrollId,
+        },
+      });
+
+      this.activeScrolls.delete(sessionId);
+      console.log(`[ScrollSearch] Cleared scroll for session ${sessionId}`);
+      return { succeeded: true };
+    } catch (error) {
+      console.error('[ScrollSearch] Failed to clear scroll:', error);
+      return { succeeded: false };
+    }
   }
 
   // 스크롤 계속
   async scroll(
     scrollId: string,
-    scrollTime = '1m'
+    scrollTime = '1m',
+    sessionId?: string
   ): Promise<OpenSearchResponse> {
-    return this.request<OpenSearchResponse>({
+    console.log(
+      `[ScrollSearch] Continuing scroll for session ${sessionId} with scroll ID ${scrollId}`
+    );
+
+    const response = await this.request<OpenSearchResponse>({
       path: '/_search/scroll',
       method: 'POST',
       body: {
@@ -200,46 +251,46 @@ export class OpenSearchClient {
         scroll_id: scrollId,
       },
     });
-  }
 
-  // 스크롤 종료
-  async clearScroll(scrollId: string): Promise<{ succeeded: boolean }> {
-    try {
-      if (!scrollId) {
-        return { succeeded: false };
-      }
-
-      await this.request({
-        path: `/_search/scroll/${scrollId}`,
-        method: 'DELETE',
-      });
-
-      return { succeeded: true };
-    } catch (error) {
-      console.error('Failed to clear scroll context:', error);
-      return { succeeded: false };
+    if (sessionId && response._scroll_id) {
+      this.activeScrolls.set(sessionId, response._scroll_id);
+      console.log(
+        `[ScrollSearch] Updated scroll ID for session ${sessionId}: ${response._scroll_id}`
+      );
     }
+
+    return response;
   }
 
   // 전체 결과를 가져오는 헬퍼 메서드
   async scrollAll(options: ScrollSearchOptions): Promise<OpenSearchHit[]> {
     try {
-      const initialResponse = await this.initScroll(options);
+      const initialResponse = await this.initScroll({
+        ...options,
+        sessionId: options.sessionId,
+      });
       let results = [...initialResponse.hits.hits];
-      let scrollId = initialResponse._scroll_id;
+      let currentScrollId = initialResponse._scroll_id;
 
       while (true) {
-        const response = await this.scroll(scrollId);
+        const response = await this.scroll(
+          currentScrollId,
+          options.scrollTime,
+          options.sessionId
+        );
         if (!response.hits.hits.length) break;
 
         results = [...results, ...response.hits.hits];
-        scrollId = response._scroll_id;
+        currentScrollId = response._scroll_id;
       }
 
-      await this.clearScroll(scrollId);
+      await this.clearScroll(options.sessionId);
       return results;
     } catch (error) {
       console.error('Scroll search error:', error);
+      if (options.sessionId) {
+        await this.clearScroll(options.sessionId);
+      }
       throw error;
     }
   }
@@ -260,165 +311,106 @@ export class OpenSearchClient {
     pageSize: number;
     scrollTime?: string;
     size?: number;
-    searchId?: string;
+    searchId: string;
   }): Promise<ScrollResponse> {
     let currentScrollId: string | undefined;
     let shouldStop = false;
+    let lastCheckTime = 0;
+    const CHECK_INTERVAL = 500; // 0.5초마다 상태 확인하도록 변경
 
     const checkSessionStatus = async () => {
+      const now = Date.now();
+      if (now - lastCheckTime < CHECK_INTERVAL) {
+        return !shouldStop; // 이미 중지 신호가 있으면 false 반환
+      }
+
       if (!searchId) return true;
 
       try {
         const session =
           await this.searchSessionService.findBySearchId(searchId);
-        console.log('[ScrollSearch] Session check result:', {
-          searchId,
-          status: session?.status,
-          exists: !!session,
-          lastActivityAt: session?.lastActivityAt,
-          currentTime: new Date().toISOString(),
-          checkPoint: new Error().stack?.split('\n')[2],
-        });
+        lastCheckTime = now;
 
-        if (!session || session.status !== 'ACTIVE') {
-          console.log(`[ScrollSearch] Session ${searchId} is not active:`, {
-            status: session?.status,
-            lastCheck: new Date().toISOString(),
-            reason: !session ? 'Session not found' : 'Status not active',
-          });
+        if (!session) {
+          console.log(`[ScrollSearch] Session ${searchId} not found`);
           shouldStop = true;
           return false;
         }
 
+        if (session.status !== 'ACTIVE') {
+          console.log(
+            `[ScrollSearch] Session ${searchId} status changed to ${session.status}`
+          );
+          shouldStop = true;
+
+          if (currentScrollId) {
+            await this.clearScroll(searchId).catch((error) => {
+              console.error('[ScrollSearch] Failed to clear scroll:', error);
+            });
+          }
+          return false;
+        }
+
+        // 세션 활성 시간 업데이트
+        await this.searchSessionService.update(session.id, {
+          lastActivityAt: new Date(),
+        });
+
         return true;
       } catch (error) {
-        console.error('[ScrollSearch] Error checking session status:', {
-          error,
-          searchId,
-          timestamp: new Date().toISOString(),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
+        console.error('[ScrollSearch] Error checking session status:', error);
         shouldStop = true;
         return false;
       }
     };
 
     try {
-      // 초기 세션 상태 확인
+      // 초기 검색 전 세션 상태 확인
       if (!(await checkSessionStatus())) {
-        console.log('[ScrollSearch] Initial session check failed');
         return { hits: [], total: 0, scrollId: undefined };
       }
 
-      console.log('[ScrollSearch] Search request:', {
+      const response = await this.initScroll({
         index,
-        body: JSON.stringify(body, null, 2),
-        page,
-        pageSize,
-      });
-
-      // 초기 검색
-      console.log('[ScrollSearch] Initiating initial scroll search');
-      const response = await this.request<OpenSearchResponse>({
-        path: `/${index}/_search?scroll=${scrollTime}&size=${size}`,
-        method: 'POST',
         body,
-      });
-
-      // 초기 응답 후 즉시 세션 상태 재확인
-      if (!(await checkSessionStatus())) {
-        console.log('[ScrollSearch] Session cancelled after initial response');
-        return { hits: [], total: 0, scrollId: undefined };
-      }
-
-      console.log('[ScrollSearch] Initial response:', {
-        total: response.hits.total.value,
-        hitsLength: response.hits.hits.length,
-        scrollId: response._scroll_id,
+        scrollTime,
+        size,
+        sessionId: searchId,
       });
 
       currentScrollId = response._scroll_id;
       let hits = response.hits.hits;
       const total = response.hits.total.value;
-
-      // 현재 페이지에 도달할 때까지 스크롤
-      const targetPage = page;
-      let currentPage = 1;
       let allHits: OpenSearchHit[] = [...hits];
 
-      while (currentPage < targetPage && hits.length > 0 && !shouldStop) {
-        // 매 스크롤 전 세션 상태 확인
-        if (!(await checkSessionStatus())) {
-          console.log('[ScrollSearch] Session check failed during scroll');
+      // 매 스크롤마다 세션 상태 확인
+      while (hits.length > 0 && allHits.length < page * pageSize) {
+        // 상태 체크 먼저 수행
+        const isActive = await checkSessionStatus();
+        if (!isActive || shouldStop) {
+          console.log(
+            '[ScrollSearch] Session became inactive, stopping scroll'
+          );
+          await this.clearScroll(searchId);
           return { hits: [], total: 0, scrollId: undefined };
         }
 
-        try {
-          if (!currentScrollId) {
-            console.log('[ScrollSearch] No scroll ID available, stopping');
-            break;
-          }
-
-          const scrollResponse = await this.scroll(currentScrollId, scrollTime);
-
-          // 스크롤 응답 후 즉시 세션 상태 재확인
-          if (!(await checkSessionStatus())) {
-            console.log('[ScrollSearch] Session cancelled during scroll');
-            return { hits: [], total: 0, scrollId: undefined };
-          }
-
-          console.log('[ScrollSearch] Scroll response:', {
-            page: currentPage + 1,
-            hitsLength: scrollResponse.hits.hits.length,
-            scrollId: scrollResponse._scroll_id,
-          });
-
-          hits = scrollResponse.hits.hits;
-          currentScrollId = scrollResponse._scroll_id;
-
-          if (!scrollResponse.hits.hits.length) {
-            console.log('[ScrollSearch] No more hits, stopping scroll');
-            break;
-          }
-
-          allHits = [...allHits, ...hits];
-          currentPage++;
-
-          // 매 50건마다 세션 상태 재확인 (더 자주 체크)
-          if (allHits.length % 5 === 0 && !(await checkSessionStatus())) {
-            console.log('[ScrollSearch] Session cancelled during batch check');
-            return { hits: [], total: 0, scrollId: undefined };
-          }
-        } catch (error) {
-          console.error('[ScrollSearch] Scroll request failed:', error);
-          shouldStop = true;
-          throw error;
-        }
-      }
-
-      if (shouldStop) {
-        console.log('[ScrollSearch] Search was cancelled');
-        return { hits: [], total: 0, scrollId: undefined };
-      }
-
-      // 최종 결과 반환 전 마지막 상태 체크
-      if (!(await checkSessionStatus())) {
-        console.log(
-          '[ScrollSearch] Session cancelled before returning results'
+        // 스크롤 요청 수행
+        const scrollResponse = await this.scroll(
+          currentScrollId!,
+          scrollTime,
+          searchId
         );
-        return { hits: [], total: 0, scrollId: undefined };
+        currentScrollId = scrollResponse._scroll_id;
+        hits = scrollResponse.hits.hits;
+        if (!hits.length) break;
+
+        allHits = [...allHits, ...hits];
       }
 
       const start = (page - 1) * pageSize;
       const end = start + pageSize;
       const paginatedHits = allHits.slice(start, Math.min(end, allHits.length));
-
-      console.log('[ScrollSearch] Final result:', {
-        totalHits: allHits.length,
-        paginatedHitsLength: paginatedHits.length,
-        start,
-        end,
-      });
 
       return {
         hits: paginatedHits,
@@ -427,15 +419,8 @@ export class OpenSearchClient {
       };
     } catch (error) {
       console.error('[ScrollSearch] Search error:', error);
+      await this.clearScroll(searchId);
       throw error;
-    } finally {
-      if (currentScrollId) {
-        try {
-          await this.clearScroll(currentScrollId);
-        } catch (error) {
-          console.error('[ScrollSearch] Error in final cleanup:', error);
-        }
-      }
     }
   }
 }

@@ -36,7 +36,7 @@ interface ProjectsFooterProps {
   loadingProgress?: {
     current: number;
     total: number;
-    status: 'ready' | 'loading' | 'complete' | 'error';
+    status: 'ready' | 'loading' | 'complete' | 'error' | 'cancelled';
   };
 }
 

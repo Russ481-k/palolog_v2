@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '@/server/config/trpc';
 import { SearchSessionService } from '@/server/services/search-session.service';
 
-const searchSessionService = new SearchSessionService();
+import { prisma } from '../config/prisma';
+
+const searchSessionService = new SearchSessionService(prisma);
 export const searchSessionRouter = createTRPCRouter({
   create: protectedProcedure({ authorizations: ['ADMIN'] })
     .input(

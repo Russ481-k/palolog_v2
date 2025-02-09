@@ -1,12 +1,11 @@
-import { PrismaClient } from '@prisma/client';
-import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as https from 'https';
 
 import { env } from '@/env.mjs';
+import { prisma } from '@/server/config/prisma';
+// 공유 Prisma 인스턴스 사용
 import { SearchSessionService } from '@/server/services/search-session.service';
 
-const prisma = new PrismaClient();
 export class OpenSearchClient {
   constructor() {
     const opensearchUrl = env.OPENSEARCH_URL.replace('https://', '');
@@ -29,7 +28,7 @@ export class OpenSearchClient {
         : undefined,
       rejectUnauthorized: false,
     };
-    this.searchSessionService = new SearchSessionService();
+    this.searchSessionService = new SearchSessionService(prisma);
   }
   static getInstance() {
     if (!OpenSearchClient.instance) {
@@ -158,97 +157,89 @@ export class OpenSearchClient {
   }) {
     let currentScrollId;
     let shouldStop = false;
-    try {
-      console.log(
-        `[ScrollSearch] Starting search with searchId: ${searchId}, page: ${page}`
-      );
-      const checkSessionStatus = async () => {
-        if (!searchId) return true;
-        console.log(
-          `[ScrollSearch] Checking session status for searchId: ${searchId}`
-        );
-        try {
-          // 세션 서비스를 통해 상태 체크
-          const session = await prisma.$transaction(
-            async (tx) => {
-              return tx.searchSession.findUnique({
-                where: { searchId },
-                select: {
-                  id: true,
-                  status: true,
-                  searchId: true,
-                },
-              });
-            },
-            {
-              isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-              timeout: 3000, // 3초 타임아웃
-            }
-          );
-          console.log(`[ScrollSearch] Session lookup result:`, session);
-          if (!session) {
-            console.log(`[ScrollSearch] Session not found, stopping search`);
-            shouldStop = true;
-            return false;
-          }
-          const isCancelled = session.status !== 'ACTIVE';
-          if (isCancelled) {
-            console.log(
-              `[ScrollSearch] Search cancelled or completed - SessionId: ${session.id}, Status: ${session.status}`
-            );
-            shouldStop = true;
-            if (currentScrollId) {
-              console.log(
-                `[ScrollSearch] Clearing scroll ID: ${currentScrollId}`
-              );
-              try {
-                await this.clearScroll(currentScrollId);
-                console.log('[ScrollSearch] Successfully cleared scroll');
-              } catch (error) {
-                console.error('[ScrollSearch] Error clearing scroll:', error);
-              } finally {
-                currentScrollId = undefined;
-              }
-            }
-            return false;
-          }
-          return true;
-        } catch (error) {
-          console.error('[ScrollSearch] Error checking session status:', error);
+    const checkSessionStatus = async () => {
+      var _a;
+      if (!searchId) return true;
+      try {
+        const session =
+          await this.searchSessionService.findBySearchId(searchId);
+        console.log('[ScrollSearch] Session check result:', {
+          searchId,
+          status:
+            session === null || session === void 0 ? void 0 : session.status,
+          exists: !!session,
+          lastActivityAt:
+            session === null || session === void 0
+              ? void 0
+              : session.lastActivityAt,
+          currentTime: new Date().toISOString(),
+          checkPoint:
+            (_a = new Error().stack) === null || _a === void 0
+              ? void 0
+              : _a.split('\n')[2],
+        });
+        if (!session || session.status !== 'ACTIVE') {
+          console.log(`[ScrollSearch] Session ${searchId} is not active:`, {
+            status:
+              session === null || session === void 0 ? void 0 : session.status,
+            lastCheck: new Date().toISOString(),
+            reason: !session ? 'Session not found' : 'Status not active',
+          });
           shouldStop = true;
           return false;
         }
-      };
+        return true;
+      } catch (error) {
+        console.error('[ScrollSearch] Error checking session status:', {
+          error,
+          searchId,
+          timestamp: new Date().toISOString(),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        shouldStop = true;
+        return false;
+      }
+    };
+    try {
       // 초기 세션 상태 확인
       if (!(await checkSessionStatus())) {
-        console.log(
-          '[ScrollSearch] Initial session check failed, stopping search'
-        );
+        console.log('[ScrollSearch] Initial session check failed');
         return { hits: [], total: 0, scrollId: undefined };
       }
+      console.log('[ScrollSearch] Search request:', {
+        index,
+        body: JSON.stringify(body, null, 2),
+        page,
+        pageSize,
+      });
       // 초기 검색
       console.log('[ScrollSearch] Initiating initial scroll search');
-      const response = await this.initScroll({
-        index,
+      const response = await this.request({
+        path: `/${index}/_search?scroll=${scrollTime}&size=${size}`,
+        method: 'POST',
         body,
-        scrollTime,
-        size,
+      });
+      // 초기 응답 후 즉시 세션 상태 재확인
+      if (!(await checkSessionStatus())) {
+        console.log('[ScrollSearch] Session cancelled after initial response');
+        return { hits: [], total: 0, scrollId: undefined };
+      }
+      console.log('[ScrollSearch] Initial response:', {
+        total: response.hits.total.value,
+        hitsLength: response.hits.hits.length,
+        scrollId: response._scroll_id,
       });
       currentScrollId = response._scroll_id;
       let hits = response.hits.hits;
       const total = response.hits.total.value;
-      // 검색이 취소된 경우 즉시 리소스 정리 후 반환
-      if (!(await checkSessionStatus())) {
-        return { hits: [], total: 0, scrollId: undefined };
-      }
       // 현재 페이지에 도달할 때까지 스크롤
       const targetPage = page;
       let currentPage = 1;
       let allHits = [...hits];
       while (currentPage < targetPage && hits.length > 0 && !shouldStop) {
-        // 매 스크롤 요청 전에 상태 확인
+        // 매 스크롤 전 세션 상태 확인
         if (!(await checkSessionStatus())) {
-          console.log('[ScrollSearch] Session is not active, stopping scroll');
+          console.log('[ScrollSearch] Session check failed during scroll');
           return { hits: [], total: 0, scrollId: undefined };
         }
         try {
@@ -257,21 +248,29 @@ export class OpenSearchClient {
             break;
           }
           const scrollResponse = await this.scroll(currentScrollId, scrollTime);
-          hits = scrollResponse.hits.hits;
-          currentScrollId = scrollResponse._scroll_id;
-          // 스크롤 응답 후에도 상태 확인
+          // 스크롤 응답 후 즉시 세션 상태 재확인
           if (!(await checkSessionStatus())) {
-            console.log(
-              '[ScrollSearch] Session cancelled after scroll response'
-            );
+            console.log('[ScrollSearch] Session cancelled during scroll');
             return { hits: [], total: 0, scrollId: undefined };
           }
+          console.log('[ScrollSearch] Scroll response:', {
+            page: currentPage + 1,
+            hitsLength: scrollResponse.hits.hits.length,
+            scrollId: scrollResponse._scroll_id,
+          });
+          hits = scrollResponse.hits.hits;
+          currentScrollId = scrollResponse._scroll_id;
           if (!scrollResponse.hits.hits.length) {
             console.log('[ScrollSearch] No more hits, stopping scroll');
             break;
           }
           allHits = [...allHits, ...hits];
           currentPage++;
+          // 매 50건마다 세션 상태 재확인 (더 자주 체크)
+          if (allHits.length % 5 === 0 && !(await checkSessionStatus())) {
+            console.log('[ScrollSearch] Session cancelled during batch check');
+            return { hits: [], total: 0, scrollId: undefined };
+          }
         } catch (error) {
           console.error('[ScrollSearch] Scroll request failed:', error);
           shouldStop = true;
@@ -279,12 +278,25 @@ export class OpenSearchClient {
         }
       }
       if (shouldStop) {
-        console.log('[ScrollSearch] Search stopped or cancelled');
+        console.log('[ScrollSearch] Search was cancelled');
+        return { hits: [], total: 0, scrollId: undefined };
+      }
+      // 최종 결과 반환 전 마지막 상태 체크
+      if (!(await checkSessionStatus())) {
+        console.log(
+          '[ScrollSearch] Session cancelled before returning results'
+        );
         return { hits: [], total: 0, scrollId: undefined };
       }
       const start = (page - 1) * pageSize;
       const end = start + pageSize;
       const paginatedHits = allHits.slice(start, Math.min(end, allHits.length));
+      console.log('[ScrollSearch] Final result:', {
+        totalHits: allHits.length,
+        paginatedHitsLength: paginatedHits.length,
+        start,
+        end,
+      });
       return {
         hits: paginatedHits,
         total,

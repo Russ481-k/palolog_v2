@@ -166,7 +166,7 @@ export async function searchOpenSearchWithScroll({
       pageSize: limit,
       scrollTime: '2m',
       size: 1000,
-      searchId,
+      searchId: searchId || '',
     });
 
     if (onProgress) {
@@ -229,7 +229,7 @@ export const projectsRouter = createTRPCRouter({
         console.log('[Search] Creating new search session with ID:', sessionId);
 
         const searchSession = await ctx.db.$transaction(async (tx) => {
-          // 기존 활성 세션이 있다면 취소
+          // 기존 활성 세션이 있다면 상태 확인
           const activeSessions = await tx.searchSession.findMany({
             where: {
               userId: ctx.user.id,
@@ -237,15 +237,20 @@ export const projectsRouter = createTRPCRouter({
             },
           });
 
-          if (activeSessions.length > 0) {
+          // COMPLETED 상태의 세션은 취소하지 않음
+          const sessionsToCancel = activeSessions.filter(
+            (session) => session.status === 'ACTIVE'
+          );
+
+          if (sessionsToCancel.length > 0) {
             console.log(
-              '[Search] Cancelling existing active sessions:',
-              activeSessions.map((s) => s.searchId)
+              '[Search] Cancelling active sessions:',
+              sessionsToCancel.map((s) => s.searchId)
             );
             await tx.searchSession.updateMany({
               where: {
                 id: {
-                  in: activeSessions.map((s) => s.id),
+                  in: sessionsToCancel.map((s) => s.id),
                 },
               },
               data: {
@@ -388,6 +393,11 @@ export const projectsRouter = createTRPCRouter({
               code: 'INTERNAL_SERVER_ERROR',
               message: '검색 세션을 찾을 수 없습니다.',
             });
+          }
+
+          // 이미 COMPLETED 상태인 경우 업데이트하지 않음
+          if (session.status === 'COMPLETED') {
+            return session;
           }
 
           return tx.searchSession.update({

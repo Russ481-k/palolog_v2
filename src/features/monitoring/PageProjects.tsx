@@ -49,7 +49,7 @@ export default function PageProjects() {
     progress: number;
     current: number;
     total: number;
-    status: 'ready' | 'loading' | 'complete' | 'error';
+    status: 'ready' | 'loading' | 'complete' | 'error' | 'cancelled';
   }>({
     progress: 0,
     current: 0,
@@ -68,6 +68,7 @@ export default function PageProjects() {
       limit,
     },
     {
+      enabled: progress.status !== 'cancelled',
       onSuccess: (data) => {
         console.log('[PageProjects] OpenSearch response:', data);
         const metaScrollId = data.pages[0]?.scrollId;
@@ -88,12 +89,13 @@ export default function PageProjects() {
         }
       },
       onSettled: () => {
-        setProgress({
+        setProgress((prev) => ({
+          ...prev,
           progress: 100,
           current: 0,
           total: 0,
-          status: 'complete',
-        });
+          status: prev.status === 'cancelled' ? 'cancelled' : 'complete',
+        }));
       },
       onError: () => {
         setProgress({
@@ -272,15 +274,36 @@ export default function PageProjects() {
     }
   }, [isDataLoading]);
 
-  // 페이지 이탈 시 검색 세션 정리
+  const handleCancelSearch = useCallback(async () => {
+    if (!searchId) return;
+
+    setProgress((prev) => ({
+      ...prev,
+      status: 'cancelled',
+    }));
+
+    try {
+      await cancelSearchMutation.mutateAsync({ searchId });
+      toast({
+        title: '검색이 취소되었습니다.',
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right',
+      });
+    } catch (error) {
+      console.error('Failed to cancel search:', error);
+      setProgress((prev) => ({
+        ...prev,
+        status: 'error',
+      }));
+    }
+  }, [searchId, cancelSearchMutation, toast]);
+
   useEffect(() => {
     const handleBeforeUnload = async () => {
-      if (searchId && isDataLoading) {
-        try {
-          await cancelSearchMutation.mutateAsync({ searchId });
-        } catch (error) {
-          console.error('Failed to cancel search on page unload:', error);
-        }
+      if (searchId && isDataLoading && progress.status === 'loading') {
+        await handleCancelSearch();
       }
     };
 
@@ -291,15 +314,10 @@ export default function PageProjects() {
         isDataLoading &&
         progress.status === 'loading'
       ) {
-        try {
-          await cancelSearchMutation.mutateAsync({ searchId });
-        } catch (error) {
-          console.error('Failed to cancel search on visibility change:', error);
-        }
+        await handleCancelSearch();
       }
     };
 
-    // 실제 검색 중일 때만 이벤트 리스너 등록
     if (isDataLoading && progress.status === 'loading') {
       window.addEventListener('beforeunload', handleBeforeUnload);
       document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -314,16 +332,7 @@ export default function PageProjects() {
     }
 
     return undefined;
-  }, [searchId, isDataLoading, progress.status, cancelSearchMutation]);
-
-  // 컴포넌트 언마운트 시 진행 중인 검색 취소
-  useEffect(() => {
-    return () => {
-      if (searchId && isDataLoading && progress.status === 'loading') {
-        cancelSearchMutation.mutate({ searchId });
-      }
-    };
-  }, [searchId, isDataLoading, progress.status, cancelSearchMutation]);
+  }, [searchId, isDataLoading, progress.status, handleCancelSearch]);
 
   // 라이센스가 만료된 경우 페이지 렌더링을 막습니다
   if (license?.isExpired) {

@@ -1,10 +1,11 @@
 import { Prisma } from '@prisma/client';
 
-import { prisma } from '@/server/config/prisma';
-
 export class SearchSessionService {
+  constructor(prismaClient) {
+    this.prisma = prismaClient;
+  }
   async create(input) {
-    const session = await prisma.searchSession.create({
+    const session = await this.prisma.searchSession.create({
       data: {
         userId: input.userId,
         clientIp: input.clientIp,
@@ -19,7 +20,7 @@ export class SearchSessionService {
     });
   }
   async update(id, input) {
-    const session = await prisma.searchSession.update({
+    const session = await this.prisma.searchSession.update({
       where: { id },
       data: Object.assign(Object.assign({}, input), { updatedAt: new Date() }),
     });
@@ -28,7 +29,7 @@ export class SearchSessionService {
     });
   }
   async findById(id) {
-    const session = await prisma.searchSession.findUnique({
+    const session = await this.prisma.searchSession.findUnique({
       where: { id },
     });
     if (!session) return null;
@@ -38,18 +39,27 @@ export class SearchSessionService {
   }
   async findBySearchId(searchId) {
     console.log(`[SearchSession] Finding session by searchId: ${searchId}`);
-    const session = await prisma.$transaction(async (tx) => {
-      const result = await tx.searchSession.findUnique({
-        where: { searchId },
-      });
-      console.log(`[SearchSession] Session lookup result:`, {
-        id: result === null || result === void 0 ? void 0 : result.id,
-        status: result === null || result === void 0 ? void 0 : result.status,
-        searchId:
-          result === null || result === void 0 ? void 0 : result.searchId,
-      });
-      return result;
-    });
+    const session = await this.prisma.$transaction(
+      async (tx) => {
+        const result = await tx.searchSession.findUnique({
+          where: { searchId },
+        });
+        console.log(`[SearchSession] Session lookup result in transaction:`, {
+          id: result === null || result === void 0 ? void 0 : result.id,
+          status: result === null || result === void 0 ? void 0 : result.status,
+          searchId:
+            result === null || result === void 0 ? void 0 : result.searchId,
+          lastActivityAt:
+            result === null || result === void 0
+              ? void 0
+              : result.lastActivityAt,
+        });
+        return result;
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      }
+    );
     if (!session) {
       console.log(`[SearchSession] No session found for searchId: ${searchId}`);
       return null;
@@ -59,7 +69,7 @@ export class SearchSessionService {
     });
   }
   async findActiveByUserId(userId) {
-    const sessions = await prisma.searchSession.findMany({
+    const sessions = await this.prisma.searchSession.findMany({
       where: {
         userId,
         status: 'ACTIVE',
@@ -72,10 +82,47 @@ export class SearchSessionService {
     );
   }
   async cancelSession(id, reason) {
-    return this.update(id, {
-      status: 'CANCELLED',
-      cancelReason: reason,
-      lastActivityAt: new Date(),
+    console.log(`[SearchSession] Attempting to cancel session: ${id}`);
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        const currentSession = await tx.searchSession.findUnique({
+          where: { id },
+        });
+        console.log(`[SearchSession] Current session state before cancel:`, {
+          id:
+            currentSession === null || currentSession === void 0
+              ? void 0
+              : currentSession.id,
+          status:
+            currentSession === null || currentSession === void 0
+              ? void 0
+              : currentSession.status,
+          lastActivityAt:
+            currentSession === null || currentSession === void 0
+              ? void 0
+              : currentSession.lastActivityAt,
+        });
+        const updatedSession = await tx.searchSession.update({
+          where: { id },
+          data: {
+            status: 'CANCELLED',
+            cancelReason: reason,
+            lastActivityAt: new Date(),
+          },
+        });
+        console.log(`[SearchSession] Session updated to cancelled:`, {
+          id: updatedSession.id,
+          status: updatedSession.status,
+          lastActivityAt: updatedSession.lastActivityAt,
+        });
+        return updatedSession;
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      }
+    );
+    return Object.assign(Object.assign({}, result), {
+      searchParams: result.searchParams,
     });
   }
   async cancelSessionBySearchId(searchId, reason) {
@@ -83,7 +130,7 @@ export class SearchSessionService {
       `[SearchSession] Attempting to cancel session with searchId: ${searchId}`
     );
     try {
-      return await prisma.$transaction(
+      return await this.prisma.$transaction(
         async (tx) => {
           // 세션 조회 (FOR UPDATE)
           const session = await tx.searchSession.findUnique({
@@ -144,7 +191,7 @@ export class SearchSessionService {
   }
   async cleanupInactiveSessions(maxAgeMinutes = 30) {
     const cutoffDate = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
-    const result = await prisma.searchSession.deleteMany({
+    const result = await this.prisma.searchSession.deleteMany({
       where: {
         OR: [
           { status: 'COMPLETED' },
@@ -161,10 +208,10 @@ export class SearchSessionService {
   // 테스트용 유틸리티 함수
   async getSessionStats() {
     const [active, cancelled, completed, error] = await Promise.all([
-      prisma.searchSession.count({ where: { status: 'ACTIVE' } }),
-      prisma.searchSession.count({ where: { status: 'CANCELLED' } }),
-      prisma.searchSession.count({ where: { status: 'COMPLETED' } }),
-      prisma.searchSession.count({ where: { status: 'ERROR' } }),
+      this.prisma.searchSession.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.searchSession.count({ where: { status: 'CANCELLED' } }),
+      this.prisma.searchSession.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.searchSession.count({ where: { status: 'ERROR' } }),
     ]);
     return {
       active,
@@ -174,7 +221,7 @@ export class SearchSessionService {
     };
   }
   async getActiveSessionsByUser(userId) {
-    const sessions = await prisma.searchSession.findMany({
+    const sessions = await this.prisma.searchSession.findMany({
       where: {
         userId,
         status: 'ACTIVE',
